@@ -1,0 +1,504 @@
+"""Character and pose specs for regenerating the three AGY forms.
+
+Design goal: the three forms used to be one catgirl in three colour
+palettes.  Now each form gets its own species, silhouette, hair, outfit,
+prop and body language, while sharing one art style and chibi proportions so
+they still read as one family.
+"""
+
+from __future__ import annotations
+
+STYLE = (
+    "Cute chibi anime desktop-pet sprite in exactly the same art style, proportions and line quality as the reference image. "
+    "Full body visible from head to toe, both feet visible, centered, single character only, "
+    "transparent background, no ground shadow, no text, no watermark, no frame."
+)
+
+# The three forms keep their ORIGINAL catgirl designs (reference image =
+# <form>/processed/masters/generated/idle_front.png).  What differs is how
+# each one moves and acts.
+FORMS: dict[str, dict] = {
+    "carbon": {
+        "name": "Carbon",
+        "concept": "冷静傲娇：动作克制、幅度小、姿态端正",
+        "character": (
+            "The exact same catgirl as the reference: long wavy black hair fading to silver-grey at the ends, red eyes, "
+            "black cat ears, dark star hair ornaments, black-and-white gothic frilly outfit, black cat tail."
+        ),
+        "body_language": (
+            "Cool, composed and a little tsundere. Small, restrained, elegant movements; upright posture; arms often folded or hands "
+            "clasped behind her back; small smiles instead of big grins; when embarrassed she looks away with a faint blush. "
+            "Never wild or flailing."
+        ),
+    },
+    "hydergon": {
+        "name": "Hydrogen",
+        "concept": "轻飘元气：动作轻快、常踮脚或微微浮空",
+        "character": (
+            "The exact same catgirl as the reference: very long fluffy white hair fading to sky blue, blue eyes, white cat ears, "
+            "blue star hairclip, white-and-blue frilly outfit, fluffy white tail, a small blue wisp flame."
+        ),
+        "body_language": (
+            "Airy, bubbly and energetic, the lightest element. Bouncy tiptoe poses, often floating slightly off the ground, "
+            "arms spread wide, hair and tail drifting as if weightless, open-mouthed delighted expressions, small sparkles or bubbles nearby."
+        ),
+    },
+    "neon": {
+        "name": "Neon",
+        "concept": "霓虹偶像：动作张扬、舞台感、比 V 眨眼",
+        "character": (
+            "The exact same catgirl as the reference: long indigo-violet hair with pink and orange gradient, purple eyes, cat ears, "
+            "glowing red-orange star ornaments, black outfit with glowing orange neon lines, sparkles around her."
+        ),
+        "body_language": (
+            "Flashy, confident idol on stage. Dynamic angled poses, hip tilt, peace signs, winks, pointing at the viewer, "
+            "dramatic hair flips, glowing neon sparkles and light trails accompanying big motions."
+        ),
+    },
+    "argon": {
+        "name": "Argon",
+        "concept": "慵懒惰性：动作慢悠悠、半睁眼、抱着小枕头，偶尔发出淡紫色辉光",
+        "character": (
+            "A NEW catgirl in the same family and art style as the reference: shoulder-length straight silky hair in pale lavender-silver "
+            "with soft lilac glowing tips, sleepy half-lidded violet eyes, lavender cat ears with white inner fur, a small glowing glass "
+            "discharge-tube hair clip that emits soft purple light, an oversized white-and-lavender hoodie jacket with long sleeves covering "
+            "her hands and thin glowing lilac seams, a pleated grey-lilac skirt, white thigh-high socks, lavender slippers, a fluffy "
+            "lavender-grey cat tail with a faintly glowing tip, lavender cat-face slippers."
+        ),
+        "body_language": (
+            "Calm, sleepy and unbothered, the inert noble gas. Slow relaxed poses, half-closed eyes, small yawns, hands hidden in long sleeves. "
+            "She almost always hugs her lavender cat-shaped pillow (sleeping cat face, small ears) against her chest; unless this frame says "
+            "otherwise, keep the pillow in her arms. Reactions are mild and understated, even celebrations are lazy and cheerful. "
+            "No decorative background sparkles, stars or floating particles around her unless this frame explicitly asks for an effect"
+        ),
+    },
+    "claude": {
+        "name": "Claude",
+        "concept": "优雅认真：动作端庄、有条理，常拿本子或托腮思考",
+        "character": (
+            "The exact same girl as the reference: very long voluminous curly coral-orange hair with a small braid, amber eyes, "
+            "orange flower and black ribbon hair ornament, black choker with gold pendant, white lace gothic-lolita dress with black lace corset, "
+            "black bows on puffy lace sleeves, knee-length layered white ruffled skirt with gold embroidery and black lace trim, cream heeled shoes. "
+            "She is a HUMAN girl: NO animal ears and NO tail. If a pose mentions a tail, use her long curly hair or skirt ruffles instead."
+        ),
+        "body_language": (
+            "Gentle, earnest and elegant, a thoughtful young lady. Graceful composed poses, hands often clasped in front or holding a small "
+            "leather notebook and pen, thinking with a finger to her chin, polite curtsies, warm sincere smiles; celebrations are joyful but refined."
+        ),
+    },
+}
+
+# Signature takes on some poses, per form (same frame count as ASSETS).
+FORM_POSES: dict[str, dict[str, list[str]]] = {
+    "claude": {
+        "idle_back": ["standing, seen completely from behind (back view), long curly hair covering her back, face not visible"],
+        "idle_think": ["holding a small leather notebook, pen touching her chin, looking up thoughtfully"],
+        "happy": ["warm sincere smile with eyes closed, hands clasped together at her chest, a few small flower petals around"],
+        "talk": ["explaining politely, one hand open palm up, the other holding a small notebook, mouth open mid-sentence"],
+        "angry": ["mildly displeased, cheeks slightly puffed, hands on hips, small anger mark, still elegant"],
+        "sleep": ["fast asleep lying on her stomach horizontally, head resting on an open notebook, curly hair spread out, eyes closed"],
+        "tail_react": [
+            "startled, someone tugged the hem of her skirt, looking back over her shoulder",
+            "turning half around holding her skirt hem",
+            "smoothing her skirt with both hands, slight blush",
+            "back to standing, composed embarrassed smile",
+        ],
+        "wave": ["polite small wave with one hand at shoulder height, gentle smile", "same, hand tilted the other way",
+                 "a small curtsy holding her skirt with one hand", "standing, hands clasped, warm smile"],
+        "work_typing": [
+            "sitting neatly with knees together, a small floating translucent screen and keyboard in front of her, left hand typing, eyes on the screen",
+            "same pose, both hands lifted above the keys, focused eyes",
+            "same pose, right hand typing",
+            "same sitting pose, keep the floating translucent screen and keyboard exactly as in image 2, writing a note in a small notebook beside the keyboard",
+        ],
+    },
+    "carbon": {
+        "happy": ["a quiet satisfied smile, eyes softly closed, one hand raised to her cheek, faint blush"],
+        "talk": ["talking calmly, one finger raised as if explaining, composed expression"],
+        "angry": ["arms folded, looking away with a cold sulky glare, small anger mark"],
+        "idle_think": ["arms folded, one hand on her chin, eyes narrowed in thought"],
+        "wave": ["small reserved wave with one hand at shoulder height, faint smile",
+                 "same, hand tilted the other way", "same, hand tilted back", "lowering her hand, looking slightly away, faint blush"],
+        "celebrate": ["small fist pump at her side, restrained smile", "fist raised a little higher, eyes closed, proud",
+                      "brief small hop, both feet just off the ground", "landing gracefully", "adjusting her hair, composed",
+                      "arms folded, smug little smile"],
+    },
+    "hydergon": {
+        "happy": ["floating slightly off the ground, arms spread wide, huge open-mouthed smile, bubbles around"],
+        "talk": ["chattering excitedly on tiptoes, both hands waving, bubbles popping"],
+        "angry": ["puffing her cheeks like a balloon, little fists up, bouncing in place"],
+        "idle_think": ["floating slightly, head tilted, finger on her lips, a question-mark bubble"],
+        "falling": ["drifting down softly like a feather, arms out, hair floating up, amazed face"],
+    },
+    "neon": {
+        "happy": ["winking with a peace sign next to her eye, hip tilted, neon sparkles"],
+        "talk": ["pointing at the viewer confidently, mouth open mid-line, other hand on hip"],
+        "angry": ["hands on hips, leaning forward, dramatic pout, glowing angry sparks"],
+        "idle_think": ["striking a thinking pose with chin on fist like a model, one eye closed"],
+        "wave": ["idol wave with arm high above her head", "arm swinging the other way, wink",
+                 "blowing a kiss toward the viewer with a sparkle", "peace sign, big confident smile"],
+    },
+    "argon": {
+        "idle_back": ["standing, seen completely from behind (back view), face not visible, fluffy tail visible, the ears of her cat pillow peeking out at her sides because she hugs it in front"],
+        "idle_think": ["chin resting on top of the cat pillow she hugs, eyes half closed, looking up lazily in thought"],
+        "happy": [
+            "hugging the cat pillow tightly and squishing it, eyes closed in a soft content smile, small blush",
+            "same pose, swaying gently to her left, cheek rubbing against the pillow",
+            "same pose, swaying gently to her right, cheek rubbing against the pillow",
+            "same pose, upright again, eyes closed, calm happy smile",
+            "a small lazy hop on tiptoes, both feet just off the ground, still hugging the pillow",
+            "landed softly, hugging the pillow, sleepy happy smile",
+        ],
+        "talk": ["holding the cat pillow with her left arm, right sleeve-covered hand raised slightly in a lazy gesture, mouth open mid-sentence, half-lidded eyes"],
+        "angry": [
+            "mildly annoyed, lower half of her face buried in the cat pillow, puffed cheeks, half-lidded glare, small anger mark",
+            "same pose, squeezing the pillow tighter, anger mark a little bigger",
+            "same pose, looking away with a small huff",
+            "same pose, shaking her head slowly so the hair swings to one side",
+        ],
+        "sweep": [
+            "the cat pillow tucked under her left arm, sweeping lazily with a small broom held in her right hand",
+            "same pose, the broom swept out to the left side, a small puff of dust",
+            "same pose, broom back in the middle, a small yawn",
+            "same pose, the broom swept out to the right side, a small puff of dust",
+        ],
+        "sleep": ["fast asleep lying on her stomach horizontally, head resting on her cat pillow, tail curled, eyes closed"],
+        "dizzy": ["dizzy, swirl eyes, wobbly stance, clutching the cat pillow, small stars circling her head"],
+        "dragging": ["being lifted up from above, still clutching the cat pillow to her chest, legs dangling loosely, sleepy surprised face"],
+        "falling": ["falling, clutching the cat pillow with both arms, hair and tail streaming upward, mildly alarmed face",
+                    "same pose, hair and tail flapping in a different position, holding the pillow tighter"],
+        "released_airborne": ["mid-air after being thrown, legs spread out, hugging the cat pillow, calm surprised face"],
+        "poke_react": ["startled, flinching to one side, hugging the cat pillow tighter, eyes wide"],
+        "tail_react": [
+            "startled, tail fur puffed up, looking back over her shoulder, hugging the cat pillow",
+            "turning half around to look at her tail, the pillow under one arm",
+            "the pillow under her left arm, right hand holding her tail protectively, blushing",
+        ],
+        "eat": [
+            "the cat pillow tucked under her left arm, holding a small snack in her right hand, mouth open about to bite",
+            "same pose, biting the snack, eyes closed happily",
+            "same pose, chewing, cheeks full, very satisfied",
+        ],
+        "landing": ["landing impact, deep squat, hugging the cat pillow"],
+        "sleep_enter": [
+            "standing on the left of the canvas, big yawn, hugging the cat pillow",
+            "sitting down on the ground, drowsy, head nodding onto the pillow",
+            "lying down on her stomach horizontally, head on the cat pillow, eyes closed, falling asleep",
+        ],
+        "sleep_wake": [
+            "lying on her stomach horizontally, head on the cat pillow, eyes just opening",
+            "sitting up on the ground hugging the pillow, rubbing one eye with her sleeve",
+            "standing on the left of the canvas, hugging the pillow, small lazy stretch of the neck",
+        ],
+        "work_typing": [
+            "sitting cross-legged with the cat pillow on her lap, a small floating translucent screen and keyboard in front of her above the pillow, left hand typing, half-lidded eyes on the screen, screen light on her face",
+        ],
+        "sit_edge": ["sitting on an invisible ledge at the very bottom edge of the canvas, legs hanging down and cut off at the bottom, hugging the cat pillow on her lap, relaxed, left leg forward"],
+        "perch_sit": [
+            "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
+            "the cat pillow resting on her lap hugged with both arms, sleepy content face, tail hanging down behind. The ledge itself is NOT drawn: no bench, "
+            "no wall, no shadow, only the character on a transparent background, full body including both slippers",
+        ],
+        "perch_work": [
+            "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
+            "the cat pillow resting on her lap, a small floating translucent screen and keyboard hovering just above the pillow, both hands on the keys typing, "
+            "half-lidded eyes on the screen, calm face, tail hanging down behind. The ledge itself is NOT drawn: no bench, no wall, no shadow, only the character "
+            "on a transparent background, full body including both slippers",
+            "exactly the same as image 2: identical body, sitting legs, pillow, and the SAME glowing floating translucent screen and keyboard above "
+            "the pillow, clearly visible; only the hands changed, both hands lifted slightly above the keys",
+            "exactly the same as image 2: identical body, sitting legs hanging down, pillow, and the SAME glowing floating translucent screen and "
+            "keyboard above the pillow, clearly visible; only the eyes changed, a slow calm blink with eyes closed",
+        ],
+        "wave": ["hugging the cat pillow with her left arm, slow lazy wave with her right sleeve at shoulder height, hand to the left, sleepy smile",
+                 "same, hand in the middle", "same, hand to the right", "same, hand in the middle, soft smile"],
+        "celebrate": [
+            "holding the cat pillow out in front with both hands, starting to lift it",
+            "lifting the pillow above her head with both arms, on tiptoes",
+            "pillow held high above her head, eyes closed, lazy happy grin",
+            "lowering the pillow, still smiling",
+            "hugging the pillow again, satisfied",
+            "hugging the pillow with one arm, sleepy peace sign with the other sleeve",
+        ],
+        "tired_yawn": [
+            "shoulders drooping, sleepy, hugging the cat pillow",
+            "starting to yawn, one sleeve covering her mouth, other arm holding the pillow",
+            "biggest yawn, a tear at the corner of the eye, holding the pillow",
+            "rubbing one eye with her sleeve, pillow under the other arm",
+            "eyes half open, drowsy, chin on the pillow",
+            "standing slightly slouched, chin resting on top of the pillow",
+        ],
+        "stretch": [
+            "holding the cat pillow in both hands, starting to raise it",
+            "stretching up on tiptoes, holding the pillow overhead with both arms fully extended (stay within canvas)",
+            "same, stretching and leaning to her left with the pillow overhead",
+            "same, stretching and leaning to her right with the pillow overhead",
+            "hugging the pillow again, relaxed satisfied sigh",
+        ],
+    },
+}
+
+# Extra sentence appended to every frame of an asset, per form.
+FORM_NOTES: dict[str, dict[str, str]] = {
+    "argon": {
+        "climb_side": "Her cat pillow is tied on her back with a ribbon strap so both hands are free for climbing",
+        "walk_side": "Instead of swinging her arms she keeps hugging her cat pillow against her chest with both arms; the legs move as described",
+        "walk_side_stand": "hugging her cat pillow against her chest",
+        "walk_start_left": "hugging her cat pillow against her chest",
+        "walk_stop_left": "hugging her cat pillow against her chest",
+        "transform": "hugging her cat pillow; the light is a soft lavender glow with a few lavender light motes instead of stars",
+    },
+}
+
+
+def poses(form: str, asset: str) -> list[str]:
+    base = ASSETS[asset][1]
+    custom = FORM_POSES.get(form, {}).get(asset)
+    # A form may override only the first frames; later frames are written
+    # relative to frame 1 ("same ... as image 2"), so they still fit.
+    frames = base if not custom or len(custom) > len(base) else custom + base[len(custom):]
+    note = FORM_NOTES.get(form, {}).get(asset)
+    return [f"{frame}. {note}" for frame in frames] if note else list(frames)
+
+
+PORTRAIT = "1024x1536"
+LANDSCAPE = "1536x1024"
+
+# asset id -> (size, [per-frame pose prompts]).  Right-facing walk assets are
+# mirrored from the left ones and therefore not listed here.
+ASSETS: dict[str, tuple[str, list[str]]] = {
+    "idle_front": (PORTRAIT, [
+        "standing relaxed, facing the viewer, neutral pose that shows her outfit clearly",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, feet in exactly the same place, both eyes open, hands relaxed exactly as in image 2, no wink, no hand sign, relaxed neutral standing, nothing else changed",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, feet in exactly the same place, both eyes open, hands relaxed exactly as in image 2, no wink, no hand sign, but breathing in: shoulders and chest raised very slightly, hair lifted very slightly",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, feet in exactly the same place, both eyes open, hands relaxed exactly as in image 2, no wink, no hand sign, but leaning very slightly to her left, hair (and tail if she has one) swaying a little to the left",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, feet in exactly the same place, both eyes open, hands relaxed exactly as in image 2, no wink, no hand sign, but leaning very slightly to her right, hair (and tail if she has one) swaying a little to the right",
+    ]),
+    "idle_back": (PORTRAIT, ["standing, seen completely from behind (back view), tail visible, face not visible"]),
+    "idle_think": (PORTRAIT, [
+        "standing, one finger on her chin, looking up thoughtfully, small question mark mood",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but eyes looking toward the other side",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but head tilted further and eyes closed, thinking hard",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but eyes open wide with a small idea sparkle near her head",
+    ]),
+    "walk_side_stand": (PORTRAIT, ["standing still in pure side view facing LEFT"]),
+    "happy": (PORTRAIT, [
+        "very happy, eyes closed in a big smile, both fists raised, one foot lifted",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but arms raised a little higher and hair swinging upward",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but head tilted to the other side, hair swinging the other way, an even bigger smile, no glow, aura or extra particles",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but arms slightly lower, hair and clothes settling down, no glow, aura or outline around her",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but jumping for joy: both feet clearly off the ground, knees bent, hair and skirt lifted, no glow or aura",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but just landed from a jump: knees slightly bent, hair and skirt falling back down, no glow or aura",
+    ]),
+    "talk": (PORTRAIT, [
+        "talking, mouth open mid-sentence, one hand raised gesturing",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but mouth closed and the gesturing hand slightly lower",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but mouth wide open and the gesturing hand moved a little to the side",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but mouth half open and head tilted slightly",
+    ]),
+    "angry": (PORTRAIT, [
+        "angry pout, puffed cheeks, fists clenched at sides, cartoon anger mark",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but stomping one foot, anger mark bigger",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but stomping with the other foot, cheeks puffed even more",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but shaking her head so the hair swings to one side",
+    ]),
+    "sweep": (PORTRAIT, [
+        "sweeping the floor with a small broom held in both hands",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but the broom swept out to the left side, a small puff of dust",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, still holding the same broom with both hands and sweeping, the broom head back in the middle on the floor",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but the broom swept out to the right side, a small puff of dust",
+    ]),
+    "sleep": (LANDSCAPE, [
+        "fast asleep lying on her stomach horizontally, head on folded arms, tail curled, eyes closed",
+        'same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, still fast asleep with eyes fully closed, but her back slightly raised as she breathes in, a small "z" floating above her',
+        'same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, still fast asleep with eyes fully closed, but mouth slightly open, a bigger "Z" floating above her',
+    ]),
+    "dizzy": (PORTRAIT, [
+        "dizzy, swirl eyes, wobbly stance, small stars circling her head",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but her upper body leaning to the left, the stars moved around her head",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but her upper body leaning to the right, the stars moved further around",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but upright again with wobbly knees",
+    ]),
+    "dragging": (PORTRAIT, [
+        "being lifted up from above, limbs dangling loosely, surprised face",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but kicking her legs, one leg raised",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but the other leg raised and arms flailing a little",
+    ]),
+    "falling": (PORTRAIT, [
+        "falling, arms raised, hair and tail streaming upward, alarmed face",
+        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but arms and hair flapping in a different position, mouth open wider",
+    ]),
+    "released_airborne": (PORTRAIT, ["mid-air after being thrown, arms and legs spread out, excited face"]),
+    "idle_blink": (PORTRAIT, [
+        "standing facing the viewer, eyes fully open",
+        "same pose, eyes half closed",
+        "same pose, eyes fully closed",
+        "same pose, eyes half closed",
+        "same pose, eyes fully open",
+    ]),
+    "idle_glance": (PORTRAIT, [
+        "standing facing the viewer, eyes looking straight ahead",
+        "same pose, eyes looking to her left",
+        "same pose, head slightly turned to her left, curious",
+        "same pose, eyes looking straight ahead",
+        "same pose, eyes looking to her right",
+        "same pose, head slightly turned to her right, curious",
+        "same pose, eyes looking straight ahead, small smile",
+    ]),
+    "head_pat": (PORTRAIT, [
+        "standing, looking up expectantly",
+        "head tilted down a little, eyes half closed, slight blush",
+        "eyes closed happily, ears flattened, blush, tiny hearts",
+        "eyes closed, leaning into the pat, big blush",
+        "eyes opening, content smile, blush",
+        "back to standing, happy smile",
+    ]),
+    "poke_react": (PORTRAIT, [
+        "startled, flinching to one side, eyes wide",
+        "leaning away, puffed cheeks",
+        "looking back with an annoyed pout",
+        "recovering to standing, small huff",
+    ]),
+    "tail_react": (PORTRAIT, [
+        "startled, tail fur puffed up, looking back over her shoulder",
+        "spinning half around to look at her tail",
+        "holding her tail protectively, blushing",
+        "back to standing, embarrassed smile",
+    ]),
+    "eat": (PORTRAIT, [
+        "holding a small snack with both hands, mouth open about to bite",
+        "biting the snack, eyes closed happily",
+        "chewing, cheeks full, very satisfied",
+    ]),
+    "landing": (PORTRAIT, [
+        "landing impact, deep squat, arms out for balance",
+        "half rising from the squat",
+        "standing up again, steady",
+    ]),
+    "sleep_enter": (LANDSCAPE, [
+        "standing on the left of the canvas, big yawn, rubbing eyes",
+        "sitting down on the ground, drowsy, head nodding",
+        "lying down on her stomach horizontally, eyes closed, falling asleep",
+    ]),
+    "sleep_wake": (LANDSCAPE, [
+        "lying on her stomach horizontally, eyes just opening",
+        "sitting up on the ground, rubbing eyes sleepily",
+        "standing on the left of the canvas, stretching awake",
+    ]),
+    "walk_side": (PORTRAIT, [
+        "walking in pure side view facing LEFT, a big lively stride: left leg stepping far forward with the heel just touching the ground, right leg stretched far behind, right arm swinging forward, left arm swinging back, hair and tail trailing behind",
+        "same character and framing, side view facing LEFT, clearly different leg and arm positions from image 2: weight on the front left leg with the knee bent, body at its lowest, right foot peeling off the ground behind, arms passing the body",
+        "same character and framing, side view facing LEFT, clearly different leg and arm positions from image 2: right leg swinging forward with the knee raised high, standing tall on the straight left leg, body at its highest, hair and skirt bouncing up",
+        "same character and framing, side view facing LEFT, clearly different leg and arm positions from image 2: right leg stepping far forward with the heel just touching the ground, left leg stretched far behind, left arm swinging forward, right arm swinging back",
+        "same character and framing, side view facing LEFT, clearly different leg and arm positions from image 2: weight on the front right leg with the knee bent, body at its lowest, left foot peeling off the ground behind, arms passing the body",
+        "same character and framing, side view facing LEFT, clearly different leg and arm positions from image 2: left leg swinging forward with the knee raised high, standing tall on the straight right leg, body at its highest, hair and skirt bouncing up",
+    ]),
+    "walk_start_left": (PORTRAIT, [
+        "side view facing LEFT, leaning forward to start walking",
+        "side view facing LEFT, first step forward",
+    ]),
+    "walk_stop_left": (PORTRAIT, [
+        "side view facing LEFT, braking, leaning back slightly",
+        "side view facing LEFT, standing still, settled",
+    ]),
+    # ----- new autonomy actions (see docs/ACTION_DESIGN.md) -----
+    "work_typing": (PORTRAIT, [
+        "sitting cross-legged, a small floating translucent screen and keyboard in front of her, left hand typing, eyes on the screen, screen light on her face",
+        "same pose, both hands lifted above the keys, focused eyes",
+        "same pose, right hand typing",
+        "same sitting pose, keep the floating translucent screen and keyboard exactly as in image 2, hands resting on the keys, head tilted looking at the screen, tail swaying",
+    ]),
+    "sit_edge": (PORTRAIT, [
+        "sitting on an invisible ledge at the very bottom edge of the canvas, legs hanging down and cut off at the bottom, relaxed, left leg forward",
+        "same pose, right leg forward, tail hanging down",
+        "same pose, eyes closed in a slow blink",
+    ]),
+    # Climbing a window's side edge.  She faces LEFT with the (invisible) wall
+    # just left of her; the right-facing copy is mirrored (MIRRORS).
+    "climb_side": (PORTRAIT, [
+        "climbing straight up an invisible vertical wall that is just to her LEFT, seen in pure side view facing LEFT toward the wall, body close to the wall, "
+        "left hand reaching high up and pressed flat against the wall, right hand gripping at chest height, right knee raised high with the foot pressed against the wall, "
+        "left leg stretched down, determined face, tail hanging down. Draw NO wall, NO ledge, NO rope and NO shadow: only the character on a transparent background",
+        "same character, outfit, scale and framing as image 2, still climbing the invisible wall on her LEFT in side view facing LEFT: both hands now gripping at head height, "
+        "body pulled up higher, both knees bent with feet against the wall. No wall drawn",
+        "same character, outfit, scale and framing as image 2, still climbing in side view facing LEFT: right hand reaching high up against the wall, left hand at chest height, "
+        "left knee raised high, right leg stretched down (the mirror of image 2's limbs). No wall drawn",
+        "same character, outfit, scale and framing as image 2, still climbing in side view facing LEFT: both hands at head height, legs pushing up straight, a small effort sweat drop. No wall drawn",
+    ]),
+    # Sitting on a window's top edge with the legs hanging over the front.
+    "perch_sit": (PORTRAIT, [
+        "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
+        "both hands resting on the ledge beside her hips, relaxed happy face, tail hanging down behind. The ledge itself is NOT drawn: no bench, no wall, "
+        "no shadow, only the character on a transparent background, full body including both shoes",
+        "same character, outfit, scale and framing as image 2, same sitting pose and hands, but her left lower leg swung forward and up a little, swinging her legs happily",
+        "same character, outfit, scale and framing as image 2, same sitting pose, both lower legs hanging straight down again, eyes closed in a slow content blink",
+        "same character, outfit, scale and framing as image 2, same sitting pose and hands, but her right lower leg swung forward and up a little, head tilted, looking around",
+    ]),
+    "perch_work": (PORTRAIT, [
+        "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
+        "a small floating translucent screen and keyboard hovering just above her lap, both hands on the keys typing, eyes on the screen, calm focused face, "
+        "tail hanging down behind. The ledge itself is NOT drawn: no bench, no wall, no shadow, only the character on a transparent background, full body including both shoes",
+        "exactly the same as image 2: identical body, head, hair, legs and screen position; only the hands changed, both hands lifted slightly above the keys",
+        "exactly the same as image 2: identical body, head, hair, legs and screen position; only the eyes changed, a slow calm blink with eyes closed",
+        "exactly the same as image 2: identical body, head, hair, legs and screen position; only the hands changed, right hand pressing a key, a tiny satisfied smile",
+    ]),
+    "celebrate": (PORTRAIT, [
+        "crouching down to prepare a jump, excited",
+        "jumping up, both arms raised high",
+        "at the top of the jump, eyes closed with a huge grin",
+        "coming down, arms still up",
+        "landing with a small knee bend",
+        "standing, victory pose with a peace sign or fist",
+    ]),
+    "tired_yawn": (PORTRAIT, [
+        "shoulders drooping, sleepy",
+        "starting to yawn, one hand covering mouth",
+        "biggest yawn, a tear at the corner of the eye",
+        "rubbing one eye with a fist",
+        "eyes half open, drowsy",
+        "standing slightly slouched, low energy",
+    ]),
+    "stretch": (PORTRAIT, [
+        "hands clasped together, starting to raise them",
+        "stretching up on tiptoes, arms fully extended overhead (stay within canvas)",
+        "stretching and leaning to her left",
+        "stretching and leaning to her right",
+        "arms down, satisfied relaxed sigh",
+    ]),
+    "wave": (PORTRAIT, [
+        "facing the viewer, right hand raised waving, hand to the left",
+        "same, hand in the middle, smiling",
+        "same, hand to the right",
+        "same, hand in the middle, bright smile",
+    ]),
+    "transform": (PORTRAIT, [
+        "facing the viewer, glowing light starting to wrap around her",
+        "turning to side view, wrapped in bright light of her theme colours",
+        "seen from behind, silhouette almost fully covered by glowing light",
+        "turning back to side view, light fading",
+        "facing the viewer, signature pose, light sparkles dispersing",
+    ]),
+}
+
+MIRRORS = {
+    "climb_side_right": "climb_side",
+    "walk_side_right": "walk_side",
+    "walk_start_right": "walk_start_left",
+    "walk_stop_right": "walk_stop_left",
+}
+
+
+def total_frames() -> int:
+    return sum(len(frames) for _size, frames in ASSETS.values())
+
+
+SKIP_REGENERATE = {"idle_front"}  # it is the reference image itself
+
+# Frame 0 of these is only a seed for the later frames and is not played:
+# a frame redrawn from the reference alone looks slightly different from
+# frames derived from it, which would pop in a loop.
+DROP_FIRST = {"idle_front"}
+
+# Play only the first N (kept) frames.  Idle is shown most of the time and
+# regenerated frames differ slightly in hair detail, which reads as jitter in a
+# loop; like the upstream pet it uses one frame plus procedural breathing.
+KEEP_FRAMES = {"idle_front": 1}

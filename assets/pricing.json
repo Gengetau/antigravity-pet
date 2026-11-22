@@ -1,0 +1,85 @@
+{
+  "source": "Gemini API 官方价格页（aistudio.google.com/docs/pricing，付费 Standard 档），2026-11-23 核对",
+  "unit": "USD / 1M tokens",
+  "unknown_as": "gemini-4-carbon",
+  "notes": [
+    "按每一步发生当天的价格计费（Carbon / Argon 从 2026-12-01 起涨价一倍）。",
+    "输入 = 未命中缓存的输入；缓存 = 命中缓存的输入（隐式缓存价）；输出包含思考 token。",
+    "match 是模型 id / 名称里出现的关键词（不分大小写），从上到下第一个命中的生效；思考档位（low/high/xhigh/tiered）同价。",
+    "unknown_as：离线日志里没有记录模型的步骤，按这个模型的价格估算，结果单独列出。"
+  ],
+  "models": [
+    {
+      "id": "gemini-4-neon",
+      "name": "Gemini 4 Neon",
+      "match": [
+        "neon"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 3.0,
+          "output": 15.0,
+          "cache": 0.15
+        }
+      ]
+    },
+    {
+      "id": "gemini-4-hydrogen",
+      "name": "Gemini 4 Hydrogen",
+      "match": [
+        "hydrogen"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 1.5,
+          "output": 7.5,
+          "cache": 0.075
+        }
+      ]
+    },
+    {
+      "id": "gemini-4-carbon",
+      "name": "Gemini 4 Carbon",
+      "match": [
+        "carbon"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 2.0,
+          "output": 10.0,
+          "cache": 0.1
+        },
+        {
+          "from": "2026-12-01",
+          "input": 4.0,
+          "output": 20.0,
+          "cache": 0.2
+        }
+      ]
+    },
+    {
+      "id": "gemini-4-argon",
+      "name": "Gemini 4 Argon",
+      "match": [
+        "argon"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 2.0,
+          "output": 10.0,
+          "cache": 0.1
+        },
+        {
+          "from": "2026-12-01",
+          "input": 4.0,
+          "output": 20.0,
+          "cache": 0.2
+        }
+      ]
+    }
+  ]
+}

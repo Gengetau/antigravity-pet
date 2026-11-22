@@ -1,0 +1,18 @@
+{
+  "name": "agy-pet",
+  "displayName": "AGY 桌宠",
+  "version": "0.2.0",
+  "description": "陪伴式 Antigravity 桌面宠物（Carbon / Hydrogen / Neon / Argon / Claude 五形态），支持精确追踪当前会话上下文、5h/周双窗口限额、实时 tok/s 悬浮条及侧边栏控制台。",
+  "author": {
+    "name": "Gengetau",
+    "url": "https://github.com/Gengetau"
+  },
+  "homepage": "https://github.com/Gengetau/antigravity-pet",
+  "repository": "https://github.com/Gengetau/antigravity-pet",
+  "logo": "assets/logo.png",
+  "suggestedPrompts": [
+    "打开 AGY 桌宠侧边栏控制台查看状态或切换形态",
+    "启动或唤醒桌面上的 AGY 桌宠并开启跟随模型切换形态",
+    "查看当前会话的精确上下文占用与 5h/周限额剩余"
+  ]
+}

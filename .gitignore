@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+config.json
+config.json.bak
+pet_state.json*
+session_recovery.json
+logs/
+updates/
+
+# image API key (never commit)
+gpt-key.key
+*.key
+art_work/
+art_backup/
+.pet_root
+agy-hud-bar/hud_settings.json
+
+# intermediate 1024x1536 master renders (~1.6 GB); runtime only uses processed/runtime/
+*/processed/masters/*
+!*/processed/masters/generated/
+*/processed/masters/generated/*
+!*/processed/masters/generated/idle_front.png

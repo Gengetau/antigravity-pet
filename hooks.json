@@ -1,0 +1,18 @@
+{
+  "agy-pet-session-tracker": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./hooks/track_session.mjs",
+        "timeout": 5
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./hooks/track_session.mjs",
+        "timeout": 5
+      }
+    ]
+  }
+}

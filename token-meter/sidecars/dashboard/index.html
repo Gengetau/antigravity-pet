@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+  <title>Token Meter</title>
+  <script src="/preload.js"></script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-main">
+        <div class="brand">
+          <span class="brand-dot" id="live-dot" aria-hidden="true"></span>
+          <h1 class="brand-title">Token Meter</h1>
+          <span class="hydrating-pill" id="hydrating-badge" hidden>同步历史中…</span>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" class="ghost-btn" id="btn-pause" aria-pressed="false" title="暂停或恢复自动刷新">实时</button>
+          <button type="button" class="ghost-btn" id="btn-refresh" title="立即刷新统计数据">刷新</button>
+        </div>
+      </div>
+
+      <div class="tablist" role="tablist" aria-label="Token 统计视图切换">
+        <button type="button" role="tab" id="tab-global" data-panel="panel-global" aria-selected="true">
+          <span class="tab-label">全局模型榜单</span>
+          <span class="tab-count" id="badge-models">0</span>
+        </button>
+        <button type="button" role="tab" id="tab-current" data-panel="panel-current" aria-selected="false" tabindex="-1">
+          <span class="tab-label">当前会话计速</span>
+          <span class="tab-count" id="badge-steps">0</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="panels-host">
+      <!-- Panel 1: Global Model Leaderboard -->
+      <section role="tabpanel" id="panel-global" aria-labelledby="tab-global">
+        <div class="panel-inner">
+          <div class="kpi-grid" id="global-kpis">
+            <article class="kpi-card">
+              <span class="kpi-label">累计总 Token</span>
+              <strong class="kpi-value" id="g-total-tokens">—</strong>
+              <span class="kpi-sub" id="g-token-split">加载中…</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">平均流式速率</span>
+              <strong class="kpi-value accent" id="g-avg-decode">—</strong>
+              <span class="kpi-sub" id="g-speed-sub">端到端 — · 峰值 —</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">上下文缓存命中率</span>
+              <strong class="kpi-value" id="g-cache-rate">—</strong>
+              <span class="kpi-sub" id="g-cache-sub">缓存读取 —</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">输出构成 &amp; 规模</span>
+              <strong class="kpi-value" id="g-output-tokens">—</strong>
+              <span class="kpi-sub" id="g-output-sub">思考 — · 正文 —</span>
+            </article>
+          </div>
+
+          <section class="card-block" aria-labelledby="share-heading">
+            <div class="section-head">
+              <h2 class="section-title" id="share-heading">各模型消耗占比与速率分布</h2>
+              <span class="section-meta" id="g-conv-summary">—</span>
+            </div>
+            <div class="model-bars" id="global-model-bars"></div>
+          </section>
+
+          <section class="card-block">
+            <div tabindex="0" role="region" aria-labelledby="global-table-caption" class="table-wrapper">
+              <table class="data-table models-table">
+                <caption id="global-table-caption" class="table-caption">全局各模型 Token 消耗与计速明细</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">模型</th>
+                    <th scope="col" class="num">总 Token</th>
+                    <th scope="col" class="num">输入 / 缓存命中</th>
+                    <th scope="col" class="num">输出 (思考/正文)</th>
+                    <th scope="col" class="num">流式 tok/s</th>
+                    <th scope="col" class="num">端到端 / TTFT</th>
+                  </tr>
+                </thead>
+                <tbody id="global-models-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Panel 2: Current Conversation Real-time Speed & Steps -->
+      <section role="tabpanel" id="panel-current" aria-labelledby="tab-current" hidden="until-found">
+        <div class="panel-inner">
+          <div class="conv-toolbar">
+            <label class="conv-select-wrap" for="conv-select">
+              <span class="sr-only">选择要查看的会话</span>
+              <select id="conv-select" class="conv-select"></select>
+            </label>
+            <label class="inline-toggle" title="将该会话派生的子代理（Subagent）消耗一并计入">
+              <input type="checkbox" id="chk-subagents" checked>
+              <span>含子代理</span>
+              <span class="sub-pill" id="subagent-count" hidden>0</span>
+            </label>
+          </div>
+
+          <div class="kpi-grid">
+            <article class="kpi-card">
+              <span class="kpi-label">最新一步流式计速</span>
+              <strong class="kpi-value accent" id="c-latest-speed">—</strong>
+              <span class="kpi-sub" id="c-latest-sub">端到端 — · TTFT —</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">会话平均速率</span>
+              <strong class="kpi-value" id="c-avg-speed">—</strong>
+              <span class="kpi-sub" id="c-avg-speed-sub">峰值 — · 平均 TTFT —</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">会话累计 Token</span>
+              <strong class="kpi-value" id="c-total-tokens">—</strong>
+              <span class="kpi-sub" id="c-token-split">输入 — · 输出 —</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">会话缓存命中率</span>
+              <strong class="kpi-value" id="c-cache-rate">—</strong>
+              <span class="kpi-sub" id="c-cache-sub">缓存读取 —</span>
+            </article>
+          </div>
+
+          <section class="card-block" aria-labelledby="spark-heading">
+            <div class="section-head">
+              <h2 class="section-title" id="spark-heading">单步生成速率趋势 (最近 30 步流式 tok/s)</h2>
+              <span class="section-meta" id="spark-meta">悬停柱条查看该步详情</span>
+            </div>
+            <div class="sparkline-box" id="speed-sparkline" role="list" aria-label="最近步骤生成速率柱状图"></div>
+          </section>
+
+          <section class="card-block" id="current-models-section" hidden>
+            <div class="section-head">
+              <h2 class="section-title">本会话内使用的模型拆分</h2>
+            </div>
+            <div class="mini-model-list" id="current-models-list"></div>
+          </section>
+
+          <section class="card-block">
+            <div tabindex="0" role="region" aria-labelledby="steps-table-caption" class="table-wrapper">
+              <table class="data-table steps-table">
+                <caption id="steps-table-caption" class="table-caption">当前会话每步生成速率与 Token 明细（按时间倒序）</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">步骤 / 模型</th>
+                    <th scope="col" class="num">流式 tok/s</th>
+                    <th scope="col" class="num">端到端 tok/s</th>
+                    <th scope="col" class="num">TTFT / 耗时</th>
+                    <th scope="col" class="num">输出 (思考/正文)</th>
+                    <th scope="col" class="num">输入 / 缓存</th>
+                  </tr>
+                </thead>
+                <tbody id="current-steps-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footnote">
+      <span>流式 <code>tok/s</code> = 输出 ÷ (完成 - 首包)；端到端 <code>tok/s</code> = 输出 ÷ (完成 - 请求发起)</span>
+      <span id="last-updated">—</span>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

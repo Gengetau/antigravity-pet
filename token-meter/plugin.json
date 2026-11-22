@@ -1,0 +1,12 @@
+{
+  "name": "token-meter",
+  "displayName": "Token Meter",
+  "version": "1.0.0",
+  "description": "实时统计与监控 Antigravity 各模型的 Token 消耗（输入、缓存读取、思考、正文输出）及生成速率（流式解码 tok/s、端到端 tok/s、TTFT 首包延迟）。",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "打开 Token Meter 面板查看各模型 Token 消耗与实时生成速率",
+    "分析我所有历史会话中哪个模型消耗了最多 Token 及缓存命中率",
+    "查看当前会话每一步的流式 tok/s、端到端 tok/s 与 TTFT 延迟"
+  ]
+}
