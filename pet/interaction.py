@@ -4,12 +4,38 @@ import time
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPoint
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import QHBoxLayout, QToolButton, QWidget
 from PySide6.QtCore import Qt
 
 
-FOODS = ("小鱼", "虾", "贝", "海藻", "点心")
+FOODS = ("小鱼", "虾", "贝", "海藻", "点心")  # fallback when a form has no food_menu
+
+
+@dataclass(frozen=True, slots=True)
+class FoodItem:
+    id: str
+    name: str
+    icon: str = ""
+    taste: str = "normal"  # favorite / normal / dislike
+    lines: tuple[str, ...] = ()
+
+
+def parse_food_menu(raw) -> tuple[FoodItem, ...]:
+    """Foods from a form's ``food_menu`` (falls back to the shared FOODS)."""
+    items: list[FoodItem] = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict) or not entry.get("name"):
+            continue
+        taste = str(entry.get("taste") or "normal")
+        items.append(FoodItem(
+            id=str(entry.get("id") or entry["name"]),
+            name=str(entry["name"]),
+            icon=str(entry.get("icon") or ""),
+            taste=taste if taste in {"favorite", "normal", "dislike"} else "normal",
+            lines=tuple(str(line) for line in entry.get("lines") or () if line),
+        ))
+    return tuple(items) or tuple(FoodItem(name, name) for name in FOODS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,7 +167,10 @@ class InteractionController:
 
 
 class FoodPanel(QWidget):
-    """Small transient picker retained from the original interaction design."""
+    """Small transient food picker; each form brings her own menu."""
+
+    BUTTON_W = 58
+    BUTTON_H = 52
 
     def __init__(self, on_pick) -> None:
         super().__init__(
@@ -152,35 +181,67 @@ class FoodPanel(QWidget):
         )
         self.setObjectName("foodPanel")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(336, 66)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
-        layout.setSpacing(6)
-        for food in FOODS:
+        self._on_pick = on_pick
+        self._background = QColor(10, 43, 70, 235)
+        self.items: tuple[FoodItem, ...] = ()
+        self.buttons: list[QToolButton] = []
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(12, 8, 12, 8)
+        self._layout.setSpacing(6)
+        self._close = QToolButton()
+        self._close.setText("关闭")
+        self._close.setFont(QFont("Microsoft YaHei UI", 10))
+        self._close.setFixedSize(40, 30)
+        self._close.clicked.connect(self.hide)
+        self.set_menu(parse_food_menu(None))
+
+    def set_menu(self, items, accent: str = "#339ad5") -> None:
+        """Rebuild the buttons for ``items`` (FoodItem) in the form's colours."""
+        for button in self.buttons:
+            self._layout.removeWidget(button)
+            button.hide()
+            button.setParent(None)
+            button.deleteLater()
+        self._layout.removeWidget(self._close)
+        self.items = tuple(items)
+        self.buttons = []
+        for item in self.items:
             button = QToolButton()
-            button.setText(food)
-            button.setFont(QFont("Microsoft YaHei UI", 10))
-            button.setFixedSize(49, 44)
+            button.setText(f"{item.icon}\n{item.name}" if item.icon else item.name)
+            button.setToolTip(item.name)
+            font = QFont("Microsoft YaHei UI", 9)
+            font.setFamilies(["Microsoft YaHei UI", "Segoe UI Emoji"])
+            button.setFont(font)
+            button.setFixedSize(self.BUTTON_W, self.BUTTON_H)
             button.setStyleSheet(
-                "QToolButton{background:rgba(240,249,255,242);border:none;"
-                "border-radius:10px;color:#153a59;font-weight:600;}"
-                "QToolButton:hover{background:#ffffff;color:#0b5f92;}"
+                "QToolButton{background:rgba(255,255,255,238);border:none;"
+                "border-radius:10px;color:#1f2937;font-weight:600;}"
+                f"QToolButton:hover{{background:#ffffff;color:{accent};border:2px solid {accent};}}"
             )
-            button.clicked.connect(lambda _, value=food: on_pick(value))
-            layout.addWidget(button)
-        close = QToolButton()
-        close.setText("关闭")
-        close.setFont(QFont("Microsoft YaHei UI", 12))
-        close.setFixedSize(34, 28)
-        close.setStyleSheet(
-            "QToolButton{background:rgba(255,255,255,36);border:none;border-radius:8px;color:#cae2f0;}"
-            "QToolButton:hover{background:rgba(255,255,255,75);color:#fff;}"
+            button.clicked.connect(lambda _=False, value=item.id: self._on_pick(value))
+            self._layout.addWidget(button)
+            self.buttons.append(button)
+        self._layout.addWidget(self._close)
+        self._close.setStyleSheet(
+            "QToolButton{background:rgba(255,255,255,40);border:none;border-radius:8px;color:#f1f5f9;}"
+            "QToolButton:hover{background:rgba(255,255,255,80);color:#fff;}"
         )
-        close.clicked.connect(self.hide)
-        layout.addWidget(close)
-        self.setStyleSheet(
-            "#foodPanel{background:rgba(10,43,70,235);border-radius:14px;}"
-        )
+        count = len(self.buttons)
+        self.setFixedSize(24 + count * (self.BUTTON_W + 6) + 40, self.BUTTON_H + 16)
+        self._background = QColor(accent).darker(260)
+        self._background.setAlpha(238)
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self._background)
+        painter.drawRoundedRect(self.rect(), 14, 14)
+        painter.end()
+
+    def item(self, food_id: str) -> FoodItem | None:
+        return next((item for item in self.items if item.id == food_id or item.name == food_id), None)
 
     def popup_at(self, x: float, y: float) -> None:
         self.move(round(x - self.width() / 2), round(y - self.height() - 10))

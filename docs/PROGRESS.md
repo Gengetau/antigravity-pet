@@ -373,3 +373,44 @@
   - 新增 `agy-plugin/` 并部署到 `~/.gemini/config/plugins/agy-pet/`，包含 `plugin.json`、`assets/logo.png`（从 `icon.ico` 导出的 256×256 PNG）、`hooks.json` + `hooks/track_session.mjs`（`SessionStart` / `PreInvocation`）、`sidecars/pet-bridge/`（`pet_live.json` 桥接 + 侧边栏控制台，支持 Carbon/Hydrogen/Neon/Argon/Claude 五形态切换、跟随模型、HUD 外观、启动/唤醒）与 `skills/agy-pet/SKILL.md`。
 - **验证**：`node --check` 校验 5 个 JS 文件全部通过；隔离环境变量下 `track_session.mjs` Hook 冒烟返回 `{}` 且退出码 0；`GetAllPlugins` RPC 确认 `agy-pet` 已发现并启用（`hooks = True`、`skills = agy-pet`）；全量 `pytest` 通过（需注意 `tests/test_agy.py::test_summary_cache_context_and_rows` 将 `context_used_tokens` 期望值由 `4400` 更新为 `4200` 以匹配剔除 `thinking_tokens=200` 后的口径）。
 - **标准根目录插件重构**：按发布规范将原 `agy-plugin/` 的 `plugin.json`、`hooks.json`、`hooks/`、`sidecars/pet-bridge/`、`skills/agy-pet/` 与 `assets/logo.png` 提升至仓库根目录；移除 `sidecar.json` 中硬编码的 `AGY_PET_ROOT`，`main.mjs` 改为相对插件目录 + `.pet_root` 自动解析并扩展 Python 启动器探测链；`.gitignore` 新增 `.pet_root` 及中间高分辨率母版图过滤（`*/processed/masters/*` 仅保留 `idle_front.png`）。`agy plugin validate --strict` 与 `GetAllPlugins`、`pytest` 均验证通过。
+
+## 2026-11-23 · 第二十五轮：投喂适配形态，爬窗优化，任意窗口活动
+
+- **投喂**：
+  - 原来所有形态共用「小鱼/虾/贝/海藻/点心」，而且不管选了什么都是同一个反应。
+  - 现在每个形态在 `food_menu` 里有自己的 5 样食物（最爱 1、普通 3、不爱吃 1），每样都有专属台词。
+  - `FoodPanel.set_menu()` 在切换形态时重建按钮，按钮显示图标和名字，配色用形态的主题色。
+  - 反应：
+    - 最爱：EATING 之后排队 HAPPY，心情 +0.12、亲密度 +0.03。
+    - 不爱吃：POKE_REACT 躲开，心情 −0.03，不计入投喂次数。
+    - 普通：沿用原来的逻辑。
+  - 旧的按钮被 `removeWidget` 后仍然显示在面板上，改成隐藏并解除父对象。按钮字体加了 Segoe UI Emoji 回退。
+  - 面板底色原来靠样式表，离屏渲染根本画不出来，改成在 `paintEvent` 里画圆角底，颜色取形态主题色加深。
+  - 预览：`art_work/preview_food_panels.png`。
+- **实测原因**：用只读脚本在实机上枚举窗口，当时只有 2 个窗口：一个最大化（顶上没空间），另一个完全被它盖住。另外，以前 Antigravity 生成期间 `_tick_explore` 直接返回，而用户大部分时间都开着生成，所以她只会被自主行为带上 Antigravity。
+- **爬窗动作**（`pet/climb.py`）：
+  - 阶段改为：走近（最后一段减速）→ 搭手停 0.22 s → 按动作节奏一下一下往上拉 → 翻上顶边 0.5 s → 直接贴附到窗口。
+    - 往上拉时，速度 = 62 px/s × (0.2 + 1.6·sin²)，周期 0.44 s，对应 4 帧 × 220 ms 的爬墙动画。
+    - 翻上顶边的轨迹：先往上抬，再往里移。
+    - 贴附后有一个轻落地。不再像以前那样用抛物线跳上去。
+  - `reach`（中心到手的距离）和 `hand_rise`（脚到最高手的距离）改为从每个形态的 `climb_side` 帧实际测量。以前是按 0.30 × 宽、0.72 × 高估算，手离墙约 10 px，而且停得太早，手会悬在窗口顶边上方。
+  - 落地逻辑统一成 `_settle_landing()`，抛、跳、爬共用。
+- **任意窗口活动**：
+  - Antigravity 生成期间也会探索（频率低一些）。已经站在窗口上时不动。
+  - 地面上：贴地的窗口就爬；悬空的窗口用 `pick_jump(from_floor)` 判断，左右在 2.5 个身宽内、高度在 1.6 个身高内就跳上去。
+  - 窗口顶上：落上去后先等 25–50 秒。坐着时，自己上去的窗口至少坐 90 秒、Antigravity 窗口至少 6 分钟，之后每次也只有一半概率起身。然后每 14–32 秒随机选一种：
+    - 35%：跳到相邻窗口（左右 ≤ 2 个身宽，向上 ≤ 0.9 个身高，向下 ≤ 2.5 个身高）。
+    - 约 50%：沿顶边走到别处。
+    - 其余：不动。
+  - 行走范围用 `uncovered_top_span` 限定在没被更高层窗口盖住的那一段，每秒刷新一次。日常闲逛和下窗口也用这个范围。
+  - 跳的时候：忽略刚离开的窗口 1.5 s，避免落回原处；清除落点目标的延时器加了代次检查，连续跳时不会把新目标清掉。
+- **测试**：
+  - 新增 `tests/test_feeding.py`。
+  - `test_climb.py` 新增 TopEdgeTests 和 RoamTests：顶边遮挡、选跳点、只在未遮挡段散步、跳到相邻窗口并落上去、从地面跳上悬空窗口、生成期间也会探索。
+  - 爬窗测试改为检查：走近 → 搭手 → 往上拉 → 翻上 → 站在顶边，以及一个完整周期的平均速度。
+  - SitQuietlyTests：爬上去坐下后，80 秒内一直保持坐着。
+  - 翻上顶边的落点和贴附位置一致（widget 底边对齐窗口顶边），测试会检查翻上去后不再跳动。
+  - 新增测试类原来继承 ExploreTests，导致其中的测试重复运行；改为共享基类 WidgetCase。
+  - 全量 133 passed。
+- **预览**：`art_work/preview_climb_v2.png`，5 个形态的搭手、中段、手到顶、翻上、站好。
+- **待实机验证**：需要用户重启桌宠。最大化的窗口仍然不能爬，这是设计上的限制。

@@ -3,7 +3,16 @@ import time
 import unittest
 from pathlib import Path
 
-from pet.climb import CLIMB_SPEED, ClimbController, Rect, is_exposed, plan_climb
+from pet.climb import (
+    CLIMB_SPEED,
+    PULL_PERIOD,
+    ClimbController,
+    Rect,
+    is_exposed,
+    pick_jump,
+    plan_climb,
+    uncovered_top_span,
+)
 
 WORK = Rect(0, 0, 1920, 1040)
 # Widget 200x380; feet 11 px above its bottom -> feet at y=1029 when y=660.
@@ -71,18 +80,32 @@ class ClimbControllerTests(unittest.TestCase):
         step = self.climb.step(0.016, x=900.0, y=660.0, window=self.window)
         self.assertEqual((step.phase, step.facing), ("approach", "right"))
         self.assertEqual(step.y, 660.0)
+        grab = self.run_until("grab")  # a beat with both hands on the edge
+        self.assertEqual((grab.x, grab.y), (self.plan.climb_x, 660.0))
         climb = self.run_until("climb")
         self.assertEqual(climb.x, self.plan.climb_x)
-        done = self.run_until("done")
-        self.assertEqual(done.y, self.plan.top_y)
+        mantle = self.run_until("mantle")  # hands on the top edge
+        self.assertEqual(mantle.y, self.plan.top_y)
+        done = self.run_until("done")  # pulled over: standing on the top
+        self.assertEqual((done.x, done.y), (self.plan.land_x, self.plan.land_y))
+        self.assertGreater(done.x, self.plan.climb_x)  # came up the left edge, now inside
         self.assertFalse(self.climb.active)
         self.assertTrue(self.climb.sit_after)
 
-    def test_climbs_straight_up_at_climb_speed(self):
+    def test_climbs_straight_up_in_pulls_at_climb_speed(self):
         self.run_until("climb")
-        step = self.climb.step(0.5, x=self.plan.climb_x, y=660.0, window=self.window)
-        self.assertAlmostEqual(660.0 - step.y, CLIMB_SPEED * 0.5)
+        # One full pull averages CLIMB_SPEED ...
+        step = self.climb.step(PULL_PERIOD, x=self.plan.climb_x, y=660.0, window=self.window)
+        self.assertAlmostEqual(660.0 - step.y, CLIMB_SPEED * PULL_PERIOD, delta=0.5)
         self.assertEqual(step.x, self.plan.climb_x)
+        # ... but it is a pull: slow at the start, fast in the middle.
+        self.assertLess(ClimbController.pull_speed(0.0), CLIMB_SPEED * 0.5)
+        self.assertGreater(ClimbController.pull_speed(PULL_PERIOD / 2), CLIMB_SPEED * 1.5)
+
+    def test_measured_hands_set_the_wall_gap_and_the_stop_height(self):
+        near = plan(Rect(1200, 500, 1700, 1040), reach=50.0, hand_rise=220.0)
+        self.assertAlmostEqual(near.climb_x + 100.0, 1200 - 50.0)  # widget centre = wall - reach
+        self.assertAlmostEqual(near.top_y + 380.0 - 11.0, 500 + 220.0)  # feet = top + hand rise
 
     def test_aborts_when_the_window_moves_or_closes(self):
         self.run_until("climb")
@@ -139,13 +162,15 @@ class WindowClimbTests(unittest.TestCase):
                     seen.add(window.action_machine.current)
                     now += 0.05
                 self.assertIn(PetAction.CLIMBING, seen)
+                self.assertNotIn(PetAction.FALLING, seen)  # pulled herself over, no jump
                 self.assertLess(window.y(), floor_y)  # she went up the wall
-                self.assertTrue(window.physics.active)  # hopping over the top
-                for _ in range(200):
-                    if not window.physics.active:
-                        break
-                    window._tick_throw(0.03, now)
-                    now += 0.03
+                self.assertFalse(window.physics.active)
+                self.assertEqual(window.y(), top - window.height())  # where attachment keeps her
+                update = window.surface_tracker.follow_attachment(
+                    now=now, widget_x=float(window.x()), widget_width=float(window.width()),
+                    widget_height=float(window.height()), sink=0.0,
+                )
+                self.assertAlmostEqual(update.y, window.y())  # no snap after the pull-over
                 self.assertTrue(window.surface_tracker.attached)
                 self.assertEqual(window.surface_tracker.attached_handle, 9)
                 window.action_machine.update(now=now + 30.0)  # landing ends
@@ -172,7 +197,9 @@ class WindowClimbTests(unittest.TestCase):
                 window.close()
 
 
-class ExploreTests(unittest.TestCase):
+class WidgetCase(unittest.TestCase):
+    """A real PetWindow standing on the floor of the offscreen screen."""
+
     def setUp(self):
         from PySide6.QtWidgets import QApplication
 
@@ -199,6 +226,8 @@ class ExploreTests(unittest.TestCase):
         window.close()
         self.folder.cleanup()
 
+
+class ExploreTests(WidgetCase):
     def test_finds_the_nearest_climbable_window(self):
         top = self.bottom - 199
         self.window.surface_tracker.reader = FakeReader({
@@ -298,3 +327,130 @@ class ExploreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TopEdgeTests(unittest.TestCase):
+    def test_uncovered_span_skips_windows_lying_over_the_top_edge(self):
+        window = Rect(100, 500, 900, 1000)
+        self.assertEqual(uncovered_top_span(window, []), (100, 900))
+        self.assertEqual(uncovered_top_span(window, [Rect(0, 300, 400, 800)]), (400, 900))
+        self.assertEqual(uncovered_top_span(window, [Rect(300, 450, 500, 700)]), (500, 900))
+        self.assertEqual(uncovered_top_span(window, [Rect(300, 100, 500, 400)]), (100, 900))  # above, not touching
+        self.assertIsNone(uncovered_top_span(window, [Rect(0, 0, 1000, 600)]))
+
+    def test_pick_jump_prefers_the_closest_reachable_top(self):
+        kw = dict(work_area=WORK, sprite_width=150.0, sprite_height=300.0, exclude=1,
+                  max_gap=300.0, max_up=270.0, max_down=750.0)
+        here = (1, Rect(100, 600, 700, 1000))
+        near = (2, Rect(800, 500, 1300, 900))  # 100 px gap, 100 px higher
+        far = (3, Rect(1500, 600, 1900, 1000))  # too far sideways
+        high = (4, Rect(720, 100, 1100, 400))  # too high to jump up to
+        jump = pick_jump(windows=[here, near, far, high], feet_y=600.0, center_x=650.0, **kw)
+        self.assertEqual(jump.handle, 2)
+        self.assertGreaterEqual(jump.land_center_x, 800 + 75)  # whole body on the new top
+        self.assertIsNone(pick_jump(windows=[here, far, high], feet_y=600.0, center_x=650.0, **kw))
+        # A window lying over the neighbour's near end pushes the landing spot past it.
+        cover = (5, Rect(780, 450, 950, 700))  # too narrow to land on
+        jump = pick_jump(windows=[cover, here, near], feet_y=600.0, center_x=650.0, **{**kw, "max_gap": 500.0})
+        self.assertEqual(jump.handle, 2)
+        self.assertGreaterEqual(jump.land_center_x, 950 + 75)
+
+
+class RoamTests(WidgetCase):
+    """Strolling on a window top and jumping between windows (real widget)."""
+
+    def attach_to(self, handle, rects, x=400):
+        window = self.window
+        window.surface_tracker.reader = FakeReader(rects)
+        window.surface_tracker.set_target(handle)
+        left, top, right, bottom = rects[handle]
+        window.move(x, top - window.height() + 11)
+        self.assertTrue(window.surface_tracker.attach(f"window:{handle}", widget_x=float(x), widget_width=float(window.width())))
+        window.surface_tracker.set_target(None)
+
+    def test_strolls_only_along_the_uncovered_part_of_the_top(self):
+        from animation.clip import PetAction
+
+        top = self.bottom - 300
+        # The offscreen test screen is 800 x 800.
+        self.attach_to(1, {0: (500, top - 200, 800, top + 100), 1: (100, top, 790, self.bottom)}, x=100)
+        window = self.window
+        window._request_action(PetAction.PERCH, reason="test", force=True)
+        lower, upper = window._top_bounds()
+        self.assertLessEqual(upper + window.width() / 2.0, 500)  # stops before the covering window
+        self.assertTrue(window._walk_on_top(time.monotonic()))
+        self.assertEqual(window.action_machine.current, PetAction.IDLE)  # stood up to walk
+        target_x, _ = window.movement.target
+        self.assertTrue(lower <= target_x <= upper)
+
+    def test_jumps_across_to_a_neighbouring_window_and_lands_on_it(self):
+        top = self.bottom - 300
+        self.attach_to(1, {1: (20, top, 360, self.bottom), 2: (430, top - 120, 790, self.bottom)}, x=44)
+        window = self.window
+        jump = window._plan_jump(from_floor=False)
+        self.assertIsNotNone(jump)
+        self.assertEqual(jump.handle, 2)
+        self.assertTrue(window._jump_to(jump))
+        self.assertFalse(window.surface_tracker.attached)
+        now = time.monotonic()
+        for _ in range(400):
+            if not window.physics.active:
+                break
+            window._tick_throw(0.02, now)
+            now += 0.02
+        self.assertEqual(window.surface_tracker.attached_handle, 2)
+        self.assertEqual(window._explored_handle, 2)  # she may later climb down from it
+
+    def test_hops_up_onto_a_floating_window_from_the_floor(self):
+        window = self.window
+        sprite_h = window._frame_size()[1]
+        top = round(self.bottom - sprite_h * 1.2)
+        window.surface_tracker.reader = FakeReader({3: (380, top, 790, top + 130)})  # floating
+        self.assertIsNone(window._nearest_climbable())
+        jump = window._plan_jump(from_floor=True)
+        self.assertIsNotNone(jump)
+        self.assertTrue(window._jump_to(jump))
+        now = time.monotonic()
+        for _ in range(400):
+            if not window.physics.active:
+                break
+            window._tick_throw(0.02, now)
+            now += 0.02
+        self.assertEqual(window.surface_tracker.attached_handle, 3)
+
+    def test_explores_during_a_run_but_not_off_antigravity(self):
+        from types import SimpleNamespace
+
+        from animation.clip import PetAction
+
+        window = self.window
+        top = self.bottom - 199
+        window.surface_tracker.reader = FakeReader({1: (330, top, 700, self.bottom)})
+        window.telemetry.last_snapshot = SimpleNamespace(running=True)
+        window._request_action(PetAction.WORKING, reason="test", force=True)
+        window._explore_next = 0.0
+        window._tick_explore(time.monotonic())
+        self.assertTrue(window.climb.active)  # climbs even while Antigravity works
+
+
+class SitQuietlyTests(WidgetCase):
+    def test_she_keeps_sitting_after_climbing_up_to_sit(self):
+        from animation.clip import PetAction
+
+        window = self.window
+        top = self.bottom - 300
+        window.surface_tracker.reader = FakeReader({1: (20, top, 360, self.bottom), 2: (430, top - 120, 790, self.bottom)})
+        window.surface_tracker.set_target(1)
+        window.move(44, top - window.height())
+        window.surface_tracker.attach("window:1", widget_x=44.0, widget_width=float(window.width()))
+        window._explored_handle = 1
+        now = time.monotonic()
+        window._perch_after_landing = True
+        window._settle_landing("window:1", hard=False, now=now)
+        window._request_action(PetAction.PERCH, reason="test", force=True, immediate=True)
+        for second in range(80):
+            window._explore_next = 0.0
+            window._tick_explore(now + second)
+        self.assertEqual(window.action_machine.current, PetAction.PERCH)
+        self.assertFalse(window.physics.active)
+        self.assertIsNone(window.movement.target)
