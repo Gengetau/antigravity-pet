@@ -337,5 +337,59 @@
       "看到它啦～小氢来陪你～",
       "诶嘿，开始吧～"
     ]
-  }
+  },
+  "food_menu": [
+    {
+      "id": "soda",
+      "name": "汽水",
+      "icon": "🥤",
+      "taste": "favorite",
+      "lines": [
+        "咕嘟咕嘟——气泡最棒了！",
+        "汽水！小氢要飘起来啦～",
+        "嗝……啊，好舒服！再来一瓶！"
+      ]
+    },
+    {
+      "id": "marshmallow",
+      "name": "棉花糖",
+      "icon": "🍡",
+      "taste": "normal",
+      "lines": [
+        "轻飘飘的，和小氢一样！",
+        "软乎乎～"
+      ]
+    },
+    {
+      "id": "ice_cream",
+      "name": "冰淇淋",
+      "icon": "🍦",
+      "taste": "normal",
+      "lines": [
+        "好冰！脑袋嗡的一下！",
+        "要快点吃，不然化掉啦～"
+      ]
+    },
+    {
+      "id": "small_fish",
+      "name": "小鱼",
+      "icon": "🐟",
+      "taste": "normal",
+      "lines": [
+        "小鱼！猫猫的本能！",
+        "嘿嘿，鱼鱼～"
+      ]
+    },
+    {
+      "id": "bitter_coffee",
+      "name": "苦咖啡",
+      "icon": "☕",
+      "taste": "dislike",
+      "lines": [
+        "呜哇，好苦！小氢不要！",
+        "这个……太沉重了，飘不起来……",
+        "苦的东西请留给 Carbon 吧！"
+      ]
+    }
+  ]
 }

@@ -11,7 +11,7 @@ from collections import deque
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QRect, QTimer, Qt
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import QColor, QIcon, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QMenu,
@@ -50,8 +50,8 @@ from behavior.events import EventType
 from behavior.scheduler import ContextEventScheduler
 from dialogue.local_rules import DialogueManager
 from dialogue.personality import normalize_personality
-from pet.climb import ClimbController, Rect as ClimbRect, is_exposed, plan_climb
-from pet.interaction import FoodPanel, InteractionController
+from pet.climb import JumpPlan, pick_jump, uncovered_top_span, ClimbController, Rect as ClimbRect, is_exposed, plan_climb
+from pet.interaction import FoodPanel, InteractionController, parse_food_menu
 from pet.movement import MovementController
 from pet.physics import PhysicsBounds, ThrowPhysics
 from pet.renderer import Bubble, PetRenderer
@@ -147,6 +147,10 @@ class PetWindow(QWidget):
         self._gentle_landing = False
         self._climb_pos = (0.0, 0.0)
         self._perch_after_landing = False
+        self._hop_token = 0  # guards the delayed set_target(None) of older hops
+        self._roam_next = 0.0  # next stroll / jump while standing on a window
+        self._top_bounds_cache: tuple[int, float, tuple[float, float] | None] | None = None
+        self._climb_metrics_cache: dict[tuple, tuple[float, float] | None] = {}
         self.interaction = InteractionController()
         self.renderer = PetRenderer(BUBBLE_HEIGHT, MARGIN)
         self.renderer.set_reduced_motion(bool(comfort.get("reduced_motion", False)))
@@ -187,6 +191,9 @@ class PetWindow(QWidget):
         self._hold_timer.timeout.connect(self._do_long_press_reaction)
         self._long_press_handled = False
         self.food_panel = FoodPanel(self.on_food)
+        self.food_panel.set_menu(
+            parse_food_menu(self._form_voice.get("food_menu")), ACCENTS.get(self.form_id, "#339ad5")
+        )
         self.control_panel = PetControlPanel(
             on_mode=self.set_mode,
             on_size=self.set_size,
@@ -554,9 +561,7 @@ class PetWindow(QWidget):
                 delta_seconds=delta_seconds,
                 set_direction=self._set_direction,
                 energy=self.pet_state.energy,
-                horizontal_bounds=self.surface_tracker.movement_bounds(
-                    widget_width=float(self.width())
-                ),
+                horizontal_bounds=self._top_bounds(now),
             )
             if self.surface_tracker.attached:
                 self.surface_tracker.record_pet_position(
@@ -597,18 +602,25 @@ class PetWindow(QWidget):
         if not step.settled:
             return
 
+        self._settle_landing(step.landed_surface_id, hard=step.hard_landing, now=now)
+
+    def _settle_landing(self, surface_id: str | None, *, hard: bool, now: float, quiet: bool = False) -> None:
+        """Feet down after a throw, a hop or a climb: attach, land, maybe sit."""
         self.movement.rest_after_drag(now)
         self._set_direction("down")
-        if step.landed_surface_id:
+        if surface_id:
             self.surface_tracker.attach(
-                step.landed_surface_id,
+                surface_id,
                 widget_x=float(self.x()),
                 widget_width=float(self.width()),
             )
         else:
             self.surface_tracker.detach()
-        hard = step.hard_landing and not self._gentle_landing
+        hard = hard and not self._gentle_landing
         self._gentle_landing = False
+        self._top_bounds_cache = None
+        if surface_id:
+            self._roam_next = now + self.rng.uniform(25.0, 50.0)
         if self._request_action(
             PetAction.LANDING,
             now=now,
@@ -617,10 +629,12 @@ class PetWindow(QWidget):
             immediate=True,
         ) and hard:
             self.action_machine.queue_after_current(PetAction.DIZZY)
-        if step.landed_surface_id and self._perch_after_landing:
+        if surface_id and self._perch_after_landing:
             self.action_machine.queue_after_current(PetAction.PERCH)
         self._perch_after_landing = False
-        if step.landed_surface_id:
+        if quiet:
+            return
+        if surface_id:
             self._schedule_routine_line("window_land", delay_ms=1_100)
         elif hard:
             self._schedule_routine_line("hard_landing", delay_ms=2_200)
@@ -680,9 +694,7 @@ class PetWindow(QWidget):
                 body_widths=command.distance_body_widths,
                 now=now,
                 away_from_cursor=command.away_from_cursor,
-                horizontal_bounds=self.surface_tracker.movement_bounds(
-                    widget_width=float(self.width())
-                ),
+                horizontal_bounds=self._top_bounds(now),
             )
             if not started:
                 self.activity_director.skip_walk(now=now)
@@ -945,10 +957,23 @@ class PetWindow(QWidget):
             preserve_action=True,
         )
 
-    def on_food(self, _food: str) -> None:
+    def on_food(self, food: str) -> None:
+        """Feed her ``food`` (an id from the current form's menu)."""
         self._interrupt_activity()
         self.food_panel.hide()
-        self.pet_state.feed()
+        item = self.food_panel.item(food)
+        taste = item.taste if item is not None else "normal"
+        self.pet_state.feed(taste)
+        own_lines = self._personality() == "standard" and item is not None and bool(item.lines)
+        if taste == "dislike":
+            # Not her thing: she leans away instead of eating it.
+            self._request_action(PetAction.POKE_REACT, reason="feed_dislike", force=True)
+            if own_lines:
+                line = self.rng.choice(item.lines)
+            else:
+                line = self.dialogue.pick_routine("repeated_feed", personality=self._personality())
+            self.say(line, preserve_action=True)
+            return
         now = time.monotonic()
         self._recent_feedings.append(now)
         self._request_action(PetAction.EATING, reason="feed")
@@ -956,7 +981,13 @@ class PetWindow(QWidget):
         if recent_count >= 3:
             line = self.dialogue.pick_routine("repeated_feed", personality=self._personality())
         else:
-            line = self.dialogue.pick_interaction("food", personality=self._personality())
+            if taste == "favorite":
+                self.action_machine.queue_after_current(PetAction.HAPPY)
+            generic = self.dialogue.pick_interaction("food", personality=self._personality())
+            if own_lines and (taste == "favorite" or self.rng.random() < 0.6 or not generic):
+                line = self.rng.choice(item.lines)
+            else:
+                line = generic
         self.say(line, preserve_action=True)
 
     # ----- local environment awareness -----------------------------------------
@@ -1354,6 +1385,9 @@ class PetWindow(QWidget):
             self.control_panel.title_label.setText(speaker)
         if hasattr(self, "dialogue"):
             self.dialogue.set_form_lines(voice.get("dialogue"))
+        if hasattr(self, "food_panel"):
+            self.food_panel.hide()
+            self.food_panel.set_menu(parse_food_menu(voice.get("food_menu")), ACCENTS.get(form_id, "#339ad5"))
         agy_lines = voice.get("agy") if isinstance(voice.get("agy"), dict) else {}
         for target in (getattr(self, "reactions", None), getattr(self, "autonomy", None)):
             if target is not None:
@@ -1574,8 +1608,19 @@ class PetWindow(QWidget):
         self.movement.rest_after_drag()
         self.physics.launch(self.x(), self.y(), vx, vy, planned_jump=True)
         self._request_action(PetAction.FALLING, reason="autonomy_hop", force=True, immediate=True)
-        QTimer.singleShot(4_000, lambda: self.surface_tracker.set_target(None))
+        self._clear_target_later()
         return True
+
+    def _clear_target_later(self, delay_ms: int = 4_000) -> None:
+        """Drop the landing target after a hop, unless a newer hop owns it."""
+        self._hop_token += 1
+        token = self._hop_token
+
+        def clear() -> None:
+            if token == self._hop_token:
+                self.surface_tracker.set_target(None)
+
+        QTimer.singleShot(delay_ms, clear)
 
     # ----- climbing and sitting on window edges -----------------------------------
 
@@ -1628,6 +1673,7 @@ class PetWindow(QWidget):
             feet_offset=float(MARGIN + 7),
             sprite_width=sprite_width,
             sprite_height=sprite_height,
+            **self._climb_reach(),
         )
         if plan is None:
             return False
@@ -1647,6 +1693,7 @@ class PetWindow(QWidget):
         rect = self.surface_tracker.read_rect(plan.handle, now=now)
         window = None if rect is None else ClimbRect(rect.left, rect.top, rect.right, rect.bottom)
         x, y = self._climb_pos
+        was_on_wall = self.climb.on_wall
         step = self.climb.step(delta_seconds, x=x, y=y, window=window)
         if step.phase == "aborted":
             self.climb.cancel()
@@ -1660,43 +1707,70 @@ class PetWindow(QWidget):
                 # Whatever she was doing (typing, celebrating), she walks now.
                 self._request_action(PetAction.WALKING, now=now, reason="climb_approach", force=True)
             return True
-        if self.action_machine.current != PetAction.CLIMBING:
+        if not was_on_wall or self.action_machine.current != PetAction.CLIMBING:
+            # Hands on the wall: the pulls start in step with frame 0.
             self.movement.set_direction(step.facing)
             self._request_action(PetAction.CLIMBING, now=now, reason="climb", force=True, immediate=True)
         if step.phase == "done":
-            self._finish_climb(rect)
+            self._finish_climb(rect, now)
         return False
 
-    def _finish_climb(self, rect) -> None:
-        """Hands on the top edge: a small hop up and over onto it."""
+    def _finish_climb(self, rect, now: float) -> None:
+        """Pulled up over the edge: she now stands on the window's top."""
         plan, sit_after = self.climb.plan, self.climb.sit_after
         self.climb.cancel()
-        if plan is None or rect is None:
+        if plan is None or rect is None or not self.surface_tracker.set_target(plan.handle):
             self._launch_throw(0.0, 0.0, reason="climb_lost")
             return
-        target = WindowTarget(plan.handle, round(rect.left), round(rect.top), round(rect.right), round(rect.bottom))
-        bounds = self._physics_bounds()
-        velocity = plan_hop(
-            start_x=float(self.x()),
-            start_y=float(self.y()),
-            widget_width=float(self.width()),
-            widget_height=float(self.height()),
-            target=target,
-            gravity=self.physics.gravity,
-            max_speed=self.physics.max_jump_speed,
-            work_area_top=bounds.top,
-            landing_fraction=0.14 if plan.side == "left" else 0.86,
-            apex_clearance=24.0,
-        )
-        if velocity is None or not self.surface_tracker.set_target(plan.handle):
-            self._launch_throw(0.0, 0.0, reason="climb_slip")
-            return
-        vx, vy = velocity
         self._perch_after_landing = sit_after
-        self.movement.rest_after_drag()
-        self.physics.launch(self.x(), self.y(), vx, vy, planned_jump=True)
-        self._request_action(PetAction.FALLING, reason="climb_over", force=True, immediate=True)
-        QTimer.singleShot(4_000, lambda: self.surface_tracker.set_target(None))
+        self._gentle_landing = True
+        self._settle_landing(f"window:{plan.handle}", hard=False, now=now)
+        self.surface_tracker.set_target(None)
+
+    def _climb_reach(self) -> dict[str, float]:
+        """``reach`` / ``hand_rise`` for plan_climb, measured on the climb frames."""
+        key = (self.form_id, self.current_height)
+        if key not in self._climb_metrics_cache:
+            self._climb_metrics_cache[key] = self._measure_climb_frames()
+        metrics = self._climb_metrics_cache[key]
+        if metrics is None:
+            return {}
+        reach, rise = metrics
+        return {"reach": reach, "hand_rise": rise}
+
+    def _measure_climb_frames(self) -> tuple[float, float] | None:
+        """Hands on the wall: centre-to-wall distance and feet-to-hand height.
+
+        The left-facing climb frames have the wall on the left, so the hands
+        are the leftmost opaque pixels and the highest pixels near that side.
+        """
+        try:
+            clip = self.asset_registry.clip_for(PetAction.CLIMBING, height=self.current_height, direction="left")
+        except Exception:
+            return None
+        reaches, rises = [], []
+        for frame in clip.frames:
+            image = frame.pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+            width, height = image.width(), image.height()
+            if width < 8 or height < 8 or image.bytesPerLine() != width * 4:
+                continue
+            alpha = bytes(image.constBits())[3::4]  # one byte per pixel, row-major
+            wall = next((x for x in range(width) if max(alpha[x::width]) > 40), None)
+            if wall is None:
+                continue
+            band = max(2, round(width * 0.22))  # the strip next to the wall
+            top = next(
+                (y for y in range(height) if max(alpha[y * width + wall : y * width + min(width, wall + band)]) > 40),
+                None,
+            )
+            if top is None:
+                continue
+            feet = clip.anchor.y * height
+            reaches.append(width * clip.anchor.x - wall)
+            rises.append(feet - top)
+        if not reaches:
+            return None
+        return max(4.0, min(reaches)), max(rises)
 
     def _climb_candidate(self) -> int | None:
         """The window to climb from the panel: the last foreground app window."""
@@ -1764,8 +1838,120 @@ class PetWindow(QWidget):
                 best = (distance, surface.handle)
         return best[1] if best is not None else None
 
+    def _top_bounds(self, now: float | None = None) -> tuple[float, float] | None:
+        """Walking range on the window she stands on: its uncovered top edge."""
+        bounds = self.surface_tracker.movement_bounds(widget_width=float(self.width()))
+        handle = self.surface_tracker.attached_handle
+        if bounds is None or handle is None:
+            return bounds
+        now = time.monotonic() if now is None else now
+        cache = self._top_bounds_cache
+        if cache is not None and cache[0] == handle and now - cache[1] < 1.0:
+            span = cache[2]
+        else:
+            span = None
+            above: list[ClimbRect] = []
+            for surface in self.surface_tracker.nearby_windows(now=now):
+                rect = ClimbRect(surface.left, surface.top, surface.right, surface.bottom)
+                if surface.handle == handle:
+                    span = uncovered_top_span(rect, above)
+                    break
+                above.append(rect)
+            self._top_bounds_cache = (handle, now, span)
+        if span is None:
+            return bounds
+        margin = min(38.0, max(18.0, (span[1] - span[0]) * 0.055))
+        lower = max(bounds[0], span[0] + margin - self.width() / 2.0)
+        upper = min(bounds[1], span[1] - margin - self.width() / 2.0)
+        if upper < lower:
+            return bounds
+        return lower, upper
+
+    def _walk_on_top(self, now: float) -> bool:
+        """Get up and stroll to another spot along the window top."""
+        bounds = self._top_bounds(now)
+        if bounds is None:
+            return False
+        lower, upper = bounds
+        x = float(self.x())
+        body = max(60.0, self._frame_size()[0])
+        options = [t for t in (self.rng.uniform(lower, upper) for _ in range(6)) if abs(t - x) >= body * 0.8]
+        if not options:
+            return False
+        if self.action_machine.current != PetAction.IDLE:
+            self._request_action(PetAction.IDLE, now=now, reason="top_stroll", force=True, immediate=True)
+        self.movement.rest_until = 0.0
+        self.movement.target = (options[0], float(self.y()))
+        return True
+
+    def _jump_candidates(self) -> list[tuple[int, ClimbRect]]:
+        return [
+            (surface.handle, ClimbRect(surface.left, surface.top, surface.right, surface.bottom))
+            for surface in self.surface_tracker.nearby_windows()
+        ]
+
+    def _plan_jump(self, *, from_floor: bool) -> JumpPlan | None:
+        bounds = self._physics_bounds()
+        sprite_width, sprite_height = self._frame_size()
+        feet = float(self.y() + self.height() - (MARGIN + 7))
+        return pick_jump(
+            windows=self._jump_candidates(),
+            work_area=ClimbRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+            feet_y=feet,
+            center_x=float(self.x()) + self.width() / 2.0,
+            sprite_width=sprite_width,
+            sprite_height=sprite_height,
+            exclude=self.surface_tracker.attached_handle,
+            max_gap=sprite_width * (2.5 if from_floor else 2.0),
+            max_up=sprite_height * (1.6 if from_floor else 0.9),
+            max_down=0.0 if from_floor else sprite_height * 2.5,
+        )
+
+    def _jump_to(self, jump: JumpPlan, *, sit_after: bool = False) -> bool:
+        """Ballistic hop onto ``jump``'s window top (from the floor or a window)."""
+        if self.physics.active or self.interaction.active or self.climb.active:
+            return False
+        rect = jump.window
+        target = WindowTarget(jump.handle, round(rect.left), round(rect.top), round(rect.right), round(rect.bottom))
+        bounds = self._physics_bounds()
+        fraction = (jump.land_center_x - rect.left) / max(1.0, rect.width)
+        velocity = plan_hop(
+            start_x=float(self.x()),
+            start_y=float(self.y()),
+            widget_width=float(self.width()),
+            widget_height=float(self.height()),
+            target=target,
+            gravity=self.physics.gravity,
+            max_speed=self.physics.max_jump_speed,
+            work_area_top=bounds.top,
+            landing_fraction=max(0.0, min(1.0, fraction)),
+            apex_clearance=40.0,
+        )
+        if velocity is None or not self.surface_tracker.set_target(jump.handle):
+            return False
+        now = time.monotonic()
+        source = self.surface_tracker.attached_handle
+        if source is not None:
+            # Do not land straight back on the window she leaves.
+            self.surface_tracker.ignore_platform(source, seconds=1.5, now=now)
+        vx, vy = velocity
+        self._set_direction("left" if vx < 0 else "right")
+        self.activity_director.interrupt(now=now)
+        self.movement.cancel_target()
+        self.surface_tracker.detach()
+        self.movement.rest_after_drag()
+        self._perch_after_landing = sit_after
+        self._gentle_landing = True
+        self.physics.launch(self.x(), self.y(), vx, vy, planned_jump=True)
+        self._request_action(PetAction.FALLING, reason="window_jump", force=True, immediate=True)
+        self._clear_target_later()
+        self._explored_handle = jump.handle
+        self._perched_since = None
+        return True
+
     def _tick_explore(self, now: float) -> None:
-        """Now and then climb a window next to her; later hop back down."""
+        """Climb or hop onto nearby windows, stroll along their tops, jump
+        across to neighbouring windows, and later come back down."""
         attached = self.surface_tracker.attached
         if not attached:
             self._perched_since = None
@@ -1777,13 +1963,23 @@ class PetWindow(QWidget):
         if not bool(self._agy().get("explore_windows", True)) or not self.surface_tracker.enabled:
             return
         snapshot = self.telemetry.last_snapshot
-        if snapshot is not None and snapshot.running:
-            self._perched_since = now if attached else None
-            return  # working along with Antigravity: autonomy owns the window hops
-        idle = self.action_machine.current in {PetAction.IDLE, PetAction.PERCH}
+        running = snapshot is not None and bool(snapshot.running)
+        own = (
+            attached
+            and self._explored_handle is not None
+            and self.surface_tracker.attached_handle == self._explored_handle
+        )
+        if running and attached:
+            # Working along with Antigravity on a window top: stay put.
+            self._perched_since = now
+            return
+        if self.movement.target is not None and self.action_machine.current not in {PetAction.IDLE, PetAction.WALKING}:
+            self.movement.cancel_target()
+        calm = {PetAction.IDLE, PetAction.PERCH} | ({PetAction.WORKING} if running else set())
         if (
-            not idle
+            self.action_machine.current not in calm
             or self.movement.mode != "wander"
+            or self.movement.target is not None
             or self.interaction.active
             or self.physics.active
             or self.climb.active
@@ -1797,21 +1993,44 @@ class PetWindow(QWidget):
         if attached:
             # Only climb back down from a window she went up by herself (or
             # from the panel); Antigravity's window belongs to autonomy.
-            own = self._explored_handle is not None and self.surface_tracker.attached_handle == self._explored_handle
             if own and self._perched_since is not None and now - self._perched_since >= self._explore_stay:
                 self._start_descend()
+                return
+            if now < self._roam_next:
+                return
+            self._roam_next = now + self.rng.uniform(14.0, 32.0)
+            if self.action_machine.current == PetAction.PERCH:
+                # Sitting quietly: stay at least a while (6 minutes after a
+                # run, like autonomy), and then only sometimes get up.
+                seated = now - (self._perched_since or now)
+                linger = self.autonomy.settings.perch_linger_seconds if not own else 90.0
+                if seated < linger or self.rng.random() < 0.5:
+                    return
+            roll = self.rng.random()
+            if roll < 0.35:
+                jump = self._plan_jump(from_floor=False)
+                if jump is not None and self._jump_to(jump, sit_after=self.rng.random() < 0.4):
+                    self._explore_stay = self.rng.uniform(120.0, 300.0)
+                    return
+            if roll < 0.85:
+                self._walk_on_top(now)
             return
-        self._explore_next = now + self.rng.uniform(70.0, 160.0)
+        self._explore_next = now + (self.rng.uniform(90.0, 200.0) if running else self.rng.uniform(45.0, 110.0))
+        sit_after = self.rng.random() < 0.6
         handle = self._nearest_climbable()
-        if handle is not None and self._start_climb(handle, sit_after=self.rng.random() < 0.6):
+        if handle is not None and self._start_climb(handle, sit_after=sit_after):
             self._explored_handle = handle
+            self._explore_stay = self.rng.uniform(120.0, 300.0)
+            return
+        jump = self._plan_jump(from_floor=True)
+        if jump is not None and self._jump_to(jump, sit_after=sit_after):
             self._explore_stay = self.rng.uniform(120.0, 300.0)
 
     _explore_stay = 180.0
 
     def _start_descend(self) -> None:
         """Walk to the nearer end of the window top, then hop off."""
-        bounds = self.surface_tracker.movement_bounds(widget_width=float(self.width()))
+        bounds = self._top_bounds()
         if bounds is None:
             return
         lower, upper = bounds

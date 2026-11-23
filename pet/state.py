@@ -73,11 +73,15 @@ class PetState:
         self.mood = _clamp(self.mood + mood)
         self.annoyance = _clamp(self.annoyance + annoyance)
 
-    def feed(self) -> None:
+    def feed(self, taste: str = "normal") -> None:
+        if taste == "dislike":  # she turns it down: a little grumpy, nothing eaten
+            self.mood = _clamp(self.mood - 0.03)
+            return
+        favorite = taste == "favorite"
         self.energy = _clamp(self.energy + 0.12)
-        self.mood = _clamp(self.mood + 0.06)
+        self.mood = _clamp(self.mood + (0.12 if favorite else 0.06))
         self.boredom = _clamp(self.boredom - 0.08)
-        self.affinity = _clamp(self.affinity + 0.018)
+        self.affinity = _clamp(self.affinity + (0.03 if favorite else 0.018))
         self.total_feedings += 1
 
     def pet_head(self) -> None:
