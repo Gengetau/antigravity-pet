@@ -65,6 +65,10 @@ class AppPaths:
         return self.data_dir / "pet_state.json"
 
     @property
+    def ledger_path(self) -> Path:
+        return self.data_dir / "usage_ledger.json"
+
+    @property
     def recovery_path(self) -> Path:
         return self.data_dir / "session_recovery.json"
 

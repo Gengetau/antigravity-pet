@@ -18,7 +18,19 @@ def test_official_table_loads_and_matches_thinking_levels():
     assert table.find("gemini-4-hydrogen-xhigh").name == "Gemini 4 Hydrogen"
     assert table.find("MODEL_X", "Gemini 4 Carbon (High)").name == "Gemini 4 Carbon"
     assert table.find("gemini-4-neon-low").at(None).output == 15.0
-    assert table.find("claude-sonnet") is None
+    assert table.find("claude-sonnet").name == "Claude Sonnet"
+    assert table.find("claude-opus", "Claude Opus 5.5").name == "Claude Opus"
+    assert table.find("gpt-oss-120b").name == "GPT-OSS 120B"
+    assert table.find("custom-local-model") is None
+
+
+def test_subscription_and_cny_formatting():
+    table = pricing.load_table()
+    assert table.find_subscription("Google AI Ultra").monthly_usd == 249.99
+    assert table.find_subscription("Google AI Pro").monthly_usd == 19.99
+    assert table.find_subscription("") is None
+    assert pricing.format_cny(1.0, 7.25) == "¥7.25"
+    assert pricing.format_usd_cny(0.75, 7.25) == "$0.750 (¥5.44)"
 
 
 def test_each_step_uses_the_price_of_its_day():
@@ -35,7 +47,7 @@ def test_cache_output_unknown_and_unpriced():
     steps = [
         step("gemini-4-hydrogen-high", "", day, fresh=0, cache=2_000_000, out=1_000_000),  # 0.15 + 7.5
         step("UNKNOWN_MODEL", "未知模型（离线日志）", day),  # estimated at Carbon: 2.0
-        step("claude-opus", "Claude Opus", day),  # no price: listed, not counted
+        step("custom-local-model", "Custom Local Model", day),  # no price: listed, not counted
     ]
     report = pricing.compute([ConversationUsage("c", "t", steps=steps)], table)
     assert abs(report.total_usd - (0.15 + 7.5 + 2.0)) < 1e-9
@@ -43,7 +55,7 @@ def test_cache_output_unknown_and_unpriced():
     assert report.unpriced_tokens == 1_000_000
     assert abs(report.cache_saved_usd - 2 * (1.5 - 0.075)) < 1e-9
     names = [row.name for row in report.rows]
-    assert names[-1] == "Claude Opus" and not report.rows[-1].priced
+    assert names[-1] == "Custom Local Model" and not report.rows[-1].priced
     assert any("估算" in name for name in names)
     assert abs(report.daily[day] - report.total_usd) < 1e-9
 

@@ -1418,7 +1418,10 @@ class PetWindow(QWidget):
         self._next_config_poll = 0.0
         self._last_user_idle: float | None = None
         self.telemetry = TelemetryService(
-            TelemetryCollector(use_language_server=bool(settings.get("use_language_server", True))),
+            TelemetryCollector(
+                use_language_server=bool(settings.get("use_language_server", True)),
+                ledger_path=self.paths.ledger_path,
+            ),
             parent=self,
         )
         self.telemetry.pinned_conversation = str(settings.get("pinned_conversation") or "")
@@ -1434,6 +1437,10 @@ class PetWindow(QWidget):
             on_request_report=self.telemetry.request_report,
             on_toggle_subagents=self._set_include_subagents,
             icon=QIcon(str(self.paths.icon_path)),
+            initial_theme=str(settings.get("meter_theme") or "light"),
+            default_tab=str(settings.get("meter_default_tab") or "overview"),
+            on_theme_changed=lambda t: self._agy_set("meter_theme", t),
+            on_default_tab_changed=lambda tab: self._agy_set("meter_default_tab", tab),
         )
         self.telemetry.live_updated.connect(self._on_live_snapshot)
         self.telemetry.report_ready.connect(self.token_meter.update_report)

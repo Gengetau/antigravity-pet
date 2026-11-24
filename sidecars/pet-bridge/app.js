@@ -115,6 +115,12 @@
     $('sel-hud-mode').value = agy.hud_mode || 'attached';
 
     const live = state.live || {};
+    const tierEl = $('tier-badge');
+    if (tierEl) {
+      const tierName = String(live.userTierName || '').trim();
+      tierEl.hidden = !tierName;
+      if (tierName) tierEl.textContent = `💎 ${tierName}`;
+    }
     const convs = Array.isArray(live.conversations) ? live.conversations : [];
     const pinned = agy.pinned_conversation || '';
     const sel = $('sel-pinned');

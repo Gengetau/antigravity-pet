@@ -10,6 +10,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -199,7 +200,15 @@ let userModelStateCache = {
   quotaMap: new Map(),
   limitMap: new Map(),
   selectedModelId: '',
+  userTierName: '',
+  accountId: '',
 };
+
+function hashAccountId(rawIdentity) {
+  const norm = String(rawIdentity || '').trim().toLowerCase();
+  if (!norm) return '';
+  return `acct_${createHash('sha256').update(`agy-pet:${norm}`).digest('hex').slice(0, 12)}`;
+}
 
 function prettifyModelEnum(raw) {
   if (!raw || typeof raw !== 'string') return 'Unknown Model';
@@ -248,12 +257,17 @@ async function getUserModelState(maxAgeMs = 15_000) {
   }
   try {
     const data = await lsRpc('GetUserStatus', {});
-    const cfgData = data?.userStatus?.cascadeModelConfigData || {};
+    const userStatus = data?.userStatus || {};
+    const cfgData = userStatus?.cascadeModelConfigData || {};
     const configs = cfgData?.clientModelConfigs;
     const selectedModelId =
       cfgData?.defaultOverrideModelConfig?.modelOrAlias?.model ||
       cfgData?.defaultOverrideModelConfig?.modelOrAlias?.alias ||
       '';
+    const userTierName = String(
+      userStatus?.userTier?.name || userStatus?.planStatus?.planInfo?.planName || ''
+    ).trim();
+    const accountId = hashAccountId(userStatus?.email || '');
 
     if (Array.isArray(configs)) {
       const nextLabels = new Map(userModelStateCache.labelMap);
@@ -279,6 +293,15 @@ async function getUserModelState(maxAgeMs = 15_000) {
         quotaMap: nextQuotas,
         limitMap: nextLimits,
         selectedModelId: selectedModelId || userModelStateCache.selectedModelId,
+        userTierName: userTierName || userModelStateCache.userTierName,
+        accountId: accountId || userModelStateCache.accountId,
+      };
+    } else if (userTierName || accountId) {
+      userModelStateCache = {
+        ...userModelStateCache,
+        fetchedAt: now,
+        userTierName: userTierName || userModelStateCache.userTierName,
+        accountId: accountId || userModelStateCache.accountId,
       };
     }
   } catch {
@@ -1070,7 +1093,7 @@ async function updatePetLiveFile() {
       getQuotaSummary(60_000),
     ]);
 
-    const { labelMap, quotaMap, selectedModelId } = modelState;
+    const { labelMap, quotaMap, selectedModelId, userTierName, accountId } = modelState;
     const summaries = allTrajRes?.trajectorySummaries || {};
     const hook = readActiveSessionHook();
     const proj = latestProjectSwitch();
@@ -1188,6 +1211,8 @@ async function updatePetLiveFile() {
     const payload = {
       updatedAt: new Date().toISOString(),
       updatedMs: Date.now(),
+      userTierName: userTierName || '',
+      accountId: accountId || '',
       selectedModelId,
       selectedModelLabel,
       selectedQuotaRemainingPct: selectedQuota?.remainingPct ?? null,

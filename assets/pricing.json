@@ -1,7 +1,26 @@
 {
-  "source": "Gemini API 官方价格页（aistudio.google.com/docs/pricing，付费 Standard 档），2026-11-23 核对",
+  "source": "Gemini / Anthropic / OpenAI 官方 API 价格页，2026-11-23 核对",
   "unit": "USD / 1M tokens",
+  "usd_to_cny": 7.25,
   "unknown_as": "gemini-4-carbon",
+  "subscriptions": [
+    {
+      "id": "ultra",
+      "name": "Google AI Ultra",
+      "match": [
+        "ultra"
+      ],
+      "monthly_usd": 249.99
+    },
+    {
+      "id": "pro",
+      "name": "Google AI Pro",
+      "match": [
+        "pro"
+      ],
+      "monthly_usd": 19.99
+    }
+  ],
   "notes": [
     "按每一步发生当天的价格计费（Carbon / Argon 从 2026-12-01 起涨价一倍）。",
     "输入 = 未命中缓存的输入；缓存 = 命中缓存的输入（隐式缓存价）；输出包含思考 token。",
@@ -78,6 +97,53 @@
           "input": 4.0,
           "output": 20.0,
           "cache": 0.2
+        }
+      ]
+    },
+    {
+      "id": "claude-opus",
+      "name": "Claude Opus",
+      "match": [
+        "opus"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 5.0,
+          "output": 25.0,
+          "cache": 0.5
+        }
+      ]
+    },
+    {
+      "id": "claude-sonnet",
+      "name": "Claude Sonnet",
+      "match": [
+        "sonnet",
+        "claude"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 3.0,
+          "output": 15.0,
+          "cache": 0.3
+        }
+      ]
+    },
+    {
+      "id": "gpt-oss-120b",
+      "name": "GPT-OSS 120B",
+      "match": [
+        "gpt-oss",
+        "120b"
+      ],
+      "prices": [
+        {
+          "from": null,
+          "input": 0.15,
+          "output": 0.6,
+          "cache": 0.075
         }
       ]
     }

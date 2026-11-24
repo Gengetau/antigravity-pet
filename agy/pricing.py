@@ -40,11 +40,21 @@ class ModelPrice:
         return current
 
 
+@dataclass(frozen=True)
+class SubscriptionPlan:
+    id: str
+    name: str
+    match: tuple[str, ...]
+    monthly_usd: float
+
+
 @dataclass
 class PriceTable:
     models: list[ModelPrice]
     unknown_as: str = ""
     source: str = ""
+    usd_to_cny: float = 7.25
+    subscriptions: tuple[SubscriptionPlan, ...] = ()
 
     def find(self, model_id: str, label: str = "") -> ModelPrice | None:
         text = f"{model_id} {label}".lower()
@@ -55,6 +65,15 @@ class PriceTable:
 
     def by_id(self, model_id: str) -> ModelPrice | None:
         return next((m for m in self.models if m.id == model_id), None)
+
+    def find_subscription(self, tier_name: str) -> SubscriptionPlan | None:
+        text = (tier_name or "").strip().lower()
+        if not text:
+            return None
+        for plan in self.subscriptions:
+            if any(key in text for key in plan.match):
+                return plan
+        return None
 
 
 def _day(value) -> date | None:
@@ -83,10 +102,24 @@ def load_table(path: Path | None = None) -> PriceTable:
                     prices=tuple(prices),
                 )
             )
+    subscriptions = tuple(
+        SubscriptionPlan(
+            id=str(item["id"]),
+            name=str(item.get("name") or item["id"]),
+            match=tuple(str(m).lower() for m in item.get("match") or [item["id"]]),
+            monthly_usd=float(item.get("monthly_usd") or 0.0),
+        )
+        for item in raw.get("subscriptions", [])
+        if isinstance(item, dict) and item.get("id")
+    )
+    rate_raw = raw.get("usd_to_cny")
+    usd_to_cny = float(rate_raw) if isinstance(rate_raw, (int, float)) and rate_raw > 0 else 7.25
     return PriceTable(
         models=models,
         unknown_as=str(raw.get("unknown_as") or ""),
         source=str(raw.get("source") or ""),
+        usd_to_cny=usd_to_cny,
+        subscriptions=subscriptions,
     )
 
 
@@ -183,3 +216,18 @@ def format_usd(value: float) -> str:
     if value >= 1:
         return f"${value:,.2f}"
     return f"${value:.3f}" if value else "$0"
+
+
+def format_cny(value_usd: float, rate: float = 7.25) -> str:
+    cny = value_usd * (rate if rate > 0 else 7.25)
+    if cny >= 1000:
+        return f"¥{cny:,.0f}"
+    if cny >= 100:
+        return f"¥{cny:,.1f}"
+    if cny >= 0.01:
+        return f"¥{cny:.2f}"
+    return f"¥{cny:.3f}" if cny else "¥0"
+
+
+def format_usd_cny(value_usd: float, rate: float = 7.25) -> str:
+    return f"{format_usd(value_usd)} ({format_cny(value_usd, rate)})"

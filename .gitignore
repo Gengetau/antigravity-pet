@@ -16,6 +16,7 @@ art_work/
 art_backup/
 .pet_root
 agy-hud-bar/hud_settings.json
+usage_ledger.json*
 
 # intermediate 1024x1536 master renders (~1.6 GB); runtime only uses processed/runtime/
 */processed/masters/*

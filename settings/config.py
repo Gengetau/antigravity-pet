@@ -58,6 +58,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "hud_x": None,
         "hud_y": None,
         "pinned_conversation": "",
+        "meter_theme": "light",
+        "meter_default_tab": "overview",
     },
 }
 

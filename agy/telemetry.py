@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from .ledger import UsageLedger, hash_account_id
+
 LS_SERVICE = "exa.language_server_pb.LanguageServerService"
 HUD_LIVE_MAX_AGE_SECONDS = 15.0
 ACTIVE_HOOK_MAX_AGE_SECONDS = 7200.0
@@ -55,6 +57,7 @@ class StepUsage:
     ttft_ms: float | None = None
     decode_tps: float | None = None
     e2e_tps: float | None = None
+    duration_ms: float | None = None
     tool_calls: tuple[str, ...] = ()
 
     @property
@@ -73,6 +76,7 @@ class ConversationUsage:
     status: str = "CASCADE_RUN_STATUS_IDLE"
     last_modified_ms: int = 0
     is_subagent: bool = False
+    account_id: str = ""
     steps: list[StepUsage] = field(default_factory=list)
 
     @property
@@ -155,6 +159,8 @@ class LiveSnapshot:
     conversations: list[tuple[str, str]] = field(default_factory=list)
     fetched_at: float = field(default_factory=time.time)
     quota_windows: list[QuotaWindow] = field(default_factory=list)
+    user_tier_name: str = ""
+    account_id: str = ""
 
     def quota_for(self, kind: str) -> tuple[float | None, str | None]:
         """Remaining % and reset time of the 5-hour (``"5h"``) or weekly window.
@@ -238,6 +244,9 @@ class MeterReport:
     live: LiveSnapshot | None
     generated_at: float = field(default_factory=time.time)
     conversations: list[ConversationUsage] = field(default_factory=list)
+    user_tier_name: str = ""
+    account_id: str = ""
+    accounts: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def grand_total(self) -> int:
@@ -479,6 +488,7 @@ def parse_rpc_step(raw: object, label_map: dict[str, str] | None = None) -> Step
                 ttft_ms=ttft,
                 decode_tps=decode_tps,
                 e2e_tps=e2e_tps,
+                duration_ms=float(e2e_ms) if e2e_ms is not None else None,
                 tool_calls=tools,
             )
         )
@@ -529,12 +539,15 @@ def parse_transcript_lines(lines: Iterable[str], *, default_model: str = "") -> 
             response_tokens = max(0, output_tokens - thinking_tokens)
         created = parse_iso_ms(obj.get("created_at"))
         rate = None
+        duration_ms = None
         if created and index + 1 < len(records):
             nxt = parse_iso_ms(records[index + 1].get("created_at"))
             if nxt is not None:
                 seconds = (nxt - created) / 1000
-                if 0.5 <= seconds < 300 and output_tokens:
-                    rate = output_tokens / seconds
+                if 0.5 <= seconds < 300:
+                    duration_ms = seconds * 1000.0
+                    if output_tokens:
+                        rate = output_tokens / seconds
         tools = tuple(
             str(call.get("name"))
             for call in (obj.get("tool_calls") or [])
@@ -552,6 +565,7 @@ def parse_transcript_lines(lines: Iterable[str], *, default_model: str = "") -> 
                 created_ms=created or 0,
                 decode_tps=rate,
                 e2e_tps=rate,
+                duration_ms=duration_ms,
                 tool_calls=tools,
             )
         )
@@ -571,6 +585,8 @@ def summarize_conversation(
     quota: tuple[float | None, str | None] = (None, None),
     quota_windows: list[QuotaWindow] | None = None,
     conversations: list[tuple[str, str]] | None = None,
+    user_tier_name: str = "",
+    account_id: str = "",
 ) -> LiveSnapshot:
     steps = conversation.steps
     input_sum = sum(s.input_tokens for s in steps)
@@ -605,6 +621,8 @@ def summarize_conversation(
         context_limit_tokens=infer_context_limit(*limit_labels),
         cumulative_total_tokens=input_sum + cache_sum + output_sum,
         conversations=list(conversations or []),
+        user_tier_name=user_tier_name,
+        account_id=account_id or conversation.account_id,
     )
 
 
@@ -650,6 +668,8 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
         ),
         cumulative_total_tokens=int(num("cumulativeTotalTokens") or 0),
         quota_windows=parse_quota_buckets(payload.get("quotaBuckets")),
+        user_tier_name=str(payload.get("userTierName") or chosen.get("userTierName") or ""),
+        account_id=str(payload.get("accountId") or ""),
         conversations=[
             (str(c.get("conversationId")), str(c.get("title") or c.get("conversationId", "")[:8]))
             for c in convs
@@ -808,13 +828,17 @@ class TelemetryCollector:
         *,
         ls_client: LanguageServerClient | None = None,
         use_language_server: bool = True,
+        ledger_path: Path | None = None,
     ) -> None:
         self.root = Path(app_data_root) if app_data_root else default_app_data_root()
         self.ls = ls_client or LanguageServerClient()
         self.use_language_server = use_language_server
+        self.ledger = UsageLedger(ledger_path) if ledger_path else None
         self._labels: dict[str, str] = {}
         self._quotas: dict[str, tuple[float | None, str | None]] = {}
         self._selected_model = ""
+        self._user_tier_name = ""
+        self._account_id = ""
         self._user_status_at = 0.0
         self._trajectory_cache: dict[str, tuple[str, ConversationUsage]] = {}
         # cid -> (raw step count fetched, parsed step per raw index, title)
@@ -1010,7 +1034,16 @@ class TelemetryCollector:
         if time.monotonic() - self._user_status_at < max_age and self._labels:
             return
         data = self.ls.rpc("GetUserStatus")
-        cfg = ((data.get("userStatus") or {}).get("cascadeModelConfigData")) or {}
+        user_status = data.get("userStatus") or {}
+        user_tier = user_status.get("userTier") or {}
+        plan_info = (user_status.get("planStatus") or {}).get("planInfo") or {}
+        tier_name = str(user_tier.get("name") or plan_info.get("planName") or "").strip()
+        if tier_name:
+            self._user_tier_name = tier_name
+        acct_id = hash_account_id(str(user_status.get("email") or ""))
+        if acct_id:
+            self._account_id = acct_id
+        cfg = (user_status.get("cascadeModelConfigData")) or {}
         override = (cfg.get("defaultOverrideModelConfig") or {}).get("modelOrAlias") or {}
         self._selected_model = str(override.get("model") or override.get("alias") or self._selected_model)
         for item in cfg.get("clientModelConfigs") or []:
@@ -1059,6 +1092,7 @@ class TelemetryCollector:
             status=str(summary.get("status") or ""),
             last_modified_ms=parse_iso_ms(summary.get("lastModifiedTime")) or 0,
             is_subagent=bool(meta.get("parentConversationId")),
+            account_id=self._account_id,
             steps=steps,
         )
         self._trajectory_cache[cid] = (stamp, conversation)
@@ -1163,6 +1197,8 @@ class TelemetryCollector:
             selected_model_label=self._selected_label(),
             quota=self._quotas.get(quota_key, (None, None)),
             conversations=listing,
+            user_tier_name=self._user_tier_name,
+            account_id=self._account_id,
         )
 
     def _title_for(self, cid: str, summary: dict[str, Any] | None = None) -> str:
@@ -1269,6 +1305,8 @@ class TelemetryCollector:
             context_limit_tokens=infer_context_limit(selected_label),
             cumulative_total_tokens=0,
             conversations=conversations,
+            user_tier_name=str(payload.get("userTierName") or active.get("userTierName") or ""),
+            account_id=str(payload.get("accountId") or ""),
         )
 
     def _live_from_sidecar_file(self, path: Path, pinned_id: str, *, source: str) -> LiveSnapshot | None:
@@ -1357,6 +1395,8 @@ class TelemetryCollector:
                 selected_model_label=selected_label,
                 quota_windows=parse_quota_buckets(payload.get("quotaBuckets")),
                 conversations=listing,
+                user_tier_name=str(payload.get("userTierName") or ""),
+                account_id=str(payload.get("accountId") or ""),
             )
         if kind == "empty_hook" and extra is not None:
             title = clean_title(str(extra.get("lastUserInput") or extra.get("title") or "")) or "新对话"
@@ -1448,18 +1488,55 @@ class TelemetryCollector:
         if self.use_language_server and self.ls.endpoint is not None:
             try:
                 self._refresh_user_status()
-                conversations = []
+                fetched: list[ConversationUsage] = []
                 for cid, summary in self._ls_summaries()[:limit]:
-                    is_sub = bool((summary.get("trajectoryMetadata") or {}).get("parentConversationId"))
-                    if is_sub and not include_subagents:
-                        continue
-                    conversations.append(self._ls_conversation(cid, summary))
+                    fetched.append(self._ls_conversation(cid, summary))
+                if self.ledger is not None:
+                    self.ledger.ingest(
+                        fetched,
+                        account_id=self._account_id,
+                        tier_name=self._user_tier_name,
+                    )
+                    conversations = self.ledger.conversations(include_subagents=include_subagents)
+                    accounts = self.ledger.accounts()
+                else:
+                    conversations = [c for c in fetched if include_subagents or not c.is_subagent]
+                    accounts = [(self._account_id, self._user_tier_name)] if self._account_id else []
                 active_id = live.conversation_id if live else ""
                 active = next((c for c in conversations if c.conversation_id == active_id), None)
-                return MeterReport("ls", build_model_rows(conversations), len(conversations), active, live, conversations=conversations)
+                return MeterReport(
+                    "ls",
+                    build_model_rows(conversations),
+                    len(conversations),
+                    active,
+                    live,
+                    conversations=conversations,
+                    user_tier_name=self._user_tier_name,
+                    account_id=self._account_id,
+                    accounts=accounts,
+                )
             except Exception:  # any LS failure must fall through to file sources
                 pass
-        conversations = self._transcript_conversations(limit=limit)
+        fetched = self._transcript_conversations(limit=limit)
+        tier_name = live.user_tier_name if live else ""
+        acct_id = live.account_id if live else ""
+        if self.ledger is not None:
+            self.ledger.ingest(fetched, account_id=acct_id, tier_name=tier_name)
+            conversations = self.ledger.conversations(include_subagents=include_subagents)
+            accounts = self.ledger.accounts()
+        else:
+            conversations = [c for c in fetched if include_subagents or not c.is_subagent]
+            accounts = [(acct_id, tier_name)] if acct_id else []
         active_id = live.conversation_id if live else ""
         active = next((c for c in conversations if c.conversation_id == active_id), conversations[0] if conversations else None)
-        return MeterReport("transcript", build_model_rows(conversations), len(conversations), active, live, conversations=conversations)
+        return MeterReport(
+            "transcript",
+            build_model_rows(conversations),
+            len(conversations),
+            active,
+            live,
+            conversations=conversations,
+            user_tier_name=tier_name,
+            account_id=acct_id,
+            accounts=accounts,
+        )
