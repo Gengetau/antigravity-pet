@@ -28,6 +28,7 @@ LINES: dict[str, tuple[str, ...]] = {
     ),
     "form": ("检测到 {model}，切换成 {form} 形态！", "{model} 上线，{form} 形态就位。"),
     "offline": ("Antigravity 好像没开，我先自己玩会儿。",),
+    "update": ("GitHub 上有新版本 v{version} 啦，可以在侧边栏点一下更新哦～",),
 }
 
 
@@ -49,6 +50,7 @@ class ReactionTracker:
         self._last_at: dict[str, float] = {}
         self._quota_band = 2  # 2 ok, 1 low, 0 critical
         self._context_warned_for = ""
+        self._update_notified_for = ""
         self._was_offline = False
         self.lines: dict[str, tuple[str, ...]] = dict(LINES)
 
@@ -128,4 +130,9 @@ class ReactionTracker:
         if ctx >= 80 and self._context_warned_for != snapshot.conversation_id:
             self._context_warned_for = snapshot.conversation_id
             reactions.append(Reaction("context_high", self._line("context_high", ctx=f"{ctx:.0f}"), "DIZZY"))
+
+        latest_ver = str(getattr(snapshot, "available_update_version", "") or "").strip()
+        if latest_ver and latest_ver != self._update_notified_for:
+            self._update_notified_for = latest_ver
+            reactions.append(Reaction("update", self._line("update", version=latest_ver), "WAVE"))
         return reactions

@@ -84,23 +84,41 @@
 
   function renderForms(forms, agyConfig) {
     const grid = $('form-grid');
-    grid.innerHTML = '';
+    const buttons = [];
     for (const f of forms || []) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `form-btn${agyConfig.form === f.id ? ' active' : ''}`;
-      btn.innerHTML = `<span class="form-swatch" style="background:${f.accent}"></span><span>${f.name}</span>`;
+      const swatch = document.createElement('span');
+      swatch.className = 'form-swatch';
+      swatch.style.background = f.accent;
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = f.name;
+      btn.append(swatch, nameSpan);
       btn.addEventListener('click', () => saveConfig({ form: f.id, follow_model: false }));
-      grid.appendChild(btn);
+      buttons.push(btn);
     }
+    grid.replaceChildren(...buttons);
   }
 
   function render(state) {
     currentState = state;
     const dot = $('pet-dot');
     dot.classList.toggle('online', Boolean(state.petRunning));
+    if (state.version) {
+      $('ver-text').textContent = `v${state.version}`;
+    }
     $('pet-status-text').textContent = state.petRunning ? '桌宠运行中（配置实时热同步）' : '桌宠未运行';
     $('btn-launch').textContent = state.petRunning ? '唤醒窗口' : '启动桌宠';
+
+    const updateBtn = $('btn-update');
+    const upd = state.updateStatus || {};
+    const showUpdate = Boolean(state.bridgeSettings?.checkUpdates !== false && upd.hasUpdate && upd.latestVersion);
+    updateBtn.hidden = !showUpdate;
+    if (showUpdate && !updateBtn.disabled) {
+      updateBtn.textContent = `↑ 更新 v${upd.latestVersion}`;
+      updateBtn.title = `发现新版本 v${upd.latestVersion}（当前 v${upd.localVersion || state.version || '0.2.0'}），点击自动更新`;
+    }
 
     const agy = state.agyConfig || {};
     renderForms(state.forms || [], agy);
@@ -111,6 +129,7 @@
     $('chk-autonomy').checked = Boolean(agy.autonomy);
     $('chk-reactions').checked = Boolean(agy.reactions);
     $('chk-auto-launch').checked = Boolean(state.bridgeSettings?.autoLaunchPet);
+    $('chk-check-updates').checked = state.bridgeSettings?.checkUpdates !== false;
     $('sel-appearance').value = agy.hud_appearance || 'dialog';
     $('sel-hud-mode').value = agy.hud_mode || 'attached';
 
@@ -124,17 +143,18 @@
     const convs = Array.isArray(live.conversations) ? live.conversations : [];
     const pinned = agy.pinned_conversation || '';
     const sel = $('sel-pinned');
-    sel.innerHTML = '';
+    const options = [];
     const autoOpt = document.createElement('option');
     autoOpt.value = '';
     autoOpt.textContent = '自动跟随当前活跃会话';
-    sel.appendChild(autoOpt);
+    options.push(autoOpt);
     for (const c of convs) {
       const opt = document.createElement('option');
       opt.value = c.conversationId;
       opt.textContent = c.title || c.conversationId.slice(0, 8);
-      sel.appendChild(opt);
+      options.push(opt);
     }
+    sel.replaceChildren(...options);
     sel.value = convs.some((c) => c.conversationId === pinned) ? pinned : '';
 
     const shown =
@@ -244,12 +264,39 @@
     }
   });
 
+  $('btn-github').addEventListener('click', async () => {
+    try {
+      await fetcher('/api/open-github', { method: 'POST', body: '{}' });
+      $('status-msg').textContent = '已在默认浏览器打开 GitHub 仓库';
+    } catch {
+      $('status-msg').textContent = '打开 GitHub 仓库失败';
+    }
+  });
+
+  $('btn-update').addEventListener('click', async () => {
+    const btn = $('btn-update');
+    btn.disabled = true;
+    btn.textContent = '更新中…';
+    $('status-msg').textContent = '正在从 GitHub 拉取更新…';
+    try {
+      const res = await fetcher('/api/pet/update', { method: 'POST', body: '{}' });
+      const body = await res.json();
+      $('status-msg').textContent = body.message || (body.ok ? '更新成功' : '更新未完成');
+      setTimeout(loadState, 600);
+    } catch {
+      $('status-msg').textContent = '更新请求失败';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   $('chk-follow-model').addEventListener('change', (e) => saveConfig({ follow_model: e.target.checked }));
   $('chk-hud-enabled').addEventListener('change', (e) => saveConfig({ hud_enabled: e.target.checked }));
   $('chk-hud-locked').addEventListener('change', (e) => saveConfig({ hud_locked: e.target.checked }));
   $('chk-autonomy').addEventListener('change', (e) => saveConfig({ autonomy: e.target.checked }));
   $('chk-reactions').addEventListener('change', (e) => saveConfig({ reactions: e.target.checked }));
   $('chk-auto-launch').addEventListener('change', (e) => saveConfig({ autoLaunchPet: e.target.checked }));
+  $('chk-check-updates').addEventListener('change', (e) => saveConfig({ checkUpdates: e.target.checked }));
   $('sel-appearance').addEventListener('change', (e) => saveConfig({ hud_appearance: e.target.value }));
   $('sel-hud-mode').addEventListener('change', (e) => saveConfig({ hud_mode: e.target.value }));
   $('sel-pinned').addEventListener('change', (e) => saveConfig({ pinned_conversation: e.target.value }));

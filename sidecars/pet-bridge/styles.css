@@ -79,6 +79,12 @@ html, body {
   background: var(--ok-fallback);
 }
 
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .brand-title {
   margin: 0;
   font-size: 14px;
@@ -86,10 +92,77 @@ html, body {
   line-height: 1.2;
 }
 
+.ver-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--muted, var(--muted-bg-fallback));
+  color: var(--muted-foreground, var(--muted-fg-fallback));
+}
+
 .brand-sub {
   display: block;
   font-size: 11px;
   color: var(--muted-foreground, var(--muted-fg-fallback));
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.icon-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 28px;
+  min-block-size: 28px;
+  padding: 5px;
+  border-radius: 6px;
+  border: 1px solid var(--border, var(--border-fallback));
+  background: var(--muted, var(--muted-bg-fallback));
+  color: var(--foreground, var(--fg-fallback));
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  border-color: var(--primary, var(--accent-fallback));
+  color: var(--primary, var(--accent-fallback));
+}
+
+.update-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-block-size: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ok-fallback) 50%, transparent);
+  background: color-mix(in srgb, var(--ok-fallback) 16%, transparent);
+  color: var(--ok-fallback);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.update-btn:hover {
+  filter: brightness(1.08);
+}
+
+.update-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+:where(button, select, input):focus-visible {
+  outline: 2px solid var(--primary, var(--accent-fallback));
+  outline-offset: 2px;
 }
 
 .primary-btn {

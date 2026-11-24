@@ -166,6 +166,7 @@ class LiveSnapshot:
     quota_windows: list[QuotaWindow] = field(default_factory=list)
     user_tier_name: str = ""
     account_id: str = ""
+    available_update_version: str = ""
 
     def quota_for(self, kind: str) -> tuple[float | None, str | None]:
         """Remaining % and reset time of the 5-hour (``"5h"``) or weekly window.
@@ -251,6 +252,7 @@ class MeterReport:
     conversations: list[ConversationUsage] = field(default_factory=list)
     user_tier_name: str = ""
     account_id: str = ""
+    available_update_version: str = ""
     accounts: list[tuple[str, str]] = field(default_factory=list)
 
     @property
@@ -682,6 +684,7 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
         quota_windows=parse_quota_buckets(payload.get("quotaBuckets")),
         user_tier_name=str(payload.get("userTierName") or chosen.get("userTierName") or ""),
         account_id=str(payload.get("accountId") or ""),
+        available_update_version=str(payload.get("availableUpdateVersion") or ""),
         conversations=[
             (str(c.get("conversationId")), str(c.get("title") or c.get("conversationId", "")[:8]))
             for c in convs
@@ -1383,6 +1386,7 @@ class TelemetryCollector:
             conversations=conversations,
             user_tier_name=str(payload.get("userTierName") or active.get("userTierName") or ""),
             account_id=str(payload.get("accountId") or ""),
+            available_update_version=str(payload.get("availableUpdateVersion") or ""),
         )
 
     def _live_from_sidecar_file(self, path: Path, pinned_id: str, *, source: str) -> LiveSnapshot | None:

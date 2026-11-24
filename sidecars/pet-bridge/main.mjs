@@ -11,7 +11,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -175,9 +175,12 @@ function readBridgeSettings() {
   const p = join(resolvePetDataDir(), 'bridge_settings.json');
   try {
     const raw = JSON.parse(readFileSync(p, 'utf-8'));
-    return { autoLaunchPet: Boolean(raw?.autoLaunchPet) };
+    return {
+      autoLaunchPet: Boolean(raw?.autoLaunchPet),
+      checkUpdates: raw?.checkUpdates === undefined ? true : Boolean(raw.checkUpdates),
+    };
   } catch {
-    return { autoLaunchPet: false };
+    return { autoLaunchPet: false, checkUpdates: true };
   }
 }
 
@@ -185,9 +188,185 @@ function writeBridgeSettings(patch) {
   const current = readBridgeSettings();
   const next = {
     autoLaunchPet: patch.autoLaunchPet !== undefined ? Boolean(patch.autoLaunchPet) : current.autoLaunchPet,
+    checkUpdates: patch.checkUpdates !== undefined ? Boolean(patch.checkUpdates) : current.checkUpdates,
   };
   atomicWriteJson(join(resolvePetDataDir(), 'bridge_settings.json'), next);
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Repo Link, 24h Update Check (Opt-In) & Safe One-Click Update
+// ---------------------------------------------------------------------------
+
+const GITHUB_REPO_URL = 'https://github.com/Gengetau/antigravity-pet';
+const GITHUB_RAW_PLUGIN_URL = 'https://raw.githubusercontent.com/Gengetau/antigravity-pet/main/plugin.json';
+const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/Gengetau/antigravity-pet/releases/latest';
+const UPDATE_CHECK_INTERVAL_MS = 24 * 3600 * 1000;
+
+function readLocalPluginVersion() {
+  for (const root of [PET_ROOT, dirname(dirname(__dirname))]) {
+    try {
+      const raw = JSON.parse(readFileSync(join(root, 'plugin.json'), 'utf-8'));
+      if (raw?.version) return String(raw.version).replace(/^v/i, '').trim();
+    } catch {
+      // Try next candidate.
+    }
+  }
+  return '0.2.0';
+}
+
+function compareSemver(a, b) {
+  const parse = (v) =>
+    String(v || '0')
+      .replace(/^v/i, '')
+      .split('.')
+      .slice(0, 3)
+      .map((n) => Number.parseInt(n, 10) || 0);
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0) ? 1 : -1;
+  }
+  return 0;
+}
+
+function readUpdateCache() {
+  const p = join(resolvePetDataDir(), 'update_check.json');
+  const localVersion = readLocalPluginVersion();
+  try {
+    const raw = JSON.parse(readFileSync(p, 'utf-8'));
+    const latestVersion = String(raw?.latestVersion || '').replace(/^v/i, '').trim();
+    const checkedMs = Number(raw?.checkedMs) || 0;
+    const hasUpdate = Boolean(latestVersion && compareSemver(latestVersion, localVersion) > 0);
+    return {
+      localVersion,
+      latestVersion,
+      checkedMs,
+      hasUpdate,
+      repoUrl: GITHUB_REPO_URL,
+      error: String(raw?.error || ''),
+    };
+  } catch {
+    return {
+      localVersion,
+      latestVersion: '',
+      checkedMs: 0,
+      hasUpdate: false,
+      repoUrl: GITHUB_REPO_URL,
+      error: '',
+    };
+  }
+}
+
+let updateCheckPromise = null;
+
+async function maybeCheckForUpdates({ force = false } = {}) {
+  const settings = readBridgeSettings();
+  const cached = readUpdateCache();
+  if (!settings.checkUpdates && !force) {
+    return { ...cached, hasUpdate: false, checkUpdates: false };
+  }
+  if (!force && cached.checkedMs > 0 && Date.now() - cached.checkedMs < UPDATE_CHECK_INTERVAL_MS) {
+    return { ...cached, checkUpdates: settings.checkUpdates };
+  }
+  if (updateCheckPromise) return await updateCheckPromise;
+
+  updateCheckPromise = (async () => {
+    const localVersion = readLocalPluginVersion();
+    let latestVersion = '';
+    let error = '';
+    try {
+      const res = await fetch(GITHUB_RAW_PLUGIN_URL, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.version) latestVersion = String(data.version).replace(/^v/i, '').trim();
+      }
+    } catch (err) {
+      error = String(err?.message || 'fetch failed').slice(0, 80);
+    }
+    if (!latestVersion) {
+      try {
+        const relRes = await fetch(GITHUB_RELEASES_API_URL, {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: AbortSignal.timeout(4000),
+        });
+        if (relRes.ok) {
+          const rel = await relRes.json();
+          if (rel?.tag_name) latestVersion = String(rel.tag_name).replace(/^v/i, '').trim();
+          error = '';
+        }
+      } catch (err) {
+        if (!error) error = String(err?.message || 'release fetch failed').slice(0, 80);
+      }
+    }
+    const next = {
+      localVersion,
+      latestVersion: latestVersion || cached.latestVersion || localVersion,
+      checkedMs: Date.now(),
+      hasUpdate: Boolean(latestVersion && compareSemver(latestVersion, localVersion) > 0),
+      repoUrl: GITHUB_REPO_URL,
+      error: latestVersion ? '' : error,
+    };
+    try {
+      atomicWriteJson(join(resolvePetDataDir(), 'update_check.json'), next);
+    } catch {
+      // Non-fatal.
+    }
+    return { ...next, checkUpdates: settings.checkUpdates };
+  })();
+
+  try {
+    return await updateCheckPromise;
+  } finally {
+    updateCheckPromise = null;
+  }
+}
+
+function openExternalRepoUrl(subpath = '') {
+  const safePath = subpath === '/releases' ? '/releases' : '';
+  const target = `${GITHUB_REPO_URL}${safePath}`;
+  try {
+    if (process.platform === 'win32') {
+      const child = spawn('cmd.exe', ['/c', 'start', '', target], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      child.unref();
+    } else if (process.platform === 'darwin') {
+      const child = spawn('open', [target], { detached: true, stdio: 'ignore' });
+      child.unref();
+    } else {
+      const child = spawn('xdg-open', [target], { detached: true, stdio: 'ignore' });
+      child.unref();
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function syncInstalledPluginFilesFromRepo() {
+  const pluginRoot = dirname(dirname(__dirname));
+  if (pluginRoot === PET_ROOT) return;
+  const relFiles = [
+    'plugin.json',
+    'hooks.json',
+    'hooks/track_session.mjs',
+    'skills/agy-pet/SKILL.md',
+    'sidecars/pet-bridge/main.mjs',
+    'sidecars/pet-bridge/index.html',
+    'sidecars/pet-bridge/app.js',
+    'sidecars/pet-bridge/styles.css',
+  ];
+  for (const rel of relFiles) {
+    const src = join(PET_ROOT, rel);
+    const dst = join(pluginRoot, rel);
+    if (existsSync(src)) {
+      mkdirSync(dirname(dst), { recursive: true });
+      copyFileSync(src, dst);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1212,11 +1391,18 @@ async function updatePetLiveFile() {
     const selectedQuota = quotaMap.get(selectedModelId) || null;
     const selectedModelLabel = selectedModelId ? resolveModelLabel(selectedModelId, labelMap) : '';
 
+    const bridge = readBridgeSettings();
+    const updCache = readUpdateCache();
+    if (bridge.checkUpdates && (!updCache.checkedMs || Date.now() - updCache.checkedMs >= UPDATE_CHECK_INTERVAL_MS)) {
+      maybeCheckForUpdates().catch(() => {});
+    }
+
     const payload = {
       updatedAt: new Date().toISOString(),
       updatedMs: Date.now(),
       userTierName: userTierName || '',
       accountId: accountId || '',
+      availableUpdateVersion: bridge.checkUpdates && updCache.hasUpdate ? updCache.latestVersion : '',
       modelLabels: Object.fromEntries(labelMap),
       selectedModelId,
       selectedModelLabel,
@@ -1239,7 +1425,6 @@ async function updatePetLiveFile() {
       // Never let meter export failure break pet_live.json updates.
     }
 
-    const bridge = readBridgeSettings();
     if (bridge.autoLaunchPet && !isPetRunning().running && Date.now() - lastAutoLaunchAttempt > 60_000) {
       lastAutoLaunchAttempt = Date.now();
       launchPet().catch(() => {});
@@ -1345,11 +1530,21 @@ app.api(
       await updatePetLiveFile();
     }
     const petStatus = isPetRunning();
+    const bridgeSettings = readBridgeSettings();
+    const updCache = readUpdateCache();
+    if (bridgeSettings.checkUpdates && (!updCache.checkedMs || Date.now() - updCache.checkedMs >= UPDATE_CHECK_INTERVAL_MS)) {
+      maybeCheckForUpdates().catch(() => {});
+    }
     return {
+      version: readLocalPluginVersion(),
       petRunning: petStatus.running,
       petStatus,
       agyConfig: readPetConfig(),
-      bridgeSettings: readBridgeSettings(),
+      bridgeSettings,
+      updateStatus: {
+        ...updCache,
+        hasUpdate: Boolean(bridgeSettings.checkUpdates && updCache.hasUpdate),
+      },
       forms: PET_FORMS,
       hostConversationId: app.config.conversationId || '',
       live: lastPetPayload,
@@ -1400,11 +1595,85 @@ app.api(
   async (data) => {
     const patch = data && typeof data === 'object' ? data : {};
     const agyConfig = updatePetConfig(patch);
-    let bridgeSettings = readBridgeSettings();
-    if (typeof patch.autoLaunchPet === 'boolean') {
-      bridgeSettings = writeBridgeSettings({ autoLaunchPet: patch.autoLaunchPet });
+    const bridgePatch = {};
+    if (typeof patch.autoLaunchPet === 'boolean') bridgePatch.autoLaunchPet = patch.autoLaunchPet;
+    if (typeof patch.checkUpdates === 'boolean') bridgePatch.checkUpdates = patch.checkUpdates;
+    const bridgeSettings = Object.keys(bridgePatch).length > 0 ? writeBridgeSettings(bridgePatch) : readBridgeSettings();
+    if (patch.checkUpdates === true) {
+      maybeCheckForUpdates().catch(() => {});
     }
     return { ok: true, agyConfig, bridgeSettings };
+  },
+  'POST'
+);
+
+app.api(
+  '/api/open-github',
+  async () => {
+    const ok = openExternalRepoUrl('');
+    return { ok, url: GITHUB_REPO_URL };
+  },
+  'POST'
+);
+
+app.api(
+  '/api/pet/check-update',
+  async () => {
+    const updateStatus = await maybeCheckForUpdates({ force: true });
+    return { ok: true, updateStatus };
+  },
+  'POST'
+);
+
+app.api(
+  '/api/pet/update',
+  async () => {
+    if (!existsSync(join(PET_ROOT, '.git'))) {
+      openExternalRepoUrl('/releases');
+      return { ok: false, openedBrowser: true, message: '当前目录非 Git 仓库，已打开 GitHub 页面手动下载' };
+    }
+    try {
+      const dirtyOut = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+        cwd: PET_ROOT,
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+      if (dirtyOut) {
+        openExternalRepoUrl('');
+        return { ok: false, dirty: true, openedBrowser: true, message: '本地有未提交改动，为保护代码未覆盖，已打开 GitHub 页面' };
+      }
+      const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: PET_ROOT,
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+      if (branch !== 'main') {
+        return { ok: false, branch, message: `当前处于分支 ${branch}，请切回 main 后再一键更新` };
+      }
+      execFileSync('git', ['pull', '--ff-only', 'origin', 'main'], {
+        cwd: PET_ROOT,
+        encoding: 'utf-8',
+        timeout: 25000,
+      });
+      syncInstalledPluginFilesFromRepo();
+      const newVer = readLocalPluginVersion();
+      atomicWriteJson(join(resolvePetDataDir(), 'update_check.json'), {
+        localVersion: newVer,
+        latestVersion: newVer,
+        checkedMs: Date.now(),
+        hasUpdate: false,
+        repoUrl: GITHUB_REPO_URL,
+        error: '',
+      });
+      return { ok: true, version: newVer, message: `已拉取 v${newVer}，重开桌宠并开关一次插件即可生效` };
+    } catch (err) {
+      openExternalRepoUrl('/releases');
+      return {
+        ok: false,
+        openedBrowser: true,
+        message: `自动更新失败（${String(err?.message || 'git error').slice(0, 60)}），已打开 GitHub 页面`,
+      };
+    }
   },
   'POST'
 );

@@ -381,3 +381,31 @@ def test_offline_transcript_detects_subagents_and_upgrades_old_ledger(tmp_path: 
     assert by_id[sub1_id].is_subagent is True
     assert by_id[sub2_id].is_subagent is True
     assert by_id[sub1_id].steps[0].model_label == "Gemini 4 Neon (High)"
+
+
+def test_available_update_version_triggers_single_reaction(tmp_path: Path):
+    from agy.reactions import ReactionTracker
+    from agy.telemetry import snapshot_from_hud_live
+
+    payload = {
+        "availableUpdateVersion": "0.3.0",
+        "selectedModelLabel": "Gemini 4 Neon (High)",
+        "active": {
+            "conversationId": "conv-u",
+            "title": "版本检查",
+            "status": "CASCADE_RUN_STATUS_IDLE",
+            "contextUsedTokens": 1000,
+        },
+        "conversations": [],
+    }
+    snap = snapshot_from_hud_live(payload, source="pet_live")
+    assert snap is not None and snap.available_update_version == "0.3.0"
+
+    tracker = ReactionTracker()
+    first = tracker.observe(snap, now=100.0, follow_model=False, current_form="neon")
+    upd = [r for r in first if r.kind == "update"]
+    assert len(upd) == 1 and upd[0].action == "WAVE" and "v0.3.0" in upd[0].text
+
+    # Same update version on next poll must not repeat the reaction.
+    second = tracker.observe(snap, now=200.0, follow_model=False, current_form="neon")
+    assert [r for r in second if r.kind == "update"] == []
