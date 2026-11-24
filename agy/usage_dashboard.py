@@ -343,6 +343,7 @@ class UsageDashboard(QScrollArea):
         tier_layout.addLayout(tier_head)
 
         self.tier_detail_box = QWidget()
+        self.tier_detail_box.setObjectName("tierDetailBox")
         self.tier_detail_box.setVisible(False)
         td_layout = QVBoxLayout(self.tier_detail_box)
         td_layout.setContentsMargins(0, 4, 0, 2)
@@ -743,7 +744,10 @@ class UsageDashboard(QScrollArea):
         plan = table.find_subscription(self._user_tier_name)
         freshness = "刚刚更新" if (self._updated_at is None or time.time() - self._updated_at < 60) else "已同步"
         if self._user_tier_name:
-            self.tier_label.setText(f"💎 {self._user_tier_name} · 已自动识别 · {freshness}")
+            if self._source == "transcript":
+                self.tier_label.setText(f"💎 {self._user_tier_name} · 历史已记录（当前离线统计）")
+            else:
+                self.tier_label.setText(f"💎 {self._user_tier_name} · 已自动识别 · {freshness}")
             if plan and plan.monthly_usd > 0:
                 self.tier_price.setText(f"${plan.monthly_usd:,.2f}/月 (≈ {pricing.format_cny(plan.monthly_usd, rate)} CNY)")
                 self.tier_price.setVisible(True)
@@ -760,11 +764,12 @@ class UsageDashboard(QScrollArea):
                     f"本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}，缓存省下 {pricing.format_usd_cny(report.cache_saved_usd, rate)}。"
                 )
         else:
-            self.tier_label.setText("💎 订阅档位暂未识别（连接 Antigravity 语言服务后自动同步）")
+            self.tier_label.setText("💎 订阅档位待同步（在 Antigravity 插件页开关一次 AGY 桌宠或重开 IDE 后自动识别）")
             self.tier_price.setVisible(False)
             self.tier_roi_bar.setValue(0)
             self.tier_detail_text.setText(
-                f"当前按离线记录统计：本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}。"
+                f"当前按离线记录统计：本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}，"
+                f"缓存读取累计省下 {pricing.format_usd_cny(report.cache_saved_usd, rate)}。"
             )
 
         self.cost_total.setText(pricing.format_usd_cny(report.total_usd, rate))

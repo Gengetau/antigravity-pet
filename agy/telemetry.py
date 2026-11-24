@@ -32,8 +32,13 @@ from .ledger import UsageLedger, hash_account_id
 
 LS_SERVICE = "exa.language_server_pb.LanguageServerService"
 HUD_LIVE_MAX_AGE_SECONDS = 15.0
+PET_METER_MAX_AGE_SECONDS = 90.0
 ACTIVE_HOOK_MAX_AGE_SECONDS = 7200.0
 RUNNING_STATUS = "CASCADE_RUN_STATUS_RUNNING"
+_SPAWNED_SUBAGENT_RE = re.compile(
+    r'Created the following subagent:\s*\{\s*"conversationId"\s*:\s*"([0-9a-f\-]{36})"',
+    re.I,
+)
 
 
 # --------------------------------------------------------------------------
@@ -494,7 +499,12 @@ def parse_rpc_step(raw: object, label_map: dict[str, str] | None = None) -> Step
         )
 
 
-def parse_transcript_lines(lines: Iterable[str], *, default_model: str = "") -> tuple[list[StepUsage], str]:
+def parse_transcript_lines(
+    lines: Iterable[str],
+    *,
+    default_model: str = "",
+    label_map: dict[str, str] | None = None,
+) -> tuple[list[StepUsage], str]:
     """Parse an offline ``transcript.jsonl``.
 
     Only some lines carry ``model``; it is carried forward and, for the leading
@@ -519,6 +529,7 @@ def parse_transcript_lines(lines: Iterable[str], *, default_model: str = "") -> 
             break
     first_model = next((str(o["model"]) for o in records if o.get("type") == "PLANNER_RESPONSE" and o.get("model")), default_model)
     current = first_model
+    labels = label_map or {}
     steps: list[StepUsage] = []
     for index, obj in enumerate(records):
         if obj.get("type") != "PLANNER_RESPONSE":
@@ -553,10 +564,11 @@ def parse_transcript_lines(lines: Iterable[str], *, default_model: str = "") -> 
             for call in (obj.get("tool_calls") or [])
             if isinstance(call, dict) and call.get("name")
         )
+        friendly = labels.get(current) if current else None
         steps.append(
             StepUsage(
                 model_id=current or "UNKNOWN_MODEL",
-                model_label=prettify_model(current) if current else "未知模型（离线日志）",
+                model_label=friendly or (prettify_model(current) if current else "未知模型（离线日志）"),
                 input_tokens=input_tokens,
                 cache_read_tokens=cache_tokens,
                 output_tokens=output_tokens,
@@ -856,6 +868,10 @@ class TelemetryCollector:
     @property
     def pet_live_path(self) -> Path:
         return self.root / "sidecar_data" / "agy-pet" / "pet-bridge" / "data" / "pet_live.json"
+
+    @property
+    def pet_meter_path(self) -> Path:
+        return self.root / "sidecar_data" / "agy-pet" / "pet-bridge" / "data" / "pet_meter.json"
 
     @property
     def active_session_path(self) -> Path:
@@ -1233,32 +1249,77 @@ class TelemetryCollector:
             pass
         return ""
 
-    def _transcript_conversation(self, path: Path) -> ConversationUsage | None:
+    def _known_labels(self) -> dict[str, str]:
+        merged: dict[str, str] = {}
+        if self.ledger is not None:
+            merged.update(self.ledger.model_labels())
+        for sidecar_path in (self.pet_meter_path, self.pet_live_path):
+            try:
+                if sidecar_path.is_file():
+                    raw = json.loads(sidecar_path.read_text(encoding="utf-8"))
+                    ml = raw.get("modelLabels") if isinstance(raw, dict) else None
+                    if isinstance(ml, dict):
+                        for k, v in ml.items():
+                            if isinstance(k, str) and isinstance(v, str) and k and v:
+                                merged[k] = v
+            except (OSError, ValueError):
+                continue
+        merged.update(self._labels)
+        return merged
+
+    @staticmethod
+    def _looks_like_system_subagent(lines: list[str]) -> bool:
+        """True only when a transcript starts as SYSTEM_MESSAGE with zero USER_EXPLICIT."""
+        if not lines:
+            return False
+        try:
+            first = json.loads(lines[0])
+        except ValueError:
+            return False
+        if not isinstance(first, dict) or first.get("source") != "SYSTEM" or first.get("type") != "SYSTEM_MESSAGE":
+            return False
+        for line in lines[:20]:
+            if '"USER_EXPLICIT"' in line:
+                return False
+        return True
+
+    def _transcript_conversation(
+        self,
+        path: Path,
+        *,
+        spawned_subagent_ids: set[str] | None = None,
+        label_map: dict[str, str] | None = None,
+    ) -> ConversationUsage | None:
         try:
             mtime = path.stat().st_mtime
         except OSError:
             return None
+        labels = label_map if label_map is not None else self._known_labels()
+        cid = path.parents[2].name
+        spawned = bool(spawned_subagent_ids and cid.lower() in spawned_subagent_ids)
         key = str(path)
         cached = self._transcript_cache.get(key)
-        if cached and cached[0] == mtime:
+        if cached and cached[0] == (mtime, spawned, len(labels)):
             return cached[1]
         try:
-            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return None
-        steps, title = parse_transcript_lines(lines)
-        cid = path.parents[2].name
+        lines = text.splitlines()
+        is_sub = spawned or self._looks_like_system_subagent(lines)
+        steps, title = parse_transcript_lines(lines, label_map=labels)
         conversation = ConversationUsage(
             conversation_id=cid,
             title=title or f"会话 {cid[:8]}",
             status="IDLE",
             last_modified_ms=int(mtime * 1000),
+            is_subagent=is_sub,
             steps=steps,
         )
-        self._transcript_cache[key] = (mtime, conversation)
+        self._transcript_cache[key] = ((mtime, spawned, len(labels)), conversation)
         return conversation
 
-    def _transcript_conversations(self, limit: int = 60) -> list[ConversationUsage]:
+    def _transcript_conversations(self, limit: int = 120) -> list[ConversationUsage]:
         if not self.brain_dir.is_dir():
             return []
         paths = []
@@ -1269,9 +1330,24 @@ class TelemetryCollector:
             except OSError:
                 continue
         paths.sort(reverse=True)
+        selected = paths[:limit]
+        spawned_ids: set[str] = set()
+        for _mtime, path in selected:
+            try:
+                raw = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "Created the following subagent" in raw:
+                for m in _SPAWNED_SUBAGENT_RE.finditer(raw):
+                    spawned_ids.add(m.group(1).lower())
+        labels = self._known_labels()
         result = []
-        for _mtime, path in paths[:limit]:
-            conversation = self._transcript_conversation(path)
+        for _mtime, path in selected:
+            conversation = self._transcript_conversation(
+                path,
+                spawned_subagent_ids=spawned_ids,
+                label_map=labels,
+            )
             if conversation is not None:
                 result.append(conversation)
         return result
@@ -1483,7 +1559,97 @@ class TelemetryCollector:
             or self._live_from_transcripts(pinned_id)
         )
 
-    def meter_report(self, *, include_subagents: bool = True, pinned_id: str = "", limit: int = 40) -> MeterReport:
+    def _meter_from_pet_file(self, *, include_subagents: bool, live: LiveSnapshot | None) -> MeterReport | None:
+        path = self.pet_meter_path
+        try:
+            if time.time() - path.stat().st_mtime > PET_METER_MAX_AGE_SECONDS:
+                return None
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(payload, dict) or not isinstance(payload.get("conversations"), list):
+            return None
+
+        tier_name = str(payload.get("userTierName") or (live.user_tier_name if live else "") or "").strip()
+        acct_id = str(payload.get("accountId") or (live.account_id if live else "") or "").strip()
+        raw_labels = payload.get("modelLabels")
+        model_labels: dict[str, str] = {}
+        if isinstance(raw_labels, dict):
+            for k, v in raw_labels.items():
+                if isinstance(k, str) and isinstance(v, str) and k and v:
+                    model_labels[k] = v
+                    self._labels[k] = v
+
+        fetched: list[ConversationUsage] = []
+        for rec in payload.get("conversations") or []:
+            if not isinstance(rec, dict) or not rec.get("conversationId"):
+                continue
+            steps: list[StepUsage] = []
+            for row in rec.get("steps") or []:
+                if not isinstance(row, list) or len(row) < 8:
+                    continue
+                model_id = str(row[1] or "UNKNOWN_MODEL")
+                label = str(row[2] or "") or model_labels.get(model_id) or prettify_model(model_id)
+                tools_raw = row[12] if len(row) > 12 and isinstance(row[12], list) else ()
+                steps.append(
+                    StepUsage(
+                        model_id=model_id,
+                        model_label=label,
+                        input_tokens=to_int(row[3]),
+                        cache_read_tokens=to_int(row[4]),
+                        output_tokens=to_int(row[5]),
+                        thinking_tokens=to_int(row[6]),
+                        response_tokens=to_int(row[7]),
+                        created_ms=to_int(row[0]),
+                        ttft_ms=float(row[8]) if len(row) > 8 and isinstance(row[8], (int, float)) else None,
+                        decode_tps=float(row[9]) if len(row) > 9 and isinstance(row[9], (int, float)) else None,
+                        e2e_tps=float(row[10]) if len(row) > 10 and isinstance(row[10], (int, float)) else None,
+                        duration_ms=float(row[11]) if len(row) > 11 and isinstance(row[11], (int, float)) else None,
+                        tool_calls=tuple(str(t) for t in tools_raw if t),
+                    )
+                )
+            fetched.append(
+                ConversationUsage(
+                    conversation_id=str(rec["conversationId"]),
+                    title=str(rec.get("title") or f"会话 {str(rec['conversationId'])[:8]}"),
+                    status=str(rec.get("status") or ""),
+                    last_modified_ms=to_int(rec.get("lastModifiedMs")),
+                    is_subagent=bool(rec.get("isSubagent")),
+                    account_id=acct_id,
+                    steps=steps,
+                )
+            )
+
+        if self.ledger is not None:
+            self.ledger.ingest(
+                fetched,
+                account_id=acct_id,
+                tier_name=tier_name,
+                source_quality=2,
+                model_labels=model_labels,
+            )
+            conversations = self.ledger.conversations(include_subagents=include_subagents)
+            accounts = self.ledger.accounts()
+            tier_name = tier_name or self.ledger.last_tier_name()
+        else:
+            conversations = [c for c in fetched if include_subagents or not c.is_subagent]
+            accounts = [(acct_id, tier_name)] if acct_id else []
+
+        active_id = live.conversation_id if live else ""
+        active = next((c for c in conversations if c.conversation_id == active_id), conversations[0] if conversations else None)
+        return MeterReport(
+            "pet_live",
+            build_model_rows(conversations),
+            len(conversations),
+            active,
+            live,
+            conversations=conversations,
+            user_tier_name=tier_name,
+            account_id=acct_id,
+            accounts=accounts,
+        )
+
+    def meter_report(self, *, include_subagents: bool = True, pinned_id: str = "", limit: int = 80) -> MeterReport:
         live = self.live_snapshot(pinned_id)
         if self.use_language_server and self.ls.endpoint is not None:
             try:
@@ -1496,6 +1662,8 @@ class TelemetryCollector:
                         fetched,
                         account_id=self._account_id,
                         tier_name=self._user_tier_name,
+                        source_quality=2,
+                        model_labels=self._labels,
                     )
                     conversations = self.ledger.conversations(include_subagents=include_subagents)
                     accounts = self.ledger.accounts()
@@ -1517,13 +1685,26 @@ class TelemetryCollector:
                 )
             except Exception:  # any LS failure must fall through to file sources
                 pass
-        fetched = self._transcript_conversations(limit=limit)
-        tier_name = live.user_tier_name if live else ""
-        acct_id = live.account_id if live else ""
+
+        pet_report = self._meter_from_pet_file(include_subagents=include_subagents, live=live)
+        if pet_report is not None:
+            return pet_report
+
+        fetched = self._transcript_conversations(limit=max(limit, 120))
+        tier_name = (live.user_tier_name if live else "") or ""
+        acct_id = (live.account_id if live else "") or ""
+        labels = self._known_labels()
         if self.ledger is not None:
-            self.ledger.ingest(fetched, account_id=acct_id, tier_name=tier_name)
+            self.ledger.ingest(
+                fetched,
+                account_id=acct_id,
+                tier_name=tier_name,
+                source_quality=1,
+                model_labels=labels,
+            )
             conversations = self.ledger.conversations(include_subagents=include_subagents)
             accounts = self.ledger.accounts()
+            tier_name = tier_name or self.ledger.last_tier_name()
         else:
             conversations = [c for c in fetched if include_subagents or not c.is_subagent]
             accounts = [(acct_id, tier_name)] if acct_id else []

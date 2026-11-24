@@ -54,6 +54,7 @@ QLabel#title { font-size: 18px; font-weight: 700; color: #111827; background: tr
 QLabel#badge { padding: 3px 10px; border-radius: 10px; background: #ECEFF4; font-size: 11px; font-weight: 600; }
 QLabel#muted { color: #6B7280; background: transparent; }
 QFrame#card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; }
+QWidget#tierDetailBox { background: transparent; }
 QLabel#cardTitle { color: #6B7280; font-size: 11px; font-weight: 600; background: transparent; }
 QLabel#cardValue { font-size: 20px; font-weight: 700; background: transparent; }
 QLabel#heroValue { font-size: 25px; font-weight: 800; color: #111827; background: transparent; }
@@ -102,6 +103,7 @@ QLabel#title { font-size: 18px; font-weight: 700; color: #F9FAFB; background: tr
 QLabel#badge { padding: 3px 10px; border-radius: 10px; background: #1E2534; font-size: 11px; font-weight: 600; }
 QLabel#muted { color: #9CA3AF; background: transparent; }
 QFrame#card { background: #161B26; border: 1px solid #252D3D; border-radius: 12px; }
+QWidget#tierDetailBox { background: transparent; }
 QLabel#cardTitle { color: #9CA3AF; font-size: 11px; font-weight: 600; background: transparent; }
 QLabel#cardValue { font-size: 20px; font-weight: 700; background: transparent; }
 QLabel#heroValue { font-size: 25px; font-weight: 800; color: #F9FAFB; background: transparent; }
@@ -368,7 +370,8 @@ class TokenMeterWindow(QWidget):
         root.addWidget(status_bar)
 
         self.nav_group.buttonClicked.connect(self._on_nav_clicked)
-        self.scope_source_group.buttonClicked.connect(lambda _b: self._apply_filters())
+        self.scope_source_group.buttonClicked.connect(lambda _b: self._apply_filters(sync_speed=True))
+        self.speed_view.source_changed.connect(self._sync_source_from_speed)
         self.account_box.currentIndexChanged.connect(lambda _i: self._apply_filters())
 
         self.set_theme(self._theme, notify=False)
@@ -517,12 +520,22 @@ class TokenMeterWindow(QWidget):
         extra_txt = " + 未归属历史" if unattr_count else ""
         self.account_meta.setText(f"{attr_txt}{extra_txt} · 共 {len(report.conversations)} 条会话")
 
-    def _apply_filters(self) -> None:
+    def _sync_source_from_speed(self, source_key: str) -> None:
+        for btn in self.scope_source_group.buttons():
+            if str(btn.property("sourceFilter") or "all") == source_key:
+                if not btn.isChecked():
+                    btn.setChecked(True)
+                    self._apply_filters(sync_speed=False)
+                break
+
+    def _apply_filters(self, *, sync_speed: bool = False) -> None:
         report = self._last_report
         if report is None:
             return
         src_filter = self._source_filter()
         acct_filter = self._account_filter()
+        if sync_speed:
+            self.speed_view.set_source_filter(src_filter)
         # Keep compatibility checkbox synced when user switches to main-only vs all
         want_sub = src_filter != "main"
         if self.subagents.isChecked() != want_sub:

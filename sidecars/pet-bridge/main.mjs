@@ -658,6 +658,9 @@ function parseRpcTrajectory(convId, traj, summary, transcriptInfo) {
       outputTokens > 0 && e2eMs !== null && e2eMs >= 80 ? outputTokens / (e2eMs / 1000) : null;
     const decodeTokPerSec =
       outputTokens > 0 && decodeMs !== null ? outputTokens / (decodeMs / 1000) : e2eTokPerSec;
+    const toolCalls = Array.isArray(s?.plannerResponse?.toolCalls)
+      ? s.plannerResponse.toolCalls.map((c) => String(c?.name || '')).filter(Boolean).slice(0, 4)
+      : [];
 
     steps.push({
       modelId,
@@ -674,6 +677,7 @@ function parseRpcTrajectory(convId, traj, summary, transcriptInfo) {
       decodeMs,
       decodeTokPerSec,
       e2eTokPerSec,
+      toolCalls,
     });
   }
 
@@ -1213,6 +1217,7 @@ async function updatePetLiveFile() {
       updatedMs: Date.now(),
       userTierName: userTierName || '',
       accountId: accountId || '',
+      modelLabels: Object.fromEntries(labelMap),
       selectedModelId,
       selectedModelLabel,
       selectedQuotaRemainingPct: selectedQuota?.remainingPct ?? null,
@@ -1228,6 +1233,12 @@ async function updatePetLiveFile() {
     atomicWriteJson(join(resolvePetDataDir(), 'pet_live.json'), payload);
     lastPetPayload = payload;
 
+    try {
+      await updatePetMeterFile(summaries, modelState);
+    } catch {
+      // Never let meter export failure break pet_live.json updates.
+    }
+
     const bridge = readBridgeSettings();
     if (bridge.autoLaunchPet && !isPetRunning().running && Date.now() - lastAutoLaunchAttempt > 60_000) {
       lastAutoLaunchAttempt = Date.now();
@@ -1239,6 +1250,73 @@ async function updatePetLiveFile() {
   } finally {
     tickBusy = false;
   }
+}
+
+let lastMeterWriteMs = 0;
+
+async function updatePetMeterFile(summaries, modelState) {
+  const now = Date.now();
+  if (lastMeterWriteMs > 0 && now - lastMeterWriteMs < 6000) {
+    return;
+  }
+  const allEntries = Object.entries(summaries || {}).map(([cid, sum]) => ({
+    cid,
+    sum,
+    running: sum?.status === 'CASCADE_RUN_STATUS_RUNNING' ? 1 : 0,
+    modMs: parseIsoMs(sum?.lastModifiedTime) || 0,
+  }));
+  allEntries.sort((a, b) => {
+    if (a.running !== b.running) return b.running - a.running;
+    return b.modMs - a.modMs;
+  });
+  const targetEntries = allEntries.slice(0, 80);
+  const fetched = [];
+  let cursor = 0;
+  const workerCount = Math.min(6, targetEntries.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (cursor < targetEntries.length) {
+        const idx = cursor++;
+        const item = targetEntries[idx];
+        const rec = await fetchAndCacheConversation(item.cid, item.sum);
+        if (rec) fetched.push(rec);
+      }
+    })
+  );
+
+  const conversations = fetched.map((rec) => ({
+    conversationId: rec.conversationId,
+    title: rec.title,
+    status: rec.status,
+    lastModifiedMs: rec.lastModifiedMs || 0,
+    isSubagent: Boolean(rec.isSubagent),
+    steps: (rec.steps || []).map((st) => [
+      parseIsoMs(st.createdAt) || 0,
+      st.modelId,
+      resolveModelLabel(st.modelId, modelState.labelMap),
+      st.inputTokens,
+      st.cacheReadTokens,
+      st.outputTokens,
+      st.thinkingTokens,
+      st.responseTokens,
+      st.ttftMs,
+      st.decodeTokPerSec,
+      st.e2eTokPerSec,
+      st.e2eMs,
+      st.toolCalls || [],
+    ]),
+  }));
+
+  const meterPayload = {
+    updatedAt: new Date().toISOString(),
+    updatedMs: Date.now(),
+    userTierName: modelState.userTierName || '',
+    accountId: modelState.accountId || '',
+    modelLabels: Object.fromEntries(modelState.labelMap),
+    conversations,
+  };
+  atomicWriteJson(join(resolvePetDataDir(), 'pet_meter.json'), meterPayload);
+  lastMeterWriteMs = Date.now();
 }
 
 updatePetLiveFile();

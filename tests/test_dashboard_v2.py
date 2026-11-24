@@ -258,3 +258,126 @@ def test_token_meter_window_v2_themes_tabs_and_filters():
     assert acct_idx > 0
     win.account_box.setCurrentIndex(acct_idx)
     assert win.models.rowCount() == 2  # excludes unattributed subagent
+
+
+def test_meter_from_pet_file_reads_ultra_tier_subagents_and_resists_downgrade(tmp_path: Path):
+    root = tmp_path / "antigravity"
+    bridge_dir = root / "sidecar_data" / "agy-pet" / "pet-bridge" / "data"
+    bridge_dir.mkdir(parents=True)
+    acct = hash_account_id("ultra@example.com")
+    now_ms = int(time.time() * 1000)
+    meter_payload = {
+        "updatedAt": datetime.now().isoformat(),
+        "updatedMs": now_ms,
+        "userTierName": "Google AI Ultra",
+        "accountId": acct,
+        "modelLabels": {"MODEL_PLACEHOLDER_M532": "Gemini 4 Neon (High)"},
+        "conversations": [
+            {
+                "conversationId": "11111111-1111-1111-1111-111111111111",
+                "title": "主会话",
+                "status": "CASCADE_RUN_STATUS_IDLE",
+                "lastModifiedMs": now_ms,
+                "isSubagent": False,
+                "steps": [
+                    [now_ms - 5000, "MODEL_PLACEHOLDER_M532", "Gemini 4 Neon (High)", 1000, 4000, 500, 200, 300, 950.0, 145.0, 90.0, 5200.0, ["read_file"]],
+                ],
+            },
+            {
+                "conversationId": "22222222-2222-2222-2222-222222222222",
+                "title": "子代理研究",
+                "status": "CASCADE_RUN_STATUS_IDLE",
+                "lastModifiedMs": now_ms - 1000,
+                "isSubagent": True,
+                "steps": [
+                    [now_ms - 4000, "MODEL_PLACEHOLDER_M532", "Gemini 4 Neon (High)", 600, 1400, 300, 100, 200, 720.0, 162.0, 110.0, 2900.0, ["run_command"]],
+                ],
+            },
+        ],
+    }
+    (bridge_dir / "pet_meter.json").write_text(json.dumps(meter_payload), encoding="utf-8")
+
+    ledger_path = tmp_path / "usage_ledger.json"
+    collector = TelemetryCollector(root, use_language_server=False, ledger_path=ledger_path)
+    report = collector.meter_report(include_subagents=True)
+    assert report.source == "pet_live"
+    assert report.user_tier_name == "Google AI Ultra"
+    assert report.account_id == acct
+    assert len(report.conversations) == 2
+    assert sum(1 for c in report.conversations if c.is_subagent) == 1
+    assert report.models[0].label == "Gemini 4 Neon (High)"
+    assert report.models[0].avg_ttft_ms is not None
+
+    # Even if pet_meter.json expires and transcript fallback runs later with lower quality,
+    # rich quality=2 labels and ttft_ms must be preserved and tier cached in ledger.
+    (bridge_dir / "pet_meter.json").unlink()
+    logs = root / "brain" / "11111111-1111-1111-1111-111111111111" / ".system_generated" / "logs"
+    logs.mkdir(parents=True)
+    now_iso = datetime.now().astimezone().isoformat()
+    (logs / "transcript.jsonl").write_text(
+        json.dumps({"type": "PLANNER_RESPONSE", "model": "MODEL_PLACEHOLDER_M532", "input_tokens": 1000, "cache_read_tokens": 4000, "output_tokens": 500, "created_at": now_iso}),
+        encoding="utf-8",
+    )
+    offline_report = TelemetryCollector(root, use_language_server=False, ledger_path=ledger_path).meter_report()
+    assert offline_report.source == "transcript"
+    assert offline_report.user_tier_name == "Google AI Ultra"
+    main_conv = next(c for c in offline_report.conversations if c.conversation_id == "11111111-1111-1111-1111-111111111111")
+    assert main_conv.steps[0].ttft_ms == 950.0
+    assert main_conv.steps[0].model_label == "Gemini 4 Neon (High)"
+
+
+def test_offline_transcript_detects_subagents_and_upgrades_old_ledger(tmp_path: Path):
+    root = tmp_path / "antigravity"
+    main_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    sub1_id = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    sub2_id = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    now_iso = datetime.now().astimezone().isoformat()
+
+    # Main conversation spawns sub1 explicitly via invoke_subagent output marker.
+    main_log = root / "brain" / main_id / ".system_generated" / "logs"
+    main_log.mkdir(parents=True)
+    (main_log / "transcript.jsonl").write_text(
+        "\n".join([
+            json.dumps({"source": "USER_EXPLICIT", "type": "USER_INPUT", "content": "主任务", "created_at": now_iso}),
+            json.dumps({"source": "MODEL", "type": "GENERIC", "content": f'Created the following subagent:\n{{\n  "conversationId": "{sub1_id}"\n}}', "created_at": now_iso}),
+            json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "model": "MODEL_PLACEHOLDER_M532", "input_tokens": 500, "output_tokens": 100, "created_at": now_iso}),
+        ]),
+        encoding="utf-8",
+    )
+
+    # sub1 has explicit spawn link; sub2 starts with SYSTEM_MESSAGE and has zero USER_EXPLICIT.
+    for cid, first_row in (
+        (sub1_id, {"source": "SYSTEM", "type": "SYSTEM_MESSAGE", "content": "sub1", "created_at": now_iso}),
+        (sub2_id, {"source": "SYSTEM", "type": "SYSTEM_MESSAGE", "content": "sub2", "created_at": now_iso}),
+    ):
+        d = root / "brain" / cid / ".system_generated" / "logs"
+        d.mkdir(parents=True)
+        (d / "transcript.jsonl").write_text(
+            "\n".join([
+                json.dumps(first_row),
+                json.dumps({"source": "MODEL", "type": "PLANNER_RESPONSE", "model": "MODEL_PLACEHOLDER_M532", "input_tokens": 300, "output_tokens": 50, "created_at": now_iso}),
+            ]),
+            encoding="utf-8",
+        )
+
+    # Pre-seed an old ledger entry where sub1 had is_subagent=False and Model M532 placeholder.
+    ledger_path = tmp_path / "usage_ledger.json"
+    ledger = UsageLedger(ledger_path)
+    ledger.ingest(
+        [
+            ConversationUsage(
+                conversation_id=sub1_id,
+                title="sub1",
+                is_subagent=False,
+                steps=[StepUsage("MODEL_PLACEHOLDER_M532", "Model M532", input_tokens=300, output_tokens=50)],
+            )
+        ],
+        model_labels={"MODEL_PLACEHOLDER_M532": "Gemini 4 Neon (High)"},
+    )
+
+    report = TelemetryCollector(root, use_language_server=False, ledger_path=ledger_path).meter_report()
+    by_id = {c.conversation_id: c for c in report.conversations}
+    assert by_id[main_id].is_subagent is False
+    assert by_id[sub1_id].is_subagent is True
+    assert by_id[sub2_id].is_subagent is True
+    assert by_id[sub1_id].steps[0].model_label == "Gemini 4 Neon (High)"

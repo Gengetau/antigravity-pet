@@ -370,6 +370,8 @@ class SpeedTrendChart(QWidget):
 class SpeedComparisonView(QScrollArea):
     """Full '速度对比' tab with filters, median bars, and trend chart."""
 
+    source_changed = Signal(str)
+
     def __init__(self) -> None:
         super().__init__()
         self.setWidgetResizable(True)
@@ -481,10 +483,22 @@ class SpeedComparisonView(QScrollArea):
         self.setWidget(body)
 
         self.window_group.buttonClicked.connect(lambda _b: self._refresh())
-        self.source_group.buttonClicked.connect(lambda _b: self._refresh())
+        self.source_group.buttonClicked.connect(self._on_source_clicked)
         self.metric_group.buttonClicked.connect(lambda _b: self._refresh())
         self.model_combo.currentIndexChanged.connect(lambda _i: self._refresh_trend())
         self.bar_chart.model_selected.connect(self._select_model)
+
+    def _on_source_clicked(self, button: QPushButton) -> None:
+        self._refresh()
+        self.source_changed.emit(str(button.property("sourceFilter") or "all"))
+
+    def set_source_filter(self, source_key: str) -> None:
+        for btn in self.source_group.buttons():
+            if str(btn.property("sourceFilter") or "all") == source_key:
+                if not btn.isChecked():
+                    btn.setChecked(True)
+                    self._refresh()
+                break
 
     def set_theme(self, theme: str) -> None:
         self.bar_chart.set_theme(theme)

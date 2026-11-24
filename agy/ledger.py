@@ -1,5 +1,5 @@
 """Local persistent usage ledger so historical stats and heatmaps survive
-beyond Antigravity's recent-40 conversation cache or deleted sessions.
+beyond Antigravity's recent conversation cache or deleted sessions.
 
 Privacy guarantee: account identities are normalized (strip + lower) and
 one-way hashed with SHA-256 (``acct_<12hex>``); raw emails or tokens are
@@ -45,16 +45,22 @@ def _encode_step(step: Any) -> list[Any]:
         getattr(step, "decode_tps", None),
         getattr(step, "e2e_tps", None),
         getattr(step, "duration_ms", None),
+        list(getattr(step, "tool_calls", ()) or ()),
     ]
 
 
-def _decode_step(row: list[Any], step_cls: type) -> Any | None:
+def _decode_step(row: list[Any], step_cls: type, label_map: dict[str, str]) -> Any | None:
     if not isinstance(row, list) or len(row) < 8:
         return None
     try:
+        model_id = str(row[1] or "UNKNOWN_MODEL")
+        raw_label = str(row[2] or "")
+        if (not raw_label or raw_label.startswith(("Model ", "MODEL_"))) and model_id in label_map:
+            raw_label = label_map[model_id]
+        tools_raw = row[12] if len(row) > 12 and isinstance(row[12], list) else ()
         return step_cls(
-            model_id=str(row[1] or "UNKNOWN_MODEL"),
-            model_label=str(row[2] or ""),
+            model_id=model_id,
+            model_label=raw_label,
             input_tokens=int(row[3] or 0),
             cache_read_tokens=int(row[4] or 0),
             output_tokens=int(row[5] or 0),
@@ -65,6 +71,7 @@ def _decode_step(row: list[Any], step_cls: type) -> Any | None:
             decode_tps=float(row[9]) if len(row) > 9 and row[9] is not None else None,
             e2e_tps=float(row[10]) if len(row) > 10 and row[10] is not None else None,
             duration_ms=float(row[11]) if len(row) > 11 and row[11] is not None else None,
+            tool_calls=tuple(str(t) for t in tools_raw if t),
         )
     except (TypeError, ValueError):
         return None
@@ -78,6 +85,10 @@ def _token_sum(encoded_steps: list[list[Any]]) -> int:
     return total
 
 
+def _is_placeholder_label(label: str) -> bool:
+    return not label or label.startswith(("Model ", "MODEL_"))
+
+
 class UsageLedger:
     """Thread-safe JSON-backed incremental conversation usage ledger."""
 
@@ -85,6 +96,8 @@ class UsageLedger:
         self.path = Path(path)
         self._lock = threading.Lock()
         self._accounts: dict[str, dict[str, Any]] = {}
+        self._model_labels: dict[str, str] = {}
+        self._last_tier_name: str = ""
         self._conversations: dict[str, dict[str, Any]] = {}
         self._load()
 
@@ -97,6 +110,13 @@ class UsageLedger:
             return
         if not isinstance(raw, dict):
             return
+        if isinstance(raw.get("last_tier_name"), str):
+            self._last_tier_name = raw["last_tier_name"].strip()
+        raw_labels = raw.get("model_labels")
+        if isinstance(raw_labels, dict):
+            for k, v in raw_labels.items():
+                if isinstance(k, str) and isinstance(v, str) and k and v:
+                    self._model_labels[k] = v
         accts = raw.get("accounts")
         if isinstance(accts, dict):
             for k, v in accts.items():
@@ -122,6 +142,7 @@ class UsageLedger:
                     "last_modified_ms": int(rec.get("last_modified_ms") or 0),
                     "is_subagent": bool(rec.get("is_subagent")),
                     "account_id": acct,
+                    "quality": int(rec.get("quality") or 1),
                     "steps": steps,
                 }
 
@@ -129,6 +150,8 @@ class UsageLedger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "version": LEDGER_VERSION,
+            "last_tier_name": self._last_tier_name,
+            "model_labels": self._model_labels,
             "accounts": self._accounts,
             "conversations": self._conversations,
         }
@@ -142,14 +165,27 @@ class UsageLedger:
         *,
         account_id: str = "",
         tier_name: str = "",
+        source_quality: int = 1,
+        model_labels: dict[str, str] | None = None,
     ) -> bool:
-        """Merge a fresh batch of conversations into the persistent ledger."""
+        """Merge conversations into the persistent ledger with quality-aware upgrade."""
         safe_acct = hash_account_id(account_id) if account_id else ""
         tier = str(tier_name or "").strip()
+        quality = max(1, int(source_quality))
         dirty = False
         now_ms = int(time.time() * 1000)
 
         with self._lock:
+            if tier and tier != self._last_tier_name:
+                self._last_tier_name = tier
+                dirty = True
+
+            if model_labels:
+                for mid, label in model_labels.items():
+                    if mid and label and not _is_placeholder_label(label) and self._model_labels.get(mid) != label:
+                        self._model_labels[mid] = label
+                        dirty = True
+
             if safe_acct:
                 prev_acct = self._accounts.get(safe_acct)
                 effective_tier = tier or (prev_acct.get("tier_name", "") if prev_acct else "")
@@ -178,21 +214,33 @@ class UsageLedger:
                         "last_modified_ms": mod_ms,
                         "is_subagent": is_sub,
                         "account_id": conv_acct,
+                        "quality": quality,
                         "steps": new_steps,
                     }
                     dirty = True
                     continue
 
                 old_steps = existing.get("steps") or []
+                old_quality = int(existing.get("quality") or 1)
                 old_tokens = _token_sum(old_steps)
                 new_tokens = _token_sum(new_steps)
                 updated_steps = old_steps
-                if new_steps and (
-                    len(new_steps) > len(old_steps)
-                    or (len(new_steps) == len(old_steps) and new_tokens > old_tokens)
-                    or (len(new_steps) == len(old_steps) and new_tokens == old_tokens and new_steps != old_steps)
-                ):
-                    updated_steps = new_steps
+                next_quality = old_quality
+
+                if new_steps:
+                    if quality > old_quality:
+                        updated_steps = new_steps
+                        next_quality = quality
+                    elif quality == old_quality:
+                        if (
+                            len(new_steps) > len(old_steps)
+                            or (len(new_steps) == len(old_steps) and new_tokens > old_tokens)
+                            or (len(new_steps) == len(old_steps) and new_tokens == old_tokens and new_steps != old_steps)
+                        ):
+                            updated_steps = new_steps
+                    elif len(new_steps) > len(old_steps):
+                        # Never downgrade rich prefix steps with offline transcripts; append only tail.
+                        updated_steps = list(old_steps) + list(new_steps[len(old_steps):])
 
                 next_acct = existing.get("account_id") or conv_acct
                 next_title = title or existing.get("title", "")
@@ -201,7 +249,8 @@ class UsageLedger:
                 next_sub = bool(existing.get("is_subagent")) or is_sub
 
                 if (
-                    updated_steps is not old_steps
+                    updated_steps != old_steps
+                    or next_quality != old_quality
                     or next_acct != existing.get("account_id", "")
                     or next_title != existing.get("title", "")
                     or next_status != existing.get("status", "")
@@ -209,12 +258,21 @@ class UsageLedger:
                     or next_sub != bool(existing.get("is_subagent"))
                 ):
                     existing["steps"] = updated_steps
+                    existing["quality"] = next_quality
                     existing["account_id"] = next_acct
                     existing["title"] = next_title
                     existing["status"] = next_status
                     existing["last_modified_ms"] = next_mod
                     existing["is_subagent"] = next_sub
                     dirty = True
+
+            # Backfill newly learned friendly model labels onto older placeholder rows.
+            if self._model_labels:
+                for rec in self._conversations.values():
+                    for row in rec.get("steps") or []:
+                        if len(row) >= 3 and row[1] in self._model_labels and _is_placeholder_label(str(row[2] or "")):
+                            row[2] = self._model_labels[row[1]]
+                            dirty = True
 
             if dirty:
                 self._save_locked()
@@ -232,6 +290,7 @@ class UsageLedger:
         out: list[ConversationUsage] = []
         with self._lock:
             records = list(self._conversations.items())
+            labels = dict(self._model_labels)
         for cid, rec in records:
             is_sub = bool(rec.get("is_subagent"))
             if not include_subagents and is_sub:
@@ -245,7 +304,7 @@ class UsageLedger:
                     continue
             steps: list[StepUsage] = []
             for row in rec.get("steps") or []:
-                decoded = _decode_step(row, StepUsage)
+                decoded = _decode_step(row, StepUsage, labels)
                 if decoded is not None:
                     steps.append(decoded)
             out.append(
@@ -268,3 +327,17 @@ class UsageLedger:
             items = [(acct_id, str(meta.get("tier_name") or "")) for acct_id, meta in self._accounts.items()]
         items.sort(key=lambda pair: pair[0])
         return items
+
+    def model_labels(self) -> dict[str, str]:
+        with self._lock:
+            return dict(self._model_labels)
+
+    def last_tier_name(self) -> str:
+        with self._lock:
+            if self._last_tier_name:
+                return self._last_tier_name
+            for meta in self._accounts.values():
+                t = str(meta.get("tier_name") or "").strip()
+                if t:
+                    return t
+            return ""
