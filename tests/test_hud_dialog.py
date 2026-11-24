@@ -45,3 +45,17 @@ def test_capsule_has_no_tail_margin():
     hud.follow_pet(QRect(400, 400, 160, 200), prefer_above=True)
     margins = hud._outer.contentsMargins()
     assert (margins.top(), margins.bottom()) == (0, 0)
+
+
+def test_hud_moves_to_side_when_top_headroom_is_tight():
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    hud = _hud("dialog")
+    hud.update_snapshot(LiveSnapshot(source="ls", title="顶部测试", status="CASCADE_RUN_STATUS_RUNNING"))
+    pet_rect = QRect(400, 40, 160, 200)
+    hud.follow_pet(pet_rect, sprite_top=40, prefer_above=True)
+    area = app.primaryScreen().availableGeometry()
+    assert hud._tail_dir is None
+    assert hud.y() >= area.top()
+    assert not hud.geometry().intersects(pet_rect)

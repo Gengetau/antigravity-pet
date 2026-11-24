@@ -89,7 +89,7 @@ def plan_climb(
         return None  # floating window: hop instead
     if feet - window.top < MIN_CLIMB:
         return None
-    if window.top - (widget_height - feet_offset) < work_area.top:
+    if window.top - widget_height < work_area.top:
         return None  # no room above it (maximized / touching the top)
     if window.right - window.left >= (work_area.right - work_area.left) - 40:
         return None  # maximized width: no side to climb
@@ -285,6 +285,7 @@ def pick_jump(
     max_gap: float,
     max_up: float,
     max_down: float,
+    min_headroom: float | None = None,
 ) -> JumpPlan | None:
     """The nearby window top she can jump onto, if any.
 
@@ -293,6 +294,7 @@ def pick_jump(
     the sideways distance to that spot's edge, ``max_up`` / ``max_down`` the
     height difference between her feet and the top edge.
     """
+    headroom = sprite_height if min_headroom is None else float(min_headroom)
     above: list[Rect] = []
     best: tuple[float, JumpPlan] | None = None
     for handle, rect in windows:
@@ -304,7 +306,7 @@ def pick_jump(
             continue
         if rect.width >= (work_area.right - work_area.left) - 40:
             continue  # maximized: its top is the screen top
-        if rect.top - sprite_height < work_area.top:
+        if rect.top - headroom < work_area.top:
             continue  # no room to stand on it
         span = uncovered_top_span(rect, covered)
         if span is None or span[1] - span[0] < max(MIN_TOP_SPAN * 0.6, sprite_width * 0.9):

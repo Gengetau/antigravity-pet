@@ -45,6 +45,7 @@ class PlanClimbTests(unittest.TestCase):
     def test_refuses_unclimbable_windows(self):
         self.assertIsNone(plan(Rect(1200, 300, 1700, 700)))  # floating: hop instead
         self.assertIsNone(plan(Rect(1200, 100, 1700, 1040)))  # no room on top for her
+        self.assertIsNone(plan(Rect(1200, 375, 1700, 1040)))  # land_y = -5 < work_area.top
         self.assertIsNone(plan(Rect(0, 500, 1920, 1040)))  # full width: no side to climb
         self.assertIsNone(plan(Rect(1200, 1000, 1700, 1040)))  # barely taller than a step
         self.assertIsNone(plan(Rect(1700, 500, 1900, 1040), x=100.0))  # too far away
@@ -324,6 +325,86 @@ class ExploreTests(WidgetCase):
         self.assertEqual(window.player.snapshot().current.asset_id, "perch_work")
         self.assertGreater(window._edge_sit_sink(), 20)
 
+    def test_rejects_oversized_near_top_window_and_works_on_floor(self):
+        from types import SimpleNamespace
+
+        from agy.autonomy import AutonomyCommand, WindowTarget
+        from agy.telemetry import LiveSnapshot
+        from animation.clip import PetAction
+
+        window = self.window
+        top = 150  # smaller than window.height() (~322 px)
+        target = WindowTarget(1, 200, top, 760, self.bottom)
+        window.surface_tracker.reader = FakeReader({1: (200, top, 760, self.bottom)})
+        self.assertFalse(window._start_climb(1))
+        self.assertIsNone(window._nearest_climbable())
+        self.assertIsNone(window._plan_jump(from_floor=True))
+        self.assertFalse(window._hop_to(AutonomyCommand(kind="hop", window=target, reason="hop")))
+
+        window.agy_windows.find = lambda: target
+        window.surface_tracker.reader.foreground_handle = lambda: 1
+        window.telemetry.last_snapshot = LiveSnapshot(
+            source="ls",
+            conversation_id="c",
+            status="CASCADE_RUN_STATUS_IDLE",
+            cumulative_total_tokens=0,
+        )
+        window._autonomy_next = 0.0
+        window._tick_autonomy(1000.0)
+        window.telemetry.last_snapshot = LiveSnapshot(
+            source="ls",
+            conversation_id="c",
+            status="CASCADE_RUN_STATUS_RUNNING",
+            cumulative_total_tokens=100,
+        )
+        window._autonomy_next = 0.0
+        window._tick_autonomy(1010.0)
+        self.assertEqual(window.action_machine.current, PetAction.WORKING)
+        self.assertFalse(window.physics.active)
+        self.assertFalse(window.climb.active)
+        self.assertEqual(window.autonomy.state.last_hop_at, -1e9)
+
+    def test_detaches_and_lands_gently_when_perched_window_grows_near_top(self):
+        from animation.clip import PetAction
+
+        window = self.window
+        top = self.bottom - 199
+        rects = {1: (260, top, 740, self.bottom)}
+        window.surface_tracker.reader = FakeReader(rects)
+        window.surface_tracker.set_target(1)
+        window.move(360, top - window.height())
+        self.assertTrue(
+            window.surface_tracker.attach(
+                "window:1",
+                widget_x=360.0,
+                widget_width=float(window.width()),
+                widget_height=float(window.height()),
+                work_area_top=window._surface_work_area_top,
+            )
+        )
+        window._request_action(PetAction.PERCH, reason="test", force=True, immediate=True)
+
+        # User pulls or resizes the window near the screen top: pet must detach cleanly.
+        rects[1] = (260, 140, 740, self.bottom)
+        window.surface_tracker.refresh_soon()
+        window.tick()
+
+        self.assertFalse(window.surface_tracker.attached)
+        self.assertTrue(window.physics.active)
+        bounds = window._physics_bounds()
+        now = time.monotonic()
+        for _ in range(400):
+            if not window.physics.active:
+                break
+            window._tick_throw(0.02, now)
+            self.assertGreaterEqual(window.y(), int(bounds.top))
+            now += 0.02
+        self.assertFalse(window.physics.active)
+        self.assertEqual(window.y(), self.floor_y)
+        self.assertEqual(window.action_machine.current, PetAction.LANDING)
+        window.action_machine.update(now=now + 30.0)
+        self.assertNotEqual(window.action_machine.current, PetAction.DIZZY)
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -354,6 +435,26 @@ class TopEdgeTests(unittest.TestCase):
         jump = pick_jump(windows=[cover, here, near], feet_y=600.0, center_x=650.0, **{**kw, "max_gap": 500.0})
         self.assertEqual(jump.handle, 2)
         self.assertGreaterEqual(jump.land_center_x, 950 + 75)
+
+    def test_pick_jump_respects_min_headroom(self):
+        # ``tight`` is closer horizontally than ``roomy``, but clipped at the top.
+        tight = (2, Rect(200, 350, 600, 800))  # rect.top < 380: clipped with widget_height=380
+        roomy = (3, Rect(1120, 460, 1550, 900))
+        jump = pick_jump(
+            windows=[tight, (1, Rect(650, 600, 1050, 1000)), roomy],
+            work_area=WORK,
+            feet_y=600.0,
+            center_x=750.0,
+            sprite_width=150.0,
+            sprite_height=300.0,
+            exclude=1,
+            max_gap=450.0,
+            max_up=270.0,
+            max_down=750.0,
+            min_headroom=380.0,
+        )
+        self.assertIsNotNone(jump)
+        self.assertEqual(jump.handle, 3)
 
 
 class RoamTests(WidgetCase):

@@ -60,6 +60,54 @@ class DesktopSurfaceTrackerTests(unittest.TestCase):
         self.assertTrue(update.lost)
         self.assertFalse(tracker.attached)
 
+    def test_window_pulled_above_headroom_detaches_and_cools_down(self) -> None:
+        reader = FakeWindowReader()
+        tracker = DesktopSurfaceTracker(reader)  # type: ignore[arg-type]
+        self.assertTrue(tracker.observe_foreground(now=1.0))
+        self.assertTrue(
+            tracker.attach(
+                "window:42",
+                widget_x=400,
+                widget_width=160,
+                widget_height=220,
+                work_area_top=0,
+            )
+        )
+        reader.rects[42] = (200, 120, 900, 820)
+
+        update = tracker.follow_attachment(
+            now=2.0,
+            widget_x=400,
+            widget_width=160,
+            widget_height=220,
+            work_area_top=0,
+        )
+
+        self.assertIsNotNone(update)
+        self.assertTrue(update.lost)
+        self.assertFalse(tracker.attached)
+        self.assertEqual(
+            tracker.physics_platforms(work_area_top=0, widget_height=220, now=2.1),
+            (),
+        )
+
+    def test_attach_rejects_window_without_headroom(self) -> None:
+        reader = FakeWindowReader()
+        reader.rects[42] = (200, 120, 900, 820)
+        tracker = DesktopSurfaceTracker(reader)  # type: ignore[arg-type]
+        self.assertTrue(tracker.observe_foreground(now=1.0))
+
+        attached = tracker.attach(
+            "window:42",
+            widget_x=400,
+            widget_width=160,
+            widget_height=220,
+            work_area_top=0,
+        )
+
+        self.assertFalse(attached)
+        self.assertFalse(tracker.attached)
+
 
 if __name__ == "__main__":
     unittest.main()

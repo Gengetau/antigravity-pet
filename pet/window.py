@@ -296,6 +296,21 @@ class PetWindow(QWidget):
             geometry.bottom() - self.height() + 1 - 60,
         )
 
+    def _ceiling_at(self, x: float, y: float) -> float:
+        screen = QApplication.screenAt(QPoint(round(x), round(y))) or self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return 0.0
+        upper = QApplication.screenAt(QPoint(round(x), screen.geometry().top() - 2))
+        if upper is not None and upper is not screen:
+            return float(upper.availableGeometry().top())
+        return float(screen.availableGeometry().top())
+
+    def _window_work_area_top(self, left: float, top: float, right: float) -> float:
+        return self._ceiling_at((left + right) / 2.0, top + 8.0)
+
+    def _surface_work_area_top(self, surface) -> float:
+        return self._window_work_area_top(surface.left, surface.top, surface.right)
+
     def _physics_bounds(self, lookahead_seconds: float = 0.0) -> PhysicsBounds:
         if self.physics.active:
             center_x, center_y = self.physics.projected_center(
@@ -313,14 +328,14 @@ class PetWindow(QWidget):
         work_areas = [candidate.availableGeometry() for candidate in QApplication.screens()]
         left = min((area.left() for area in work_areas), default=geometry.left())
         right = max((area.right() for area in work_areas), default=geometry.right())
-        top = min((area.top() for area in work_areas), default=geometry.top())
+        top = self._ceiling_at(float(probe.x()), float(probe.y()))
         return PhysicsBounds(
             float(left),
             float(top),
             float(right),
             float(geometry.bottom()),
             platforms=self.surface_tracker.physics_platforms(
-                work_area_top=float(top),
+                work_area_top=self._surface_work_area_top,
                 widget_height=float(self.height()),
             ),
         )
@@ -526,9 +541,13 @@ class PetWindow(QWidget):
                 widget_width=float(self.width()),
                 widget_height=float(self.height()),
                 sink=self._edge_sit_sink(),
+                work_area_top=self._surface_work_area_top,
             )
             if attachment is not None:
                 if attachment.lost:
+                    if self.y() < round(attachment.y):
+                        self.move(self.x(), round(attachment.y))
+                    self._gentle_landing = True
                     self._launch_throw(0.0, 0.0, reason="surface_lost")
                     self._schedule_routine_line("window_lost", delay_ms=900)
                 else:
@@ -609,11 +628,17 @@ class PetWindow(QWidget):
         self.movement.rest_after_drag(now)
         self._set_direction("down")
         if surface_id:
-            self.surface_tracker.attach(
+            if not self.surface_tracker.attach(
                 surface_id,
                 widget_x=float(self.x()),
                 widget_width=float(self.width()),
-            )
+                widget_height=float(self.height()),
+                work_area_top=self._surface_work_area_top,
+            ):
+                self._perch_after_landing = False
+                self._gentle_landing = True
+                self._launch_throw(0.0, 0.0, reason="surface_lost")
+                return
         else:
             self.surface_tracker.detach()
         hard = hard and not self._gentle_landing
@@ -1551,6 +1576,11 @@ class PetWindow(QWidget):
             foreground = getattr(self.surface_tracker.reader, "foreground_handle", None)
             if window is not None and callable(foreground) and int(foreground() or 0) != window.handle:
                 window = None
+            if (
+                window is not None
+                and window.top - self.height() < self._window_work_area_top(window.left, window.top, window.right)
+            ):
+                window = None
         commands = self.autonomy.update(
             AutonomyInput(
                 now=now,
@@ -1603,7 +1633,7 @@ class PetWindow(QWidget):
             target=target,
             gravity=self.physics.gravity,
             max_speed=self.physics.max_jump_speed,
-            work_area_top=bounds.top,
+            work_area_top=self._window_work_area_top(target.left, target.top, target.right),
         )
         if velocity is None or not self.surface_tracker.set_target(target.handle):
             return False
@@ -1668,11 +1698,12 @@ class PetWindow(QWidget):
         if rect is None:
             return False
         bounds = self._physics_bounds()
+        work_top = self._window_work_area_top(rect.left, rect.top, rect.right)
         sprite_width, sprite_height = self._frame_size()
         plan = plan_climb(
             handle=int(handle),
             window=ClimbRect(rect.left, rect.top, rect.right, rect.bottom),
-            work_area=ClimbRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+            work_area=ClimbRect(bounds.left, work_top, bounds.right, bounds.bottom),
             widget_x=float(self.x()),
             widget_y=float(self.y()),
             widget_width=float(self.width()),
@@ -1698,12 +1729,18 @@ class PetWindow(QWidget):
         if plan is None:
             return False
         rect = self.surface_tracker.read_rect(plan.handle, now=now)
+        if rect is not None and rect.top - self.height() < self._window_work_area_top(rect.left, rect.top, rect.right):
+            self.climb.cancel()
+            self._gentle_landing = True
+            self._launch_throw(0.0, 0.0, reason="climb_lost")
+            return False
         window = None if rect is None else ClimbRect(rect.left, rect.top, rect.right, rect.bottom)
         x, y = self._climb_pos
         was_on_wall = self.climb.on_wall
         step = self.climb.step(delta_seconds, x=x, y=y, window=window)
         if step.phase == "aborted":
             self.climb.cancel()
+            self._gentle_landing = True
             self._launch_throw(0.0, 0.0, reason="climb_lost")
             return False
         self._climb_pos = (step.x, step.y)
@@ -1726,7 +1763,13 @@ class PetWindow(QWidget):
         """Pulled up over the edge: she now stands on the window's top."""
         plan, sit_after = self.climb.plan, self.climb.sit_after
         self.climb.cancel()
-        if plan is None or rect is None or not self.surface_tracker.set_target(plan.handle):
+        if (
+            plan is None
+            or rect is None
+            or rect.top - self.height() < self._window_work_area_top(rect.left, rect.top, rect.right)
+            or not self.surface_tracker.set_target(plan.handle)
+        ):
+            self._gentle_landing = True
             self._launch_throw(0.0, 0.0, reason="climb_lost")
             return
         self._perch_after_landing = sit_after
@@ -1824,10 +1867,11 @@ class PetWindow(QWidget):
         above: list[ClimbRect] = []  # windows stacked over the current one
         for surface in self.surface_tracker.nearby_windows():
             rect = ClimbRect(surface.left, surface.top, surface.right, surface.bottom)
+            work_top = self._window_work_area_top(surface.left, surface.top, surface.right)
             plan = plan_climb(
                 handle=surface.handle,
                 window=ClimbRect(surface.left, surface.top, surface.right, surface.bottom),
-                work_area=ClimbRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                work_area=ClimbRect(bounds.left, work_top, bounds.right, bounds.bottom),
                 widget_x=float(self.x()),
                 widget_y=float(self.y()),
                 widget_width=float(self.width()),
@@ -1912,6 +1956,7 @@ class PetWindow(QWidget):
             max_gap=sprite_width * (2.5 if from_floor else 2.0),
             max_up=sprite_height * (1.6 if from_floor else 0.9),
             max_down=0.0 if from_floor else sprite_height * 2.5,
+            min_headroom=float(self.height()),
         )
 
     def _jump_to(self, jump: JumpPlan, *, sit_after: bool = False) -> bool:
@@ -1920,7 +1965,6 @@ class PetWindow(QWidget):
             return False
         rect = jump.window
         target = WindowTarget(jump.handle, round(rect.left), round(rect.top), round(rect.right), round(rect.bottom))
-        bounds = self._physics_bounds()
         fraction = (jump.land_center_x - rect.left) / max(1.0, rect.width)
         velocity = plan_hop(
             start_x=float(self.x()),
@@ -1930,7 +1974,7 @@ class PetWindow(QWidget):
             target=target,
             gravity=self.physics.gravity,
             max_speed=self.physics.max_jump_speed,
-            work_area_top=bounds.top,
+            work_area_top=self._window_work_area_top(rect.left, rect.top, rect.right),
             landing_fraction=max(0.0, min(1.0, fraction)),
             apex_clearance=40.0,
         )

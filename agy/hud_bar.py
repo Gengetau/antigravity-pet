@@ -368,6 +368,15 @@ class HudBar(QWidget):
         else:
             top = sprite_top if sprite_top is not None else pet_rect.top()
             y = top - self.height() - 2
+            if y < area.top():
+                side_left = pet_rect.left() - self.width() - 6
+                side_right = pet_rect.right() + 6
+                if side_left >= area.left() or side_right + self.width() - 1 <= area.right():
+                    self._tail_dir = None
+                    self._sync_tail_margins()
+                    self.adjustSize()
+                    x = side_left if side_left >= area.left() else side_right
+                    y = max(area.top() + 4, min(pet_rect.top(), area.bottom() - self.height() + 1))
         x = max(area.left(), min(x, area.right() - self.width() + 1))
         y = max(area.top(), min(y, area.bottom() - self.height() + 1))
         if (x, y) != (self.x(), self.y()):

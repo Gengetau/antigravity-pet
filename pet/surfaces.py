@@ -6,6 +6,7 @@ import ctypes
 import os
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from ctypes import wintypes
 from typing import Protocol
@@ -48,6 +49,15 @@ class WindowRectReader(Protocol):
     def foreground_handle(self) -> int: ...
 
 
+class _MONITORINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("rcMonitor", wintypes.RECT),
+        ("rcWork", wintypes.RECT),
+        ("dwFlags", wintypes.DWORD),
+    ]
+
+
 class Win32WindowRectReader:
     """Read visible extended window bounds without inspecting window content."""
 
@@ -84,6 +94,14 @@ class Win32WindowRectReader:
         if self._get_dpi_for_window is not None:
             self._get_dpi_for_window.argtypes = [wintypes.HWND]
             self._get_dpi_for_window.restype = wintypes.UINT
+        self._monitor_from_window = getattr(self.user32, "MonitorFromWindow", None)
+        if self._monitor_from_window is not None:
+            self._monitor_from_window.argtypes = [wintypes.HWND, wintypes.DWORD]
+            self._monitor_from_window.restype = wintypes.HMONITOR
+        self._get_monitor_info = getattr(self.user32, "GetMonitorInfoW", None)
+        if self._get_monitor_info is not None:
+            self._get_monitor_info.argtypes = [wintypes.HMONITOR, ctypes.POINTER(_MONITORINFO)]
+            self._get_monitor_info.restype = wintypes.BOOL
         try:
             self.dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
             self.dwmapi.DwmGetWindowAttribute.argtypes = [
@@ -164,16 +182,37 @@ class Win32WindowRectReader:
         handle = self.user32.GetForegroundWindow()
         return int(ctypes.cast(handle, ctypes.c_void_p).value or 0)
 
+    def _monitor_origin(self, hwnd) -> tuple[int, int]:
+        if self._monitor_from_window is None or self._get_monitor_info is None:
+            return 0, 0
+        try:
+            hmonitor = self._monitor_from_window(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+            if not hmonitor:
+                return 0, 0
+            info = _MONITORINFO()
+            info.cbSize = ctypes.sizeof(info)
+            if not self._get_monitor_info(hmonitor, ctypes.byref(info)):
+                return 0, 0
+            return int(info.rcMonitor.left), int(info.rcMonitor.top)
+        except Exception:
+            return 0, 0
+
     def _logical_rect(self, hwnd, rect: wintypes.RECT) -> tuple[int, int, int, int]:
         """Convert Win32 physical pixels into the device-independent space Qt uses."""
 
         # DWM extended bounds are always physical pixels.  Qt's QWidget and
         # QScreen APIs use device-independent coordinates, so the window DPI
-        # is the reliable conversion for the per-monitor-aware Qt process.
+        # relative to its monitor origin is the reliable conversion.
         if self._get_dpi_for_window is not None:
             dpi = int(self._get_dpi_for_window(hwnd) or 96)
             scale = max(1.0, dpi / 96.0)
-            return tuple(round(value / scale) for value in (rect.left, rect.top, rect.right, rect.bottom))
+            origin_x, origin_y = self._monitor_origin(hwnd)
+            return (
+                origin_x + round((rect.left - origin_x) / scale),
+                origin_y + round((rect.top - origin_y) / scale),
+                origin_x + round((rect.right - origin_x) / scale),
+                origin_y + round((rect.bottom - origin_y) / scale),
+            )
         if self._physical_to_logical is not None:
             top_left = wintypes.POINT(int(rect.left), int(rect.top))
             bottom_right = wintypes.POINT(int(rect.right), int(rect.bottom))
@@ -241,10 +280,21 @@ class DesktopSurfaceTracker:
             return False
         return self.observe_window(handle, now=now)
 
+    @staticmethod
+    def _resolve_work_area_top(
+        work_area_top: float | Callable[[SurfaceRect], float] | None,
+        surface: SurfaceRect,
+    ) -> float | None:
+        if work_area_top is None:
+            return None
+        if callable(work_area_top):
+            return float(work_area_top(surface))
+        return float(work_area_top)
+
     def physics_platforms(
         self,
         *,
-        work_area_top: float,
+        work_area_top: float | Callable[[SurfaceRect], float],
         widget_height: float,
         now: float | None = None,
     ) -> tuple[PhysicsPlatform, ...]:
@@ -265,7 +315,8 @@ class DesktopSurfaceTracker:
                 continue
             if surface.width < 180.0 or surface.height < 120.0:
                 continue
-            if surface.top - widget_height < work_area_top:
+            ceiling = self._resolve_work_area_top(work_area_top, surface)
+            if ceiling is not None and surface.top - widget_height < ceiling:
                 continue
             platforms.append(
                 PhysicsPlatform(
@@ -283,12 +334,19 @@ class DesktopSurfaceTracker:
         *,
         widget_x: float,
         widget_width: float,
+        widget_height: float | None = None,
+        work_area_top: float | Callable[[SurfaceRect], float] | None = None,
     ) -> bool:
         handle = self._handle_from_id(surface_id)
         surface = self._surfaces.get(handle) if handle is not None else None
         if not self.enabled or surface is None or surface.width <= 0.0:
             self.detach()
             return False
+        if widget_height is not None and work_area_top is not None:
+            ceiling = self._resolve_work_area_top(work_area_top, surface)
+            if ceiling is not None and surface.top - widget_height < ceiling:
+                self.detach()
+                return False
         center = widget_x + widget_width / 2.0
         self._relative_center = max(0.0, min(1.0, (center - surface.left) / surface.width))
         self._attached_handle = handle
@@ -325,6 +383,7 @@ class DesktopSurfaceTracker:
         widget_width: float,
         widget_height: float,
         sink: float = 0.0,
+        work_area_top: float | Callable[[SurfaceRect], float] | None = None,
     ) -> AttachmentUpdate | None:
         """Where the widget goes to stay on the attached window.
 
@@ -339,6 +398,11 @@ class DesktopSurfaceTracker:
         if surface is None:
             self.detach()
             return AttachmentUpdate(widget_x, 0.0, lost=True)
+        ceiling = self._resolve_work_area_top(work_area_top, surface)
+        if ceiling is not None and surface.top - widget_height < ceiling:
+            self.ignore_platform(surface.handle, seconds=2.0, now=now)
+            self.detach()
+            return AttachmentUpdate(widget_x, ceiling, lost=True)
         self._surfaces[surface.handle] = surface
         target_center = surface.left + surface.width * self._relative_center
         target_x = target_center - widget_width / 2.0
