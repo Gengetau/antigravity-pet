@@ -2,177 +2,160 @@
   "format_version": 4,
   "character_id": "neon",
   "assets": {
-    "idle_front": {
+    "dock_peek": {
       "source_masters": [
-        "assets/processed/masters/generated/idle_front.png"
+        "assets/processed/masters/generated/dock_peek_00.png",
+        "assets/processed/masters/generated/dock_peek_01.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/idle_front/idle_front_187.png"
+          "assets/processed/runtime/states/dock_peek/dock_peek_187_00.png",
+          "assets/processed/runtime/states/dock_peek/dock_peek_187_01.png"
         ],
         "238": [
-          "assets/processed/runtime/states/idle_front/idle_front_238.png"
+          "assets/processed/runtime/states/dock_peek/dock_peek_238_00.png",
+          "assets/processed/runtime/states/dock_peek/dock_peek_238_01.png"
         ],
         "306": [
-          "assets/processed/runtime/states/idle_front/idle_front_306.png"
+          "assets/processed/runtime/states/dock_peek/dock_peek_306_00.png",
+          "assets/processed/runtime/states/dock_peek/dock_peek_306_01.png"
         ]
       },
-      "frame_count": 1
+      "frame_count": 2
     },
-    "idle_back": {
+    "dock_work": {
       "source_masters": [
-        "assets/processed/masters/generated/idle_back.png"
+        "assets/processed/masters/generated/dock_work_00.png",
+        "assets/processed/masters/generated/dock_work_01.png",
+        "assets/processed/masters/generated/dock_work_02.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/idle_back/idle_back_187.png"
+          "assets/processed/runtime/states/dock_work/dock_work_187_00.png",
+          "assets/processed/runtime/states/dock_work/dock_work_187_01.png",
+          "assets/processed/runtime/states/dock_work/dock_work_187_02.png"
         ],
         "238": [
-          "assets/processed/runtime/states/idle_back/idle_back_238.png"
+          "assets/processed/runtime/states/dock_work/dock_work_238_00.png",
+          "assets/processed/runtime/states/dock_work/dock_work_238_01.png",
+          "assets/processed/runtime/states/dock_work/dock_work_238_02.png"
         ],
         "306": [
-          "assets/processed/runtime/states/idle_back/idle_back_306.png"
+          "assets/processed/runtime/states/dock_work/dock_work_306_00.png",
+          "assets/processed/runtime/states/dock_work/dock_work_306_01.png",
+          "assets/processed/runtime/states/dock_work/dock_work_306_02.png"
         ]
       },
-      "frame_count": 1
+      "frame_count": 3
     },
-    "idle_think": {
+    "dock_peek_right": {
       "source_masters": [
-        "assets/processed/masters/generated/idle_think_00.png",
-        "assets/processed/masters/generated/idle_think_01.png",
-        "assets/processed/masters/generated/idle_think_02.png",
-        "assets/processed/masters/generated/idle_think_03.png"
+        "assets/processed/masters/generated/dock_peek_right_00.png",
+        "assets/processed/masters/generated/dock_peek_right_01.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/idle_think/idle_think_187_00.png",
-          "assets/processed/runtime/states/idle_think/idle_think_187_01.png",
-          "assets/processed/runtime/states/idle_think/idle_think_187_02.png",
-          "assets/processed/runtime/states/idle_think/idle_think_187_03.png"
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_187_00.png",
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_187_01.png"
         ],
         "238": [
-          "assets/processed/runtime/states/idle_think/idle_think_238_00.png",
-          "assets/processed/runtime/states/idle_think/idle_think_238_01.png",
-          "assets/processed/runtime/states/idle_think/idle_think_238_02.png",
-          "assets/processed/runtime/states/idle_think/idle_think_238_03.png"
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_238_00.png",
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_238_01.png"
         ],
         "306": [
-          "assets/processed/runtime/states/idle_think/idle_think_306_00.png",
-          "assets/processed/runtime/states/idle_think/idle_think_306_01.png",
-          "assets/processed/runtime/states/idle_think/idle_think_306_02.png",
-          "assets/processed/runtime/states/idle_think/idle_think_306_03.png"
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_306_00.png",
+          "assets/processed/runtime/states/dock_peek_right/dock_peek_right_306_01.png"
         ]
       },
-      "frame_count": 4
+      "frame_count": 2
     },
-    "walk_side_stand": {
+    "dock_work_right": {
       "source_masters": [
-        "assets/processed/masters/generated/walk_side_stand.png"
+        "assets/processed/masters/generated/dock_work_right_00.png",
+        "assets/processed/masters/generated/dock_work_right_01.png",
+        "assets/processed/masters/generated/dock_work_right_02.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_187.png"
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_187_00.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_187_01.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_187_02.png"
         ],
         "238": [
-          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_238.png"
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_238_00.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_238_01.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_238_02.png"
         ],
         "306": [
-          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_306.png"
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_306_00.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_306_01.png",
+          "assets/processed/runtime/states/dock_work_right/dock_work_right_306_02.png"
         ]
       },
-      "frame_count": 1
+      "frame_count": 3
     },
-    "happy": {
+    "tired_yawn": {
       "source_masters": [
-        "assets/processed/masters/generated/happy_00.png",
-        "assets/processed/masters/generated/happy_01.png",
-        "assets/processed/masters/generated/happy_02.png",
-        "assets/processed/masters/generated/happy_03.png",
-        "assets/processed/masters/generated/happy_04.png",
-        "assets/processed/masters/generated/happy_05.png"
+        "assets/processed/masters/generated/tired_yawn_00.png",
+        "assets/processed/masters/generated/tired_yawn_01.png",
+        "assets/processed/masters/generated/tired_yawn_02.png",
+        "assets/processed/masters/generated/tired_yawn_03.png",
+        "assets/processed/masters/generated/tired_yawn_04.png",
+        "assets/processed/masters/generated/tired_yawn_05.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/happy/happy_187_00.png",
-          "assets/processed/runtime/states/happy/happy_187_01.png",
-          "assets/processed/runtime/states/happy/happy_187_02.png",
-          "assets/processed/runtime/states/happy/happy_187_03.png",
-          "assets/processed/runtime/states/happy/happy_187_04.png",
-          "assets/processed/runtime/states/happy/happy_187_05.png"
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_00.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_01.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_02.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_03.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_04.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_05.png"
         ],
         "238": [
-          "assets/processed/runtime/states/happy/happy_238_00.png",
-          "assets/processed/runtime/states/happy/happy_238_01.png",
-          "assets/processed/runtime/states/happy/happy_238_02.png",
-          "assets/processed/runtime/states/happy/happy_238_03.png",
-          "assets/processed/runtime/states/happy/happy_238_04.png",
-          "assets/processed/runtime/states/happy/happy_238_05.png"
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_00.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_01.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_02.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_03.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_04.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_05.png"
         ],
         "306": [
-          "assets/processed/runtime/states/happy/happy_306_00.png",
-          "assets/processed/runtime/states/happy/happy_306_01.png",
-          "assets/processed/runtime/states/happy/happy_306_02.png",
-          "assets/processed/runtime/states/happy/happy_306_03.png",
-          "assets/processed/runtime/states/happy/happy_306_04.png",
-          "assets/processed/runtime/states/happy/happy_306_05.png"
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_00.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_01.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_02.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_03.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_04.png",
+          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_05.png"
         ]
       },
       "frame_count": 6
     },
-    "talk": {
+    "climb_side_right": {
       "source_masters": [
-        "assets/processed/masters/generated/talk_00.png",
-        "assets/processed/masters/generated/talk_01.png",
-        "assets/processed/masters/generated/talk_02.png",
-        "assets/processed/masters/generated/talk_03.png"
+        "assets/processed/masters/generated/climb_side_right_00.png",
+        "assets/processed/masters/generated/climb_side_right_01.png",
+        "assets/processed/masters/generated/climb_side_right_02.png",
+        "assets/processed/masters/generated/climb_side_right_03.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/talk/talk_187_00.png",
-          "assets/processed/runtime/states/talk/talk_187_01.png",
-          "assets/processed/runtime/states/talk/talk_187_02.png",
-          "assets/processed/runtime/states/talk/talk_187_03.png"
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_00.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_01.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_02.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_03.png"
         ],
         "238": [
-          "assets/processed/runtime/states/talk/talk_238_00.png",
-          "assets/processed/runtime/states/talk/talk_238_01.png",
-          "assets/processed/runtime/states/talk/talk_238_02.png",
-          "assets/processed/runtime/states/talk/talk_238_03.png"
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_00.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_01.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_02.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_03.png"
         ],
         "306": [
-          "assets/processed/runtime/states/talk/talk_306_00.png",
-          "assets/processed/runtime/states/talk/talk_306_01.png",
-          "assets/processed/runtime/states/talk/talk_306_02.png",
-          "assets/processed/runtime/states/talk/talk_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "angry": {
-      "source_masters": [
-        "assets/processed/masters/generated/angry_00.png",
-        "assets/processed/masters/generated/angry_01.png",
-        "assets/processed/masters/generated/angry_02.png",
-        "assets/processed/masters/generated/angry_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/angry/angry_187_00.png",
-          "assets/processed/runtime/states/angry/angry_187_01.png",
-          "assets/processed/runtime/states/angry/angry_187_02.png",
-          "assets/processed/runtime/states/angry/angry_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/angry/angry_238_00.png",
-          "assets/processed/runtime/states/angry/angry_238_01.png",
-          "assets/processed/runtime/states/angry/angry_238_02.png",
-          "assets/processed/runtime/states/angry/angry_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/angry/angry_306_00.png",
-          "assets/processed/runtime/states/angry/angry_306_01.png",
-          "assets/processed/runtime/states/angry/angry_306_02.png",
-          "assets/processed/runtime/states/angry/angry_306_03.png"
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_00.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_01.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_02.png",
+          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_03.png"
         ]
       },
       "frame_count": 4
@@ -205,156 +188,6 @@
         ]
       },
       "frame_count": 4
-    },
-    "sleep": {
-      "source_masters": [
-        "assets/processed/masters/generated/sleep_00.png",
-        "assets/processed/masters/generated/sleep_01.png",
-        "assets/processed/masters/generated/sleep_02.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/sleep/sleep_187_00.png",
-          "assets/processed/runtime/states/sleep/sleep_187_01.png",
-          "assets/processed/runtime/states/sleep/sleep_187_02.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/sleep/sleep_238_00.png",
-          "assets/processed/runtime/states/sleep/sleep_238_01.png",
-          "assets/processed/runtime/states/sleep/sleep_238_02.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/sleep/sleep_306_00.png",
-          "assets/processed/runtime/states/sleep/sleep_306_01.png",
-          "assets/processed/runtime/states/sleep/sleep_306_02.png"
-        ]
-      },
-      "frame_count": 3
-    },
-    "dizzy": {
-      "source_masters": [
-        "assets/processed/masters/generated/dizzy_00.png",
-        "assets/processed/masters/generated/dizzy_01.png",
-        "assets/processed/masters/generated/dizzy_02.png",
-        "assets/processed/masters/generated/dizzy_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/dizzy/dizzy_187_00.png",
-          "assets/processed/runtime/states/dizzy/dizzy_187_01.png",
-          "assets/processed/runtime/states/dizzy/dizzy_187_02.png",
-          "assets/processed/runtime/states/dizzy/dizzy_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/dizzy/dizzy_238_00.png",
-          "assets/processed/runtime/states/dizzy/dizzy_238_01.png",
-          "assets/processed/runtime/states/dizzy/dizzy_238_02.png",
-          "assets/processed/runtime/states/dizzy/dizzy_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/dizzy/dizzy_306_00.png",
-          "assets/processed/runtime/states/dizzy/dizzy_306_01.png",
-          "assets/processed/runtime/states/dizzy/dizzy_306_02.png",
-          "assets/processed/runtime/states/dizzy/dizzy_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "dragging": {
-      "source_masters": [
-        "assets/processed/masters/generated/dragging_00.png",
-        "assets/processed/masters/generated/dragging_01.png",
-        "assets/processed/masters/generated/dragging_02.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/dragging/dragging_187_00.png",
-          "assets/processed/runtime/states/dragging/dragging_187_01.png",
-          "assets/processed/runtime/states/dragging/dragging_187_02.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/dragging/dragging_238_00.png",
-          "assets/processed/runtime/states/dragging/dragging_238_01.png",
-          "assets/processed/runtime/states/dragging/dragging_238_02.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/dragging/dragging_306_00.png",
-          "assets/processed/runtime/states/dragging/dragging_306_01.png",
-          "assets/processed/runtime/states/dragging/dragging_306_02.png"
-        ]
-      },
-      "frame_count": 3
-    },
-    "falling": {
-      "source_masters": [
-        "assets/processed/masters/generated/falling_00.png",
-        "assets/processed/masters/generated/falling_01.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/falling/falling_187_00.png",
-          "assets/processed/runtime/states/falling/falling_187_01.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/falling/falling_238_00.png",
-          "assets/processed/runtime/states/falling/falling_238_01.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/falling/falling_306_00.png",
-          "assets/processed/runtime/states/falling/falling_306_01.png"
-        ]
-      },
-      "frame_count": 2
-    },
-    "released_airborne": {
-      "source_masters": [
-        "assets/processed/masters/generated/released_airborne.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/released_airborne/released_airborne_187.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/released_airborne/released_airborne_238.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/released_airborne/released_airborne_306.png"
-        ]
-      },
-      "frame_count": 1
-    },
-    "idle_blink": {
-      "source_masters": [
-        "assets/processed/masters/generated/idle_blink_00.png",
-        "assets/processed/masters/generated/idle_blink_01.png",
-        "assets/processed/masters/generated/idle_blink_02.png",
-        "assets/processed/masters/generated/idle_blink_03.png",
-        "assets/processed/masters/generated/idle_blink_04.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/idle_blink/idle_blink_187_00.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_187_01.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_187_02.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_187_03.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_187_04.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/idle_blink/idle_blink_238_00.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_238_01.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_238_02.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_238_03.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_238_04.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/idle_blink/idle_blink_306_00.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_306_01.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_306_02.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_306_03.png",
-          "assets/processed/runtime/states/idle_blink/idle_blink_306_04.png"
-        ]
-      },
-      "frame_count": 5
     },
     "idle_glance": {
       "source_masters": [
@@ -397,6 +230,85 @@
       },
       "frame_count": 7
     },
+    "landing": {
+      "source_masters": [
+        "assets/processed/masters/generated/landing_00.png",
+        "assets/processed/masters/generated/landing_01.png",
+        "assets/processed/masters/generated/landing_02.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/landing/landing_187_00.png",
+          "assets/processed/runtime/states/landing/landing_187_01.png",
+          "assets/processed/runtime/states/landing/landing_187_02.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/landing/landing_238_00.png",
+          "assets/processed/runtime/states/landing/landing_238_01.png",
+          "assets/processed/runtime/states/landing/landing_238_02.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/landing/landing_306_00.png",
+          "assets/processed/runtime/states/landing/landing_306_01.png",
+          "assets/processed/runtime/states/landing/landing_306_02.png"
+        ]
+      },
+      "frame_count": 3
+    },
+    "perch_work": {
+      "source_masters": [
+        "assets/processed/masters/generated/perch_work_00.png",
+        "assets/processed/masters/generated/perch_work_01.png",
+        "assets/processed/masters/generated/perch_work_02.png",
+        "assets/processed/masters/generated/perch_work_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/perch_work/perch_work_187_00.png",
+          "assets/processed/runtime/states/perch_work/perch_work_187_01.png",
+          "assets/processed/runtime/states/perch_work/perch_work_187_02.png",
+          "assets/processed/runtime/states/perch_work/perch_work_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/perch_work/perch_work_238_00.png",
+          "assets/processed/runtime/states/perch_work/perch_work_238_01.png",
+          "assets/processed/runtime/states/perch_work/perch_work_238_02.png",
+          "assets/processed/runtime/states/perch_work/perch_work_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/perch_work/perch_work_306_00.png",
+          "assets/processed/runtime/states/perch_work/perch_work_306_01.png",
+          "assets/processed/runtime/states/perch_work/perch_work_306_02.png",
+          "assets/processed/runtime/states/perch_work/perch_work_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "sleep": {
+      "source_masters": [
+        "assets/processed/masters/generated/sleep_00.png",
+        "assets/processed/masters/generated/sleep_01.png",
+        "assets/processed/masters/generated/sleep_02.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/sleep/sleep_187_00.png",
+          "assets/processed/runtime/states/sleep/sleep_187_01.png",
+          "assets/processed/runtime/states/sleep/sleep_187_02.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/sleep/sleep_238_00.png",
+          "assets/processed/runtime/states/sleep/sleep_238_01.png",
+          "assets/processed/runtime/states/sleep/sleep_238_02.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/sleep/sleep_306_00.png",
+          "assets/processed/runtime/states/sleep/sleep_306_01.png",
+          "assets/processed/runtime/states/sleep/sleep_306_02.png"
+        ]
+      },
+      "frame_count": 3
+    },
     "head_pat": {
       "source_masters": [
         "assets/processed/masters/generated/head_pat_00.png",
@@ -434,163 +346,234 @@
       },
       "frame_count": 6
     },
-    "poke_react": {
+    "idle_think": {
       "source_masters": [
-        "assets/processed/masters/generated/poke_react_00.png",
-        "assets/processed/masters/generated/poke_react_01.png",
-        "assets/processed/masters/generated/poke_react_02.png",
-        "assets/processed/masters/generated/poke_react_03.png"
+        "assets/processed/masters/generated/idle_think_00.png",
+        "assets/processed/masters/generated/idle_think_01.png",
+        "assets/processed/masters/generated/idle_think_02.png",
+        "assets/processed/masters/generated/idle_think_03.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/poke_react/poke_react_187_00.png",
-          "assets/processed/runtime/states/poke_react/poke_react_187_01.png",
-          "assets/processed/runtime/states/poke_react/poke_react_187_02.png",
-          "assets/processed/runtime/states/poke_react/poke_react_187_03.png"
+          "assets/processed/runtime/states/idle_think/idle_think_187_00.png",
+          "assets/processed/runtime/states/idle_think/idle_think_187_01.png",
+          "assets/processed/runtime/states/idle_think/idle_think_187_02.png",
+          "assets/processed/runtime/states/idle_think/idle_think_187_03.png"
         ],
         "238": [
-          "assets/processed/runtime/states/poke_react/poke_react_238_00.png",
-          "assets/processed/runtime/states/poke_react/poke_react_238_01.png",
-          "assets/processed/runtime/states/poke_react/poke_react_238_02.png",
-          "assets/processed/runtime/states/poke_react/poke_react_238_03.png"
+          "assets/processed/runtime/states/idle_think/idle_think_238_00.png",
+          "assets/processed/runtime/states/idle_think/idle_think_238_01.png",
+          "assets/processed/runtime/states/idle_think/idle_think_238_02.png",
+          "assets/processed/runtime/states/idle_think/idle_think_238_03.png"
         ],
         "306": [
-          "assets/processed/runtime/states/poke_react/poke_react_306_00.png",
-          "assets/processed/runtime/states/poke_react/poke_react_306_01.png",
-          "assets/processed/runtime/states/poke_react/poke_react_306_02.png",
-          "assets/processed/runtime/states/poke_react/poke_react_306_03.png"
+          "assets/processed/runtime/states/idle_think/idle_think_306_00.png",
+          "assets/processed/runtime/states/idle_think/idle_think_306_01.png",
+          "assets/processed/runtime/states/idle_think/idle_think_306_02.png",
+          "assets/processed/runtime/states/idle_think/idle_think_306_03.png"
         ]
       },
       "frame_count": 4
     },
-    "tail_react": {
+    "idle_back": {
       "source_masters": [
-        "assets/processed/masters/generated/tail_react_00.png",
-        "assets/processed/masters/generated/tail_react_01.png",
-        "assets/processed/masters/generated/tail_react_02.png",
-        "assets/processed/masters/generated/tail_react_03.png"
+        "assets/processed/masters/generated/idle_back.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/tail_react/tail_react_187_00.png",
-          "assets/processed/runtime/states/tail_react/tail_react_187_01.png",
-          "assets/processed/runtime/states/tail_react/tail_react_187_02.png",
-          "assets/processed/runtime/states/tail_react/tail_react_187_03.png"
+          "assets/processed/runtime/states/idle_back/idle_back_187.png"
         ],
         "238": [
-          "assets/processed/runtime/states/tail_react/tail_react_238_00.png",
-          "assets/processed/runtime/states/tail_react/tail_react_238_01.png",
-          "assets/processed/runtime/states/tail_react/tail_react_238_02.png",
-          "assets/processed/runtime/states/tail_react/tail_react_238_03.png"
+          "assets/processed/runtime/states/idle_back/idle_back_238.png"
         ],
         "306": [
-          "assets/processed/runtime/states/tail_react/tail_react_306_00.png",
-          "assets/processed/runtime/states/tail_react/tail_react_306_01.png",
-          "assets/processed/runtime/states/tail_react/tail_react_306_02.png",
-          "assets/processed/runtime/states/tail_react/tail_react_306_03.png"
+          "assets/processed/runtime/states/idle_back/idle_back_306.png"
+        ]
+      },
+      "frame_count": 1
+    },
+    "released_airborne": {
+      "source_masters": [
+        "assets/processed/masters/generated/released_airborne.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/released_airborne/released_airborne_187.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/released_airborne/released_airborne_238.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/released_airborne/released_airborne_306.png"
+        ]
+      },
+      "frame_count": 1
+    },
+    "transform": {
+      "source_masters": [
+        "assets/processed/masters/generated/transform_00.png",
+        "assets/processed/masters/generated/transform_01.png",
+        "assets/processed/masters/generated/transform_02.png",
+        "assets/processed/masters/generated/transform_03.png",
+        "assets/processed/masters/generated/transform_04.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/transform/transform_187_00.png",
+          "assets/processed/runtime/states/transform/transform_187_01.png",
+          "assets/processed/runtime/states/transform/transform_187_02.png",
+          "assets/processed/runtime/states/transform/transform_187_03.png",
+          "assets/processed/runtime/states/transform/transform_187_04.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/transform/transform_238_00.png",
+          "assets/processed/runtime/states/transform/transform_238_01.png",
+          "assets/processed/runtime/states/transform/transform_238_02.png",
+          "assets/processed/runtime/states/transform/transform_238_03.png",
+          "assets/processed/runtime/states/transform/transform_238_04.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/transform/transform_306_00.png",
+          "assets/processed/runtime/states/transform/transform_306_01.png",
+          "assets/processed/runtime/states/transform/transform_306_02.png",
+          "assets/processed/runtime/states/transform/transform_306_03.png",
+          "assets/processed/runtime/states/transform/transform_306_04.png"
+        ]
+      },
+      "frame_count": 5
+    },
+    "dragging": {
+      "source_masters": [
+        "assets/processed/masters/generated/dragging_00.png",
+        "assets/processed/masters/generated/dragging_01.png",
+        "assets/processed/masters/generated/dragging_02.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/dragging/dragging_187_00.png",
+          "assets/processed/runtime/states/dragging/dragging_187_01.png",
+          "assets/processed/runtime/states/dragging/dragging_187_02.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/dragging/dragging_238_00.png",
+          "assets/processed/runtime/states/dragging/dragging_238_01.png",
+          "assets/processed/runtime/states/dragging/dragging_238_02.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/dragging/dragging_306_00.png",
+          "assets/processed/runtime/states/dragging/dragging_306_01.png",
+          "assets/processed/runtime/states/dragging/dragging_306_02.png"
+        ]
+      },
+      "frame_count": 3
+    },
+    "walk_start_left": {
+      "source_masters": [
+        "assets/processed/masters/generated/walk_start_left_00.png",
+        "assets/processed/masters/generated/walk_start_left_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_187_00.png",
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_238_00.png",
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_306_00.png",
+          "assets/processed/runtime/states/walk_start_left/walk_start_left_306_01.png"
+        ]
+      },
+      "frame_count": 2
+    },
+    "angry": {
+      "source_masters": [
+        "assets/processed/masters/generated/angry_00.png",
+        "assets/processed/masters/generated/angry_01.png",
+        "assets/processed/masters/generated/angry_02.png",
+        "assets/processed/masters/generated/angry_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/angry/angry_187_00.png",
+          "assets/processed/runtime/states/angry/angry_187_01.png",
+          "assets/processed/runtime/states/angry/angry_187_02.png",
+          "assets/processed/runtime/states/angry/angry_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/angry/angry_238_00.png",
+          "assets/processed/runtime/states/angry/angry_238_01.png",
+          "assets/processed/runtime/states/angry/angry_238_02.png",
+          "assets/processed/runtime/states/angry/angry_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/angry/angry_306_00.png",
+          "assets/processed/runtime/states/angry/angry_306_01.png",
+          "assets/processed/runtime/states/angry/angry_306_02.png",
+          "assets/processed/runtime/states/angry/angry_306_03.png"
         ]
       },
       "frame_count": 4
     },
-    "eat": {
+    "walk_start_right": {
       "source_masters": [
-        "assets/processed/masters/generated/eat_00.png",
-        "assets/processed/masters/generated/eat_01.png",
-        "assets/processed/masters/generated/eat_02.png"
+        "assets/processed/masters/generated/walk_start_right_00.png",
+        "assets/processed/masters/generated/walk_start_right_01.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/eat/eat_187_00.png",
-          "assets/processed/runtime/states/eat/eat_187_01.png",
-          "assets/processed/runtime/states/eat/eat_187_02.png"
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_187_00.png",
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_187_01.png"
         ],
         "238": [
-          "assets/processed/runtime/states/eat/eat_238_00.png",
-          "assets/processed/runtime/states/eat/eat_238_01.png",
-          "assets/processed/runtime/states/eat/eat_238_02.png"
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_238_00.png",
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_238_01.png"
         ],
         "306": [
-          "assets/processed/runtime/states/eat/eat_306_00.png",
-          "assets/processed/runtime/states/eat/eat_306_01.png",
-          "assets/processed/runtime/states/eat/eat_306_02.png"
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_306_00.png",
+          "assets/processed/runtime/states/walk_start_right/walk_start_right_306_01.png"
         ]
       },
-      "frame_count": 3
+      "frame_count": 2
     },
-    "landing": {
+    "happy": {
       "source_masters": [
-        "assets/processed/masters/generated/landing_00.png",
-        "assets/processed/masters/generated/landing_01.png",
-        "assets/processed/masters/generated/landing_02.png"
+        "assets/processed/masters/generated/happy_00.png",
+        "assets/processed/masters/generated/happy_01.png",
+        "assets/processed/masters/generated/happy_02.png",
+        "assets/processed/masters/generated/happy_03.png",
+        "assets/processed/masters/generated/happy_04.png",
+        "assets/processed/masters/generated/happy_05.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/landing/landing_187_00.png",
-          "assets/processed/runtime/states/landing/landing_187_01.png",
-          "assets/processed/runtime/states/landing/landing_187_02.png"
+          "assets/processed/runtime/states/happy/happy_187_00.png",
+          "assets/processed/runtime/states/happy/happy_187_01.png",
+          "assets/processed/runtime/states/happy/happy_187_02.png",
+          "assets/processed/runtime/states/happy/happy_187_03.png",
+          "assets/processed/runtime/states/happy/happy_187_04.png",
+          "assets/processed/runtime/states/happy/happy_187_05.png"
         ],
         "238": [
-          "assets/processed/runtime/states/landing/landing_238_00.png",
-          "assets/processed/runtime/states/landing/landing_238_01.png",
-          "assets/processed/runtime/states/landing/landing_238_02.png"
+          "assets/processed/runtime/states/happy/happy_238_00.png",
+          "assets/processed/runtime/states/happy/happy_238_01.png",
+          "assets/processed/runtime/states/happy/happy_238_02.png",
+          "assets/processed/runtime/states/happy/happy_238_03.png",
+          "assets/processed/runtime/states/happy/happy_238_04.png",
+          "assets/processed/runtime/states/happy/happy_238_05.png"
         ],
         "306": [
-          "assets/processed/runtime/states/landing/landing_306_00.png",
-          "assets/processed/runtime/states/landing/landing_306_01.png",
-          "assets/processed/runtime/states/landing/landing_306_02.png"
+          "assets/processed/runtime/states/happy/happy_306_00.png",
+          "assets/processed/runtime/states/happy/happy_306_01.png",
+          "assets/processed/runtime/states/happy/happy_306_02.png",
+          "assets/processed/runtime/states/happy/happy_306_03.png",
+          "assets/processed/runtime/states/happy/happy_306_04.png",
+          "assets/processed/runtime/states/happy/happy_306_05.png"
         ]
       },
-      "frame_count": 3
-    },
-    "sleep_enter": {
-      "source_masters": [
-        "assets/processed/masters/generated/sleep_enter_00.png",
-        "assets/processed/masters/generated/sleep_enter_01.png",
-        "assets/processed/masters/generated/sleep_enter_02.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_00.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_01.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_02.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_00.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_01.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_02.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_00.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_01.png",
-          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_02.png"
-        ]
-      },
-      "frame_count": 3
-    },
-    "sleep_wake": {
-      "source_masters": [
-        "assets/processed/masters/generated/sleep_wake_00.png",
-        "assets/processed/masters/generated/sleep_wake_01.png",
-        "assets/processed/masters/generated/sleep_wake_02.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_00.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_01.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_02.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_00.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_01.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_02.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_00.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_01.png",
-          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_02.png"
-        ]
-      },
-      "frame_count": 3
+      "frame_count": 6
     },
     "walk_side": {
       "source_masters": [
@@ -629,386 +612,76 @@
       },
       "frame_count": 6
     },
-    "walk_start_left": {
+    "falling": {
       "source_masters": [
-        "assets/processed/masters/generated/walk_start_left_00.png",
-        "assets/processed/masters/generated/walk_start_left_01.png"
+        "assets/processed/masters/generated/falling_00.png",
+        "assets/processed/masters/generated/falling_01.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_187_00.png",
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_187_01.png"
+          "assets/processed/runtime/states/falling/falling_187_00.png",
+          "assets/processed/runtime/states/falling/falling_187_01.png"
         ],
         "238": [
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_238_00.png",
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_238_01.png"
+          "assets/processed/runtime/states/falling/falling_238_00.png",
+          "assets/processed/runtime/states/falling/falling_238_01.png"
         ],
         "306": [
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_306_00.png",
-          "assets/processed/runtime/states/walk_start_left/walk_start_left_306_01.png"
+          "assets/processed/runtime/states/falling/falling_306_00.png",
+          "assets/processed/runtime/states/falling/falling_306_01.png"
         ]
       },
       "frame_count": 2
     },
-    "walk_stop_left": {
+    "eat": {
       "source_masters": [
-        "assets/processed/masters/generated/walk_stop_left_00.png",
-        "assets/processed/masters/generated/walk_stop_left_01.png"
+        "assets/processed/masters/generated/eat_00.png",
+        "assets/processed/masters/generated/eat_01.png",
+        "assets/processed/masters/generated/eat_02.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_187_00.png",
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_187_01.png"
+          "assets/processed/runtime/states/eat/eat_187_00.png",
+          "assets/processed/runtime/states/eat/eat_187_01.png",
+          "assets/processed/runtime/states/eat/eat_187_02.png"
         ],
         "238": [
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_238_00.png",
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_238_01.png"
+          "assets/processed/runtime/states/eat/eat_238_00.png",
+          "assets/processed/runtime/states/eat/eat_238_01.png",
+          "assets/processed/runtime/states/eat/eat_238_02.png"
         ],
         "306": [
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_306_00.png",
-          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_306_01.png"
-        ]
-      },
-      "frame_count": 2
-    },
-    "work_typing": {
-      "source_masters": [
-        "assets/processed/masters/generated/work_typing_00.png",
-        "assets/processed/masters/generated/work_typing_01.png",
-        "assets/processed/masters/generated/work_typing_02.png",
-        "assets/processed/masters/generated/work_typing_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/work_typing/work_typing_187_00.png",
-          "assets/processed/runtime/states/work_typing/work_typing_187_01.png",
-          "assets/processed/runtime/states/work_typing/work_typing_187_02.png",
-          "assets/processed/runtime/states/work_typing/work_typing_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/work_typing/work_typing_238_00.png",
-          "assets/processed/runtime/states/work_typing/work_typing_238_01.png",
-          "assets/processed/runtime/states/work_typing/work_typing_238_02.png",
-          "assets/processed/runtime/states/work_typing/work_typing_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/work_typing/work_typing_306_00.png",
-          "assets/processed/runtime/states/work_typing/work_typing_306_01.png",
-          "assets/processed/runtime/states/work_typing/work_typing_306_02.png",
-          "assets/processed/runtime/states/work_typing/work_typing_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "sit_edge": {
-      "source_masters": [
-        "assets/processed/masters/generated/sit_edge_00.png",
-        "assets/processed/masters/generated/sit_edge_01.png",
-        "assets/processed/masters/generated/sit_edge_02.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/sit_edge/sit_edge_187_00.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_187_01.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_187_02.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/sit_edge/sit_edge_238_00.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_238_01.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_238_02.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/sit_edge/sit_edge_306_00.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_306_01.png",
-          "assets/processed/runtime/states/sit_edge/sit_edge_306_02.png"
+          "assets/processed/runtime/states/eat/eat_306_00.png",
+          "assets/processed/runtime/states/eat/eat_306_01.png",
+          "assets/processed/runtime/states/eat/eat_306_02.png"
         ]
       },
       "frame_count": 3
     },
-    "climb_side": {
+    "sleep_wake": {
       "source_masters": [
-        "assets/processed/masters/generated/climb_side_00.png",
-        "assets/processed/masters/generated/climb_side_01.png",
-        "assets/processed/masters/generated/climb_side_02.png",
-        "assets/processed/masters/generated/climb_side_03.png"
+        "assets/processed/masters/generated/sleep_wake_00.png",
+        "assets/processed/masters/generated/sleep_wake_01.png",
+        "assets/processed/masters/generated/sleep_wake_02.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/climb_side/climb_side_187_00.png",
-          "assets/processed/runtime/states/climb_side/climb_side_187_01.png",
-          "assets/processed/runtime/states/climb_side/climb_side_187_02.png",
-          "assets/processed/runtime/states/climb_side/climb_side_187_03.png"
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_00.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_01.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_187_02.png"
         ],
         "238": [
-          "assets/processed/runtime/states/climb_side/climb_side_238_00.png",
-          "assets/processed/runtime/states/climb_side/climb_side_238_01.png",
-          "assets/processed/runtime/states/climb_side/climb_side_238_02.png",
-          "assets/processed/runtime/states/climb_side/climb_side_238_03.png"
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_00.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_01.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_238_02.png"
         ],
         "306": [
-          "assets/processed/runtime/states/climb_side/climb_side_306_00.png",
-          "assets/processed/runtime/states/climb_side/climb_side_306_01.png",
-          "assets/processed/runtime/states/climb_side/climb_side_306_02.png",
-          "assets/processed/runtime/states/climb_side/climb_side_306_03.png"
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_00.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_01.png",
+          "assets/processed/runtime/states/sleep_wake/sleep_wake_306_02.png"
         ]
       },
-      "frame_count": 4
-    },
-    "perch_sit": {
-      "source_masters": [
-        "assets/processed/masters/generated/perch_sit_00.png",
-        "assets/processed/masters/generated/perch_sit_01.png",
-        "assets/processed/masters/generated/perch_sit_02.png",
-        "assets/processed/masters/generated/perch_sit_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/perch_sit/perch_sit_187_00.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_187_01.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_187_02.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/perch_sit/perch_sit_238_00.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_238_01.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_238_02.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/perch_sit/perch_sit_306_00.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_306_01.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_306_02.png",
-          "assets/processed/runtime/states/perch_sit/perch_sit_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "perch_work": {
-      "source_masters": [
-        "assets/processed/masters/generated/perch_work_00.png",
-        "assets/processed/masters/generated/perch_work_01.png",
-        "assets/processed/masters/generated/perch_work_02.png",
-        "assets/processed/masters/generated/perch_work_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/perch_work/perch_work_187_00.png",
-          "assets/processed/runtime/states/perch_work/perch_work_187_01.png",
-          "assets/processed/runtime/states/perch_work/perch_work_187_02.png",
-          "assets/processed/runtime/states/perch_work/perch_work_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/perch_work/perch_work_238_00.png",
-          "assets/processed/runtime/states/perch_work/perch_work_238_01.png",
-          "assets/processed/runtime/states/perch_work/perch_work_238_02.png",
-          "assets/processed/runtime/states/perch_work/perch_work_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/perch_work/perch_work_306_00.png",
-          "assets/processed/runtime/states/perch_work/perch_work_306_01.png",
-          "assets/processed/runtime/states/perch_work/perch_work_306_02.png",
-          "assets/processed/runtime/states/perch_work/perch_work_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "celebrate": {
-      "source_masters": [
-        "assets/processed/masters/generated/celebrate_00.png",
-        "assets/processed/masters/generated/celebrate_01.png",
-        "assets/processed/masters/generated/celebrate_02.png",
-        "assets/processed/masters/generated/celebrate_03.png",
-        "assets/processed/masters/generated/celebrate_04.png",
-        "assets/processed/masters/generated/celebrate_05.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/celebrate/celebrate_187_00.png",
-          "assets/processed/runtime/states/celebrate/celebrate_187_01.png",
-          "assets/processed/runtime/states/celebrate/celebrate_187_02.png",
-          "assets/processed/runtime/states/celebrate/celebrate_187_03.png",
-          "assets/processed/runtime/states/celebrate/celebrate_187_04.png",
-          "assets/processed/runtime/states/celebrate/celebrate_187_05.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/celebrate/celebrate_238_00.png",
-          "assets/processed/runtime/states/celebrate/celebrate_238_01.png",
-          "assets/processed/runtime/states/celebrate/celebrate_238_02.png",
-          "assets/processed/runtime/states/celebrate/celebrate_238_03.png",
-          "assets/processed/runtime/states/celebrate/celebrate_238_04.png",
-          "assets/processed/runtime/states/celebrate/celebrate_238_05.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/celebrate/celebrate_306_00.png",
-          "assets/processed/runtime/states/celebrate/celebrate_306_01.png",
-          "assets/processed/runtime/states/celebrate/celebrate_306_02.png",
-          "assets/processed/runtime/states/celebrate/celebrate_306_03.png",
-          "assets/processed/runtime/states/celebrate/celebrate_306_04.png",
-          "assets/processed/runtime/states/celebrate/celebrate_306_05.png"
-        ]
-      },
-      "frame_count": 6
-    },
-    "tired_yawn": {
-      "source_masters": [
-        "assets/processed/masters/generated/tired_yawn_00.png",
-        "assets/processed/masters/generated/tired_yawn_01.png",
-        "assets/processed/masters/generated/tired_yawn_02.png",
-        "assets/processed/masters/generated/tired_yawn_03.png",
-        "assets/processed/masters/generated/tired_yawn_04.png",
-        "assets/processed/masters/generated/tired_yawn_05.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_00.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_01.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_02.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_03.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_04.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_187_05.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_00.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_01.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_02.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_03.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_04.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_238_05.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_00.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_01.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_02.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_03.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_04.png",
-          "assets/processed/runtime/states/tired_yawn/tired_yawn_306_05.png"
-        ]
-      },
-      "frame_count": 6
-    },
-    "stretch": {
-      "source_masters": [
-        "assets/processed/masters/generated/stretch_00.png",
-        "assets/processed/masters/generated/stretch_01.png",
-        "assets/processed/masters/generated/stretch_02.png",
-        "assets/processed/masters/generated/stretch_03.png",
-        "assets/processed/masters/generated/stretch_04.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/stretch/stretch_187_00.png",
-          "assets/processed/runtime/states/stretch/stretch_187_01.png",
-          "assets/processed/runtime/states/stretch/stretch_187_02.png",
-          "assets/processed/runtime/states/stretch/stretch_187_03.png",
-          "assets/processed/runtime/states/stretch/stretch_187_04.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/stretch/stretch_238_00.png",
-          "assets/processed/runtime/states/stretch/stretch_238_01.png",
-          "assets/processed/runtime/states/stretch/stretch_238_02.png",
-          "assets/processed/runtime/states/stretch/stretch_238_03.png",
-          "assets/processed/runtime/states/stretch/stretch_238_04.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/stretch/stretch_306_00.png",
-          "assets/processed/runtime/states/stretch/stretch_306_01.png",
-          "assets/processed/runtime/states/stretch/stretch_306_02.png",
-          "assets/processed/runtime/states/stretch/stretch_306_03.png",
-          "assets/processed/runtime/states/stretch/stretch_306_04.png"
-        ]
-      },
-      "frame_count": 5
-    },
-    "wave": {
-      "source_masters": [
-        "assets/processed/masters/generated/wave_00.png",
-        "assets/processed/masters/generated/wave_01.png",
-        "assets/processed/masters/generated/wave_02.png",
-        "assets/processed/masters/generated/wave_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/wave/wave_187_00.png",
-          "assets/processed/runtime/states/wave/wave_187_01.png",
-          "assets/processed/runtime/states/wave/wave_187_02.png",
-          "assets/processed/runtime/states/wave/wave_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/wave/wave_238_00.png",
-          "assets/processed/runtime/states/wave/wave_238_01.png",
-          "assets/processed/runtime/states/wave/wave_238_02.png",
-          "assets/processed/runtime/states/wave/wave_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/wave/wave_306_00.png",
-          "assets/processed/runtime/states/wave/wave_306_01.png",
-          "assets/processed/runtime/states/wave/wave_306_02.png",
-          "assets/processed/runtime/states/wave/wave_306_03.png"
-        ]
-      },
-      "frame_count": 4
-    },
-    "transform": {
-      "source_masters": [
-        "assets/processed/masters/generated/transform_00.png",
-        "assets/processed/masters/generated/transform_01.png",
-        "assets/processed/masters/generated/transform_02.png",
-        "assets/processed/masters/generated/transform_03.png",
-        "assets/processed/masters/generated/transform_04.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/transform/transform_187_00.png",
-          "assets/processed/runtime/states/transform/transform_187_01.png",
-          "assets/processed/runtime/states/transform/transform_187_02.png",
-          "assets/processed/runtime/states/transform/transform_187_03.png",
-          "assets/processed/runtime/states/transform/transform_187_04.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/transform/transform_238_00.png",
-          "assets/processed/runtime/states/transform/transform_238_01.png",
-          "assets/processed/runtime/states/transform/transform_238_02.png",
-          "assets/processed/runtime/states/transform/transform_238_03.png",
-          "assets/processed/runtime/states/transform/transform_238_04.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/transform/transform_306_00.png",
-          "assets/processed/runtime/states/transform/transform_306_01.png",
-          "assets/processed/runtime/states/transform/transform_306_02.png",
-          "assets/processed/runtime/states/transform/transform_306_03.png",
-          "assets/processed/runtime/states/transform/transform_306_04.png"
-        ]
-      },
-      "frame_count": 5
-    },
-    "climb_side_right": {
-      "source_masters": [
-        "assets/processed/masters/generated/climb_side_right_00.png",
-        "assets/processed/masters/generated/climb_side_right_01.png",
-        "assets/processed/masters/generated/climb_side_right_02.png",
-        "assets/processed/masters/generated/climb_side_right_03.png"
-      ],
-      "frames": {
-        "187": [
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_00.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_01.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_02.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_187_03.png"
-        ],
-        "238": [
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_00.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_01.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_02.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_238_03.png"
-        ],
-        "306": [
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_00.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_01.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_02.png",
-          "assets/processed/runtime/states/climb_side_right/climb_side_right_306_03.png"
-        ]
-      },
-      "frame_count": 4
+      "frame_count": 3
     },
     "walk_side_right": {
       "source_masters": [
@@ -1047,26 +720,387 @@
       },
       "frame_count": 6
     },
-    "walk_start_right": {
+    "work_typing": {
       "source_masters": [
-        "assets/processed/masters/generated/walk_start_right_00.png",
-        "assets/processed/masters/generated/walk_start_right_01.png"
+        "assets/processed/masters/generated/work_typing_00.png",
+        "assets/processed/masters/generated/work_typing_01.png",
+        "assets/processed/masters/generated/work_typing_02.png",
+        "assets/processed/masters/generated/work_typing_03.png"
       ],
       "frames": {
         "187": [
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_187_00.png",
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_187_01.png"
+          "assets/processed/runtime/states/work_typing/work_typing_187_00.png",
+          "assets/processed/runtime/states/work_typing/work_typing_187_01.png",
+          "assets/processed/runtime/states/work_typing/work_typing_187_02.png",
+          "assets/processed/runtime/states/work_typing/work_typing_187_03.png"
         ],
         "238": [
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_238_00.png",
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_238_01.png"
+          "assets/processed/runtime/states/work_typing/work_typing_238_00.png",
+          "assets/processed/runtime/states/work_typing/work_typing_238_01.png",
+          "assets/processed/runtime/states/work_typing/work_typing_238_02.png",
+          "assets/processed/runtime/states/work_typing/work_typing_238_03.png"
         ],
         "306": [
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_306_00.png",
-          "assets/processed/runtime/states/walk_start_right/walk_start_right_306_01.png"
+          "assets/processed/runtime/states/work_typing/work_typing_306_00.png",
+          "assets/processed/runtime/states/work_typing/work_typing_306_01.png",
+          "assets/processed/runtime/states/work_typing/work_typing_306_02.png",
+          "assets/processed/runtime/states/work_typing/work_typing_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "stretch": {
+      "source_masters": [
+        "assets/processed/masters/generated/stretch_00.png",
+        "assets/processed/masters/generated/stretch_01.png",
+        "assets/processed/masters/generated/stretch_02.png",
+        "assets/processed/masters/generated/stretch_03.png",
+        "assets/processed/masters/generated/stretch_04.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/stretch/stretch_187_00.png",
+          "assets/processed/runtime/states/stretch/stretch_187_01.png",
+          "assets/processed/runtime/states/stretch/stretch_187_02.png",
+          "assets/processed/runtime/states/stretch/stretch_187_03.png",
+          "assets/processed/runtime/states/stretch/stretch_187_04.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/stretch/stretch_238_00.png",
+          "assets/processed/runtime/states/stretch/stretch_238_01.png",
+          "assets/processed/runtime/states/stretch/stretch_238_02.png",
+          "assets/processed/runtime/states/stretch/stretch_238_03.png",
+          "assets/processed/runtime/states/stretch/stretch_238_04.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/stretch/stretch_306_00.png",
+          "assets/processed/runtime/states/stretch/stretch_306_01.png",
+          "assets/processed/runtime/states/stretch/stretch_306_02.png",
+          "assets/processed/runtime/states/stretch/stretch_306_03.png",
+          "assets/processed/runtime/states/stretch/stretch_306_04.png"
+        ]
+      },
+      "frame_count": 5
+    },
+    "talk": {
+      "source_masters": [
+        "assets/processed/masters/generated/talk_00.png",
+        "assets/processed/masters/generated/talk_01.png",
+        "assets/processed/masters/generated/talk_02.png",
+        "assets/processed/masters/generated/talk_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/talk/talk_187_00.png",
+          "assets/processed/runtime/states/talk/talk_187_01.png",
+          "assets/processed/runtime/states/talk/talk_187_02.png",
+          "assets/processed/runtime/states/talk/talk_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/talk/talk_238_00.png",
+          "assets/processed/runtime/states/talk/talk_238_01.png",
+          "assets/processed/runtime/states/talk/talk_238_02.png",
+          "assets/processed/runtime/states/talk/talk_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/talk/talk_306_00.png",
+          "assets/processed/runtime/states/talk/talk_306_01.png",
+          "assets/processed/runtime/states/talk/talk_306_02.png",
+          "assets/processed/runtime/states/talk/talk_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "perch_sit": {
+      "source_masters": [
+        "assets/processed/masters/generated/perch_sit_00.png",
+        "assets/processed/masters/generated/perch_sit_01.png",
+        "assets/processed/masters/generated/perch_sit_02.png",
+        "assets/processed/masters/generated/perch_sit_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/perch_sit/perch_sit_187_00.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_187_01.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_187_02.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/perch_sit/perch_sit_238_00.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_238_01.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_238_02.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/perch_sit/perch_sit_306_00.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_306_01.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_306_02.png",
+          "assets/processed/runtime/states/perch_sit/perch_sit_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "sit_edge": {
+      "source_masters": [
+        "assets/processed/masters/generated/sit_edge_00.png",
+        "assets/processed/masters/generated/sit_edge_01.png",
+        "assets/processed/masters/generated/sit_edge_02.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/sit_edge/sit_edge_187_00.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_187_01.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_187_02.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/sit_edge/sit_edge_238_00.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_238_01.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_238_02.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/sit_edge/sit_edge_306_00.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_306_01.png",
+          "assets/processed/runtime/states/sit_edge/sit_edge_306_02.png"
+        ]
+      },
+      "frame_count": 3
+    },
+    "celebrate": {
+      "source_masters": [
+        "assets/processed/masters/generated/celebrate_00.png",
+        "assets/processed/masters/generated/celebrate_01.png",
+        "assets/processed/masters/generated/celebrate_02.png",
+        "assets/processed/masters/generated/celebrate_03.png",
+        "assets/processed/masters/generated/celebrate_04.png",
+        "assets/processed/masters/generated/celebrate_05.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/celebrate/celebrate_187_00.png",
+          "assets/processed/runtime/states/celebrate/celebrate_187_01.png",
+          "assets/processed/runtime/states/celebrate/celebrate_187_02.png",
+          "assets/processed/runtime/states/celebrate/celebrate_187_03.png",
+          "assets/processed/runtime/states/celebrate/celebrate_187_04.png",
+          "assets/processed/runtime/states/celebrate/celebrate_187_05.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/celebrate/celebrate_238_00.png",
+          "assets/processed/runtime/states/celebrate/celebrate_238_01.png",
+          "assets/processed/runtime/states/celebrate/celebrate_238_02.png",
+          "assets/processed/runtime/states/celebrate/celebrate_238_03.png",
+          "assets/processed/runtime/states/celebrate/celebrate_238_04.png",
+          "assets/processed/runtime/states/celebrate/celebrate_238_05.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/celebrate/celebrate_306_00.png",
+          "assets/processed/runtime/states/celebrate/celebrate_306_01.png",
+          "assets/processed/runtime/states/celebrate/celebrate_306_02.png",
+          "assets/processed/runtime/states/celebrate/celebrate_306_03.png",
+          "assets/processed/runtime/states/celebrate/celebrate_306_04.png",
+          "assets/processed/runtime/states/celebrate/celebrate_306_05.png"
+        ]
+      },
+      "frame_count": 6
+    },
+    "idle_blink": {
+      "source_masters": [
+        "assets/processed/masters/generated/idle_blink_00.png",
+        "assets/processed/masters/generated/idle_blink_01.png",
+        "assets/processed/masters/generated/idle_blink_02.png",
+        "assets/processed/masters/generated/idle_blink_03.png",
+        "assets/processed/masters/generated/idle_blink_04.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/idle_blink/idle_blink_187_00.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_187_01.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_187_02.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_187_03.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_187_04.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/idle_blink/idle_blink_238_00.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_238_01.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_238_02.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_238_03.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_238_04.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/idle_blink/idle_blink_306_00.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_306_01.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_306_02.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_306_03.png",
+          "assets/processed/runtime/states/idle_blink/idle_blink_306_04.png"
+        ]
+      },
+      "frame_count": 5
+    },
+    "walk_stop_left": {
+      "source_masters": [
+        "assets/processed/masters/generated/walk_stop_left_00.png",
+        "assets/processed/masters/generated/walk_stop_left_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_187_00.png",
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_238_00.png",
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_306_00.png",
+          "assets/processed/runtime/states/walk_stop_left/walk_stop_left_306_01.png"
         ]
       },
       "frame_count": 2
+    },
+    "wave": {
+      "source_masters": [
+        "assets/processed/masters/generated/wave_00.png",
+        "assets/processed/masters/generated/wave_01.png",
+        "assets/processed/masters/generated/wave_02.png",
+        "assets/processed/masters/generated/wave_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/wave/wave_187_00.png",
+          "assets/processed/runtime/states/wave/wave_187_01.png",
+          "assets/processed/runtime/states/wave/wave_187_02.png",
+          "assets/processed/runtime/states/wave/wave_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/wave/wave_238_00.png",
+          "assets/processed/runtime/states/wave/wave_238_01.png",
+          "assets/processed/runtime/states/wave/wave_238_02.png",
+          "assets/processed/runtime/states/wave/wave_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/wave/wave_306_00.png",
+          "assets/processed/runtime/states/wave/wave_306_01.png",
+          "assets/processed/runtime/states/wave/wave_306_02.png",
+          "assets/processed/runtime/states/wave/wave_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "tail_react": {
+      "source_masters": [
+        "assets/processed/masters/generated/tail_react_00.png",
+        "assets/processed/masters/generated/tail_react_01.png",
+        "assets/processed/masters/generated/tail_react_02.png",
+        "assets/processed/masters/generated/tail_react_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/tail_react/tail_react_187_00.png",
+          "assets/processed/runtime/states/tail_react/tail_react_187_01.png",
+          "assets/processed/runtime/states/tail_react/tail_react_187_02.png",
+          "assets/processed/runtime/states/tail_react/tail_react_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/tail_react/tail_react_238_00.png",
+          "assets/processed/runtime/states/tail_react/tail_react_238_01.png",
+          "assets/processed/runtime/states/tail_react/tail_react_238_02.png",
+          "assets/processed/runtime/states/tail_react/tail_react_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/tail_react/tail_react_306_00.png",
+          "assets/processed/runtime/states/tail_react/tail_react_306_01.png",
+          "assets/processed/runtime/states/tail_react/tail_react_306_02.png",
+          "assets/processed/runtime/states/tail_react/tail_react_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "sleep_enter": {
+      "source_masters": [
+        "assets/processed/masters/generated/sleep_enter_00.png",
+        "assets/processed/masters/generated/sleep_enter_01.png",
+        "assets/processed/masters/generated/sleep_enter_02.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_00.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_01.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_187_02.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_00.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_01.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_238_02.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_00.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_01.png",
+          "assets/processed/runtime/states/sleep_enter/sleep_enter_306_02.png"
+        ]
+      },
+      "frame_count": 3
+    },
+    "idle_front": {
+      "source_masters": [
+        "assets/processed/masters/generated/idle_front.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/idle_front/idle_front_187.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/idle_front/idle_front_238.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/idle_front/idle_front_306.png"
+        ]
+      },
+      "frame_count": 1
+    },
+    "climb_side": {
+      "source_masters": [
+        "assets/processed/masters/generated/climb_side_00.png",
+        "assets/processed/masters/generated/climb_side_01.png",
+        "assets/processed/masters/generated/climb_side_02.png",
+        "assets/processed/masters/generated/climb_side_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/climb_side/climb_side_187_00.png",
+          "assets/processed/runtime/states/climb_side/climb_side_187_01.png",
+          "assets/processed/runtime/states/climb_side/climb_side_187_02.png",
+          "assets/processed/runtime/states/climb_side/climb_side_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/climb_side/climb_side_238_00.png",
+          "assets/processed/runtime/states/climb_side/climb_side_238_01.png",
+          "assets/processed/runtime/states/climb_side/climb_side_238_02.png",
+          "assets/processed/runtime/states/climb_side/climb_side_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/climb_side/climb_side_306_00.png",
+          "assets/processed/runtime/states/climb_side/climb_side_306_01.png",
+          "assets/processed/runtime/states/climb_side/climb_side_306_02.png",
+          "assets/processed/runtime/states/climb_side/climb_side_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "walk_side_stand": {
+      "source_masters": [
+        "assets/processed/masters/generated/walk_side_stand.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_187.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_238.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/walk_side_stand/walk_side_stand_306.png"
+        ]
+      },
+      "frame_count": 1
     },
     "walk_stop_right": {
       "source_masters": [
@@ -1088,6 +1122,64 @@
         ]
       },
       "frame_count": 2
+    },
+    "dizzy": {
+      "source_masters": [
+        "assets/processed/masters/generated/dizzy_00.png",
+        "assets/processed/masters/generated/dizzy_01.png",
+        "assets/processed/masters/generated/dizzy_02.png",
+        "assets/processed/masters/generated/dizzy_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/dizzy/dizzy_187_00.png",
+          "assets/processed/runtime/states/dizzy/dizzy_187_01.png",
+          "assets/processed/runtime/states/dizzy/dizzy_187_02.png",
+          "assets/processed/runtime/states/dizzy/dizzy_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/dizzy/dizzy_238_00.png",
+          "assets/processed/runtime/states/dizzy/dizzy_238_01.png",
+          "assets/processed/runtime/states/dizzy/dizzy_238_02.png",
+          "assets/processed/runtime/states/dizzy/dizzy_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/dizzy/dizzy_306_00.png",
+          "assets/processed/runtime/states/dizzy/dizzy_306_01.png",
+          "assets/processed/runtime/states/dizzy/dizzy_306_02.png",
+          "assets/processed/runtime/states/dizzy/dizzy_306_03.png"
+        ]
+      },
+      "frame_count": 4
+    },
+    "poke_react": {
+      "source_masters": [
+        "assets/processed/masters/generated/poke_react_00.png",
+        "assets/processed/masters/generated/poke_react_01.png",
+        "assets/processed/masters/generated/poke_react_02.png",
+        "assets/processed/masters/generated/poke_react_03.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/poke_react/poke_react_187_00.png",
+          "assets/processed/runtime/states/poke_react/poke_react_187_01.png",
+          "assets/processed/runtime/states/poke_react/poke_react_187_02.png",
+          "assets/processed/runtime/states/poke_react/poke_react_187_03.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/poke_react/poke_react_238_00.png",
+          "assets/processed/runtime/states/poke_react/poke_react_238_01.png",
+          "assets/processed/runtime/states/poke_react/poke_react_238_02.png",
+          "assets/processed/runtime/states/poke_react/poke_react_238_03.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/poke_react/poke_react_306_00.png",
+          "assets/processed/runtime/states/poke_react/poke_react_306_01.png",
+          "assets/processed/runtime/states/poke_react/poke_react_306_02.png",
+          "assets/processed/runtime/states/poke_react/poke_react_306_03.png"
+        ]
+      },
+      "frame_count": 4
     }
   },
   "expressions": {

@@ -14,6 +14,13 @@ STYLE = (
     "transparent background, no ground shadow, no text, no watermark, no frame."
 )
 
+DOCK_STYLE = (
+    "Cute chibi anime desktop-pet sprite in exactly the same art style, chibi head-to-body ratio, character scale and line quality as the reference image. "
+    "Single character only, transparent background, NO wall, NO doorframe, NO border line, NO desk, NO ground shadow, NO text, NO watermark, NO frame."
+)
+
+DOCK_ASSETS = frozenset({"dock_peek", "dock_work"})
+
 # The three forms keep their ORIGINAL catgirl designs (reference image =
 # <form>/processed/masters/generated/idle_front.png).  What differs is how
 # each one moves and acts.
@@ -246,6 +253,12 @@ FORM_NOTES: dict[str, dict[str, str]] = {
         "walk_start_left": "hugging her cat pillow against her chest",
         "walk_stop_left": "hugging her cat pillow against her chest",
         "transform": "hugging her cat pillow; the light is a soft lavender glow with a few lavender light motes instead of stars",
+        "dock_peek": "Hugging her lavender cat pillow under her lower left arm while her right oversized-sleeve hand grips the invisible vertical edge on the left; sleepy half-lidded violet eyes (both eyes softly half-open in frame 1, closed in frame 2)",
+        "dock_work": "Her lavender cat pillow tucked cozy against her chest/left side while typing lazily with her oversized sleeves on the tiny floating translucent lavender screen and keyboard; sleepy half-lidded eyes",
+    },
+    "claude": {
+        "dock_peek": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, orange flower hair ornament, and white-and-black lace dress",
+        "dock_work": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, white-and-black lace dress, and a warm amber-gold floating translucent holographic screen and mini keyboard",
     },
 }
 
@@ -477,6 +490,25 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "turning back to side view, light fading",
         "facing the viewer, signature pose, light sparkles dispersing",
     ]),
+    # ----- screen-edge docking (left screen edge; mirrored for right screen edge) -----
+    "dock_peek": (PORTRAIT, [
+        "peeking out playfully to the RIGHT from behind an invisible vertical wall on her LEFT side: keep her chibi head size and vertical three-quarter body scale matching the reference image (head, upper torso, waist, skirt/outfit and flowing hair/tail visible down to mid-thigh, legs hidden behind the left edge). "
+        "Her left shoulder, left side of her torso and skirt end flush along one clean straight vertical cut on the far left of her silhouette as if emerging from behind a monitor bezel. "
+        "Both hands wrap around and grip that invisible vertical left edge (upper hand near shoulder height, lower hand near waist height), head tilted playfully to the right looking directly at the viewer with BOTH eyes wide open, bright curious gaze and a warm smile (NO winking, NO closed eyes). "
+        "Draw NO wall, NO line, NO frame, NO shadow; pure transparent background",
+        "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical hands gripping the invisible left edge, identical scale, framing and outfit; "
+        "only her expression changed to a cheerful gentle blink with both eyes softly closed in a happy smile and hair swaying slightly",
+    ]),
+    "dock_work": (PORTRAIT, [
+        "peeking out sideways to the RIGHT from behind an invisible vertical wall on her LEFT side while working: keep her chibi head size and vertical three-quarter body scale matching the reference image (head, upper torso, waist, skirt/outfit and flowing hair/tail visible down to mid-thigh, legs hidden behind the left edge). "
+        "Her left shoulder and left side of her torso/skirt end flush along one clean straight vertical cut on the far left of her silhouette as if leaning out from behind a monitor bezel. "
+        "Leaning out to the right, a small glowing floating translucent holographic screen (showing ONLY abstract glowing geometric UI bars/icons, NO letters, NO numbers, NO text) and mini keyboard hover in front of her chest on the right side, left hand pressing a key on the floating keyboard, right hand hovering above the keys, focused bright eyes looking at the floating screen with soft screen light on her face. "
+        "Draw NO wall, NO line, NO desk, NO frame, NO shadow; pure transparent background",
+        "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical scale, framing, body and the SAME glowing floating translucent screen (abstract UI icons only, no text) and mini keyboard in the exact same position; "
+        "only her hands changed: right hand pressing a key on the floating keyboard, left hand lifted slightly above the keys, focused eyes on the screen",
+        "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical scale, framing, body and the SAME glowing floating translucent screen (abstract UI icons only, no text) and mini keyboard in the exact same position; "
+        "only her eyes and hands changed: both hands resting on the keys, a calm happy slow blink with eyes closed and a tiny satisfied smile",
+    ]),
 }
 
 MIRRORS = {
@@ -484,6 +516,8 @@ MIRRORS = {
     "walk_side_right": "walk_side",
     "walk_start_right": "walk_start_left",
     "walk_stop_right": "walk_stop_left",
+    "dock_peek_right": "dock_peek",
+    "dock_work_right": "dock_work",
 }
 
 

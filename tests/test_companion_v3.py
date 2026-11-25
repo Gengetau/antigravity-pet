@@ -459,10 +459,22 @@ class PetWindowCompanionV3Tests(unittest.TestCase):
         self.assertFalse(self.pet._dock_peeking)
         self.assertEqual(self.pet.x(), docked_x)
 
-        # Undock restores fully inside screen
+        # Undock restores fully inside screen and returns from bespoke dock asset
         self.pet.undock_from_edge()
         self.assertIsNone(self.pet._dock_side)
         self.assertLessEqual(self.pet.x() + self.pet.width(), area.right() + 1)
+        self.assertNotIn(self.pet.player.snapshot().current.asset_id, {"dock_peek", "dock_peek_right", "dock_work", "dock_work_right"})
+
+        # Verify bespoke dock_peek / dock_work assets load on left & right dock
+        self.pet.dock_to_edge("left")
+        self.assertEqual(self.pet.player.snapshot().current.asset_id, "dock_peek")
+        self.pet._request_action(PetAction.WORKING, reason="test_dock_work", force=True, immediate=True)
+        self.assertEqual(self.pet.player.snapshot().current.asset_id, "dock_work")
+        self.pet.dock_to_edge("right")
+        self.assertEqual(self.pet.player.snapshot().current.asset_id, "dock_peek_right")
+        self.pet._request_action(PetAction.WORKING, reason="test_dock_work_r", force=True, immediate=True)
+        self.assertEqual(self.pet.player.snapshot().current.asset_id, "dock_work_right")
+        self.pet.undock_from_edge()
 
     def test_stepped_sulking_and_forgiveness_by_head_pat_and_favorite_food(self) -> None:
         self.pet._recent_pokes.clear()

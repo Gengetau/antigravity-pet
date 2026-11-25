@@ -33,7 +33,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from spec import ASSETS, FORMS, MIRRORS, SKIP_REGENERATE, DROP_FIRST, KEEP_FRAMES, STYLE, poses  # noqa: E402
+from spec import ASSETS, DOCK_ASSETS, DOCK_STYLE, FORMS, MIRRORS, SKIP_REGENERATE, DROP_FIRST, KEEP_FRAMES, STYLE, poses  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 WORK = ROOT / "art_work"
@@ -41,7 +41,7 @@ BACKUP = ROOT / "art_backup"
 HEIGHTS = (187, 238, 306)
 API = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 MODEL_CANDIDATES = [m for m in (os.environ.get("AGY_IMAGE_MODEL"),) if m] + [
-    "gpt-image-2.5-flare", "gpt-image-2.5", "gpt-image-2.5-sunburst", "gpt-image-2", "gpt-image-1.5", "gpt-image-1",
+    "gpt-image-2.6", "gpt-image-2.5-flare", "gpt-image-2.5", "gpt-image-2.5-sunburst", "gpt-image-2", "gpt-image-1.5", "gpt-image-1",
 ]
 MODEL_FILE = WORK / "model.json"
 
@@ -167,9 +167,10 @@ def cmd_probe(_args) -> None:
     sys.exit("没有可用的生图模型")
 
 
-def character_prompt(form: str) -> str:
+def character_prompt(form: str, *, asset: str = "") -> str:
     spec = FORMS[form]
-    return f"{STYLE}\nCharacter: {spec['character']}\nBody language: {spec['body_language']}."
+    style = DOCK_STYLE if asset in DOCK_ASSETS else STYLE
+    return f"{style}\nCharacter: {spec['character']}\nBody language: {spec['body_language']}."
 
 
 def cmd_concept(args) -> None:
@@ -208,7 +209,7 @@ def _frame_job(form: str, asset: str, index: int, size: str, pose: str, quality:
                 "outfit, colours, scale, camera and framing as image 2, and change only what this frame describes.")
     else:
         lead = "Image 1 is the character reference: keep her design, outfit, colours and proportions exactly."
-    prompt = f"{lead}\n{character_prompt(form)}\nThis frame: {pose}."
+    prompt = f"{lead}\n{character_prompt(form, asset=asset)}\nThis frame: {pose}."
     png = with_retry(edit, prompt, refs, size, quality)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(png)
@@ -249,10 +250,15 @@ def _clean_alpha(image: Image.Image) -> Image.Image:
 
 def cmd_process(args) -> None:
     form = args.form
-    stage = WORK / form / "processed"
+    requested = set(args.assets.split(",")) if getattr(args, "assets", None) else None
+    stage = WORK / form / ("processed_partial" if requested else "processed")
+    if requested and stage.exists():
+        shutil.rmtree(stage)
     manifest_assets: dict[str, dict] = {}
     for asset in list(ASSETS) + list(MIRRORS):
         source = MIRRORS.get(asset, asset)
+        if requested and asset not in requested and source not in requested:
+            continue
         raws = sorted((WORK / form / "raw" / source).glob("*.png"))
         if len(raws) != len(ASSETS[source][1]):
             if source not in SKIP_REGENERATE:
@@ -278,23 +284,27 @@ def cmd_process(args) -> None:
             master.parent.mkdir(parents=True, exist_ok=True)
             crop.save(master)
             entry["source_masters"].append(f"assets/processed/masters/generated/{asset}{suffix}.png")
+            scale_ratio = 0.81 if source in DOCK_ASSETS else 1.0
             for h in HEIGHTS:
-                w = max(1, round(crop.width * h / crop.height))
+                target_h = max(1, round(h * scale_ratio))
+                w = max(1, round(crop.width * target_h / crop.height))
                 out = stage / "runtime" / "states" / asset / f"{asset}_{h}{suffix}.png"
                 out.parent.mkdir(parents=True, exist_ok=True)
-                crop.resize((w, h), Image.Resampling.LANCZOS).save(out, optimize=True)
+                crop.resize((w, target_h), Image.Resampling.LANCZOS).save(out, optimize=True)
                 entry["frames"][str(h)].append(f"assets/processed/runtime/states/{asset}/{asset}_{h}{suffix}.png")
         manifest_assets[asset] = entry
     character_id = "hydrogen" if form == "hydergon" else form
     manifest = {"format_version": 4, "character_id": character_id, "assets": manifest_assets}
-    (WORK / form / "actions.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    manifest_name = "actions_partial.json" if requested else "actions.json"
+    (WORK / form / manifest_name).write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{form}：处理了 {len(manifest_assets)} 个 asset → {stage}")
 
 
 def cmd_install(args) -> None:
     form = args.form
-    staged = WORK / form / "processed"
-    manifest = WORK / form / "actions.json"
+    partial_mode = bool(getattr(args, "partial_stage", False))
+    staged = WORK / form / ("processed_partial" if partial_mode else "processed")
+    manifest = WORK / form / ("actions_partial.json" if partial_mode else "actions.json")
     if not staged.is_dir() or not manifest.is_file():
         sys.exit("先运行 process")
     target = ROOT / form
@@ -302,7 +312,10 @@ def cmd_install(args) -> None:
     backup = BACKUP / f"{form}-{stamp}"
     old_manifest = target / "manifests" / "actions.json"
     if old_manifest.is_file():
-        shutil.copytree(target, backup)
+        if not partial_mode:
+            shutil.copytree(target, backup)
+        else:
+            backup = None
         old = json.loads(old_manifest.read_text(encoding="utf-8"))
     else:  # brand-new form
         (target / "manifests").mkdir(parents=True, exist_ok=True)
@@ -310,14 +323,14 @@ def cmd_install(args) -> None:
         backup = None
     new = json.loads(manifest.read_text(encoding="utf-8"))
     missing = sorted(set(old["assets"]) - set(new["assets"]) - SKIP_REGENERATE)
-    if missing and not args.allow_partial:
+    if missing and not args.allow_partial and not partial_mode:
         sys.exit(f"新素材缺少 {missing}，加 --allow-partial 会保留这些旧素材")
     for key in set(old["assets"]) - set(new["assets"]):
         new["assets"][key] = old["assets"][key]
     new = {**old, "assets": {**new["assets"]}}  # keep format_version and other top-level keys
     shutil.copytree(staged, target / "processed", dirs_exist_ok=True)
     (target / "manifests" / "actions.json").write_text(json.dumps(new, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"已安装到 {target}，旧素材备份在 {backup}")
+    print(f"已安装到 {target}" + (f"，旧素材备份在 {backup}" if backup else "（增量合入）"))
 
 
 def cmd_icon(args) -> None:
@@ -364,8 +377,8 @@ def main() -> None:
     sub.add_parser("probe")
     p = sub.add_parser("concept"); p.add_argument("--form", choices=FORMS, required=True); p.add_argument("--n", type=int, default=2); p.add_argument("--quality", default="high")
     p = sub.add_parser("frames"); p.add_argument("--form", choices=FORMS, required=True); p.add_argument("--assets"); p.add_argument("--jobs", type=int, default=4); p.add_argument("--quality", default="medium")
-    p = sub.add_parser("process"); p.add_argument("--form", choices=FORMS, required=True)
-    p = sub.add_parser("install"); p.add_argument("--form", choices=FORMS, required=True); p.add_argument("--allow-partial", action="store_true")
+    p = sub.add_parser("process"); p.add_argument("--form", choices=FORMS, required=True); p.add_argument("--assets")
+    p = sub.add_parser("install"); p.add_argument("--form", choices=FORMS, required=True); p.add_argument("--allow-partial", action="store_true"); p.add_argument("--partial-stage", action="store_true")
     p = sub.add_parser("icon"); p.add_argument("--n", type=int, default=2); p.add_argument("--quality", default="high")
     p = sub.add_parser("make-ico"); p.add_argument("source")
     args = parser.parse_args()

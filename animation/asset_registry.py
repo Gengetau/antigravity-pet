@@ -22,6 +22,13 @@ from .clip import (
 # Actions that have a "sitting on a window edge" version (direction "edge").
 EDGE_ASSETS = {PetAction.PERCH: "perch_sit", PetAction.WORKING: "perch_work"}
 
+# Actions that have bespoke screen-edge peek/work versions (direction "dock_left" / "dock_right").
+DOCK_LEFT_ASSETS = {PetAction.IDLE: "dock_peek", PetAction.WORKING: "dock_work"}
+DOCK_RIGHT_ASSETS = {PetAction.IDLE: "dock_peek_right", PetAction.WORKING: "dock_work_right"}
+BESPOKE_DOCK_ASSETS = frozenset(
+    (*DOCK_LEFT_ASSETS.values(), *DOCK_RIGHT_ASSETS.values())
+)
+
 
 class AssetRegistry:
     def __init__(self, assets_dir: Path, *, base_manifest: Path | None = None) -> None:
@@ -110,10 +117,11 @@ class AssetRegistry:
         spec = self.specs[action]
         asset_id = self._asset_for(action, spec.asset_id, direction)
         frames, selected_size = self._frames_for(asset_id, height)
-        frame_duration = self._frame_duration_ms(spec, len(frames))
+        resolved_asset = self.resolve_asset_id(asset_id)
+        frame_duration = self._frame_duration_ms(spec, len(frames), resolved_asset)
         return AnimationClip(
             action=action,
-            asset_id=asset_id,
+            asset_id=resolved_asset,
             frames=frames,
             loop=spec.loop,
             duration_ms=spec.duration_ms,
@@ -179,6 +187,10 @@ class AssetRegistry:
 
     @staticmethod
     def _asset_for(action: PetAction, default_asset: str, direction: str) -> str:
+        if direction == "dock_left" and action in DOCK_LEFT_ASSETS:
+            return DOCK_LEFT_ASSETS[action]
+        if direction == "dock_right" and action in DOCK_RIGHT_ASSETS:
+            return DOCK_RIGHT_ASSETS[action]
         if action in {PetAction.IDLE, PetAction.THINKING}:
             return "idle_back" if direction == "up" else ("idle_think" if action == PetAction.THINKING else "idle_front")
         if action == PetAction.WALKING:
@@ -265,9 +277,13 @@ class AssetRegistry:
         return self.project_root / normalized
 
     @staticmethod
-    def _frame_duration_ms(spec: ActionSpec, frame_count: int) -> int:
+    def _frame_duration_ms(spec: ActionSpec, frame_count: int, asset_id: str = "") -> int:
         if frame_count <= 0:
             return 120
+        if asset_id in {"dock_peek", "dock_peek_right"}:
+            return 420
+        if asset_id in {"dock_work", "dock_work_right"}:
+            return 340
         if spec.frame_ms is not None and frame_count > 1:
             return max(60, spec.frame_ms)
         if spec.duration_ms is not None:

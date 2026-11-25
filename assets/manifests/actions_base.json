@@ -1283,7 +1283,11 @@
     "climb_side": "walk_side",
     "climb_side_right": "climb_side",
     "perch_sit": "sit_edge",
-    "perch_work": "perch_sit"
+    "perch_work": "perch_sit",
+    "dock_peek": "idle_front",
+    "dock_peek_right": "idle_front",
+    "dock_work": "work_typing",
+    "dock_work_right": "work_typing"
   },
   "notes": [
     "所有运行时动作均来自同一套统一角色母版；运行时不生成图片。",
@@ -1293,6 +1297,40 @@
   "frame_pick": {
     "perch_sit": [
       0
+    ],
+    "dock_peek": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "dock_peek_right": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "dock_work": [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      2
+    ],
+    "dock_work_right": [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      2
     ]
   }
 }

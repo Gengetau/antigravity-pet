@@ -33,7 +33,7 @@ from agy.token_meter import TokenMeterWindow
 from agy.windows import AntigravityWindowFinder
 from awareness.privacy import PrivacyPolicy
 from awareness.sensor import ContextSensor
-from animation.asset_registry import EDGE_ASSETS, AssetRegistry
+from animation.asset_registry import BESPOKE_DOCK_ASSETS, DOCK_LEFT_ASSETS, EDGE_ASSETS, AssetRegistry
 from animation.expressions import CALM, ExpressionDirector, ExpressionInput
 from animation.clip import PetAction
 from animation.player import AnimationPlayer
@@ -462,7 +462,9 @@ class PetWindow(QWidget):
     ) -> None:
         current = self.action_machine.current
         direction = self.movement.direction
-        if current in EDGE_ASSETS and self.surface_tracker.attached:
+        if self._dock_side is not None and current in DOCK_LEFT_ASSETS:
+            direction = f"dock_{self._dock_side}"
+        elif current in EDGE_ASSETS and self.surface_tracker.attached:
             direction = "edge"
         elif current == PetAction.CLIMBING and self.climb.plan is not None:
             direction = self.climb.plan.facing
@@ -472,6 +474,10 @@ class PetWindow(QWidget):
             direction=direction,
         )
         self.player.play(program, crossfade=crossfade, immediate=immediate)
+        if self._dock_side is not None:
+            target_x = self._dock_target_x(self._dock_side, peek=self._dock_peek_progress)
+            if target_x != self.x():
+                self.move(target_x, self.y())
         # Sitting over the edge sits lower than standing on it: re-place now.
         self.surface_tracker.refresh_soon()
         self._refresh_control_panel()
@@ -755,6 +761,7 @@ class PetWindow(QWidget):
             state=self.pet_state,
             can_start=(
                 self.action_machine.current == PetAction.IDLE
+                and self._dock_side is None
                 and not self.interaction.active
                 and not self.movement.is_walking
                 and not self.control_panel.isVisible()
@@ -775,6 +782,7 @@ class PetWindow(QWidget):
             state=self.pet_state,
             can_start=(
                 self.action_machine.current == PetAction.IDLE
+                and self._dock_side is None
                 and not self.activity_director.active
                 and not self.interaction.active
                 and not self.movement.is_walking
@@ -1354,9 +1362,12 @@ class PetWindow(QWidget):
         self.snap_into_screen()
 
     def snap_into_screen(self) -> None:
+        was_docked = self._dock_side is not None
         self._dock_side = None
         self._dock_peeking = False
         self._dock_peek_progress = 0.0
+        if was_docked:
+            self._sync_animation_clip(crossfade=False, immediate=True)
         self.physics.cancel()
         self.surface_tracker.detach()
         self.movement.cancel_target()
@@ -1395,6 +1406,10 @@ class PetWindow(QWidget):
             return "right"
         return None
 
+    def _current_asset_is_bespoke_dock(self) -> bool:
+        snap = self.player.snapshot()
+        return snap.current is not None and snap.current.asset_id in BESPOKE_DOCK_ASSETS
+
     def _dock_target_x(self, side: str, *, peeking: bool = False, peek: float | None = None) -> int:
         area = self._screen_area_for_pet()
         if area is None:
@@ -1402,11 +1417,21 @@ class PetWindow(QWidget):
         p = max(0.0, min(1.0, (1.0 if peeking else 0.0) if peek is None else float(peek)))
         cx = self.width() / 2.0
         raw_w, raw_h = self._frame_size()
-        sprite_w = max(80.0, float(raw_w))
-        sprite_h = max(120.0, float(raw_h))
-        # At p=0 (±27 deg lean inward): align screen bezel right behind her outer ear/shoulder
-        # so her full tilted head + eyes peek out with zero gap and her lower body hides off-screen.
-        # At p=1 (±4 deg): slide fully out (past fluffy hair/ribbons) to greet the user.
+        sprite_w = max(72.0, float(raw_w))
+        sprite_h = max(100.0, float(raw_h))
+        if self._current_asset_is_bespoke_dock():
+            # Bespoke dock_peek / dock_work sprites have a clean vertical edge cut built in.
+            # Keep the cut tucked slightly behind the monitor bezel (zero detachment gap):
+            # tucked hides ~20% behind bezel; hovered (or dock_work) slides cleanly flush (~6% inset).
+            effective_p = max(p, 0.92) if self.action_machine.current == PetAction.WORKING else p
+            flush_inset = max(6.0, sprite_w * 0.06)
+            edge_inset = sprite_w * 0.20 * (1.0 - effective_p) + flush_inset * effective_p
+            if side == "right":
+                cut_x = cx + sprite_w / 2.0 - edge_inset
+                return round(area.right() + 1 - cut_x)
+            cut_x = cx - sprite_w / 2.0 + edge_inset
+            return round(area.left() - cut_x)
+        # Fallback for forms without bespoke dock art: tilted peek-a-boo around the bezel.
         head_shift = math.sin(math.radians(27.0)) * sprite_h * 0.72
         tuck_offset = max(sprite_w * 0.22, head_shift - sprite_w * 0.22)
         hover_offset = sprite_w * 0.48
@@ -1427,13 +1452,18 @@ class PetWindow(QWidget):
         self._dock_peeking = False
         self._dock_peek_progress = 0.0
         self._dock_leave_at = 0.0
+        self._set_direction("down")
+        telemetry = getattr(self, "telemetry", None)
+        snap = telemetry.last_snapshot if telemetry is not None else None
+        dock_action = PetAction.WORKING if (snap is not None and getattr(snap, "running", False)) else PetAction.IDLE
+        changed = self._request_action(dock_action, reason="edge_dock", force=True, immediate=True)
+        if not changed:
+            self._sync_animation_clip(crossfade=False, immediate=True)
         target_x = self._dock_target_x(side, peek=0.0)
         target_y = self.y()
         if area is not None:
             target_y = max(area.top(), min(area.bottom() - self.height() + 1, target_y))
         self.move(target_x, target_y)
-        self._set_direction("down")
-        self._request_action(PetAction.IDLE, reason="edge_dock", force=True, immediate=True)
         self.say("先躲到屏幕边上探头看你，鼠标过来我再出来～", preserve_action=True)
         self._refresh_control_panel()
 
@@ -1444,11 +1474,12 @@ class PetWindow(QWidget):
         self._dock_peeking = False
         self._dock_peek_progress = 0.0
         self._dock_leave_at = 0.0
+        self._set_direction("down")
+        self._sync_animation_clip(crossfade=False, immediate=True)
         area = self._screen_area_for_pet()
         if area is not None:
             clamped_x = max(area.left() + 8, min(area.right() - self.width() - 8, self.x()))
             self.move(clamped_x, self.y())
-        self._set_direction("down")
         self.emit_particles("sparkles")
         self._refresh_control_panel()
 
@@ -1865,6 +1896,8 @@ class PetWindow(QWidget):
         except ValueError:
             return
         if action == self.action_machine.current or self.climb.active:
+            return
+        if self._dock_side is not None and action not in {PetAction.IDLE, PetAction.WORKING}:
             return
         if action not in {PetAction.IDLE, PetAction.PERCH}:
             self.activity_director.interrupt(now=now)
@@ -2462,6 +2495,9 @@ class PetWindow(QWidget):
                 and self.action_machine.current in EDGE_ASSETS
             ):
                 # Sitting on a window edge: cheer with words, don't stand up.
+                action_name = None
+            elif self._dock_side is not None and action_name not in {"WORKING", "IDLE"}:
+                # Docked on screen edge: keep bespoke peek/work pose and react with speech + particles.
                 action_name = None
             if action_name and not busy:
                 try:

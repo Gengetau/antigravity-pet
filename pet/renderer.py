@@ -12,6 +12,7 @@ from animation.player import PlayerSnapshot, RenderLayer
 
 # Poses that hang off a wall or a window edge rather than stand on a floor.
 HANGING_ASSETS = frozenset({"perch_sit", "perch_work", "climb_side", "climb_side_right"})
+BESPOKE_DOCK_ASSETS = frozenset({"dock_peek", "dock_peek_right", "dock_work", "dock_work_right"})
 
 
 @dataclass(slots=True)
@@ -79,13 +80,22 @@ class PetRenderer:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         tail_x: float | None = None
+        bespoke_dock = (
+            snapshot.current is not None
+            and dock_pose is not None
+            and snapshot.current.asset_id in BESPOKE_DOCK_ASSETS
+        )
         if snapshot.current is not None and dock_pose is not None:
             side, peek = dock_pose
             p = max(0.0, min(1.0, float(peek)))
             sign = -1.0 if side == "right" else 1.0
-            angle = sign * (27.0 - 23.0 * p)
-            pix_h = max(120.0, float(snapshot.current.frame.pixmap.height()))
-            tail_x = widget.width() / 2.0 + math.sin(math.radians(angle)) * pix_h * 0.72
+            if bespoke_dock:
+                pix_w = max(80.0, float(snapshot.current.frame.pixmap.width()))
+                tail_x = widget.width() / 2.0 + sign * pix_w * 0.08
+            else:
+                angle = sign * (27.0 - 23.0 * p)
+                pix_h = max(120.0, float(snapshot.current.frame.pixmap.height()))
+                tail_x = widget.width() / 2.0 + math.sin(math.radians(angle)) * pix_h * 0.72
         if bubble.visible:
             self._draw_bubble(
                 painter,
@@ -104,8 +114,13 @@ class PetRenderer:
             side, peek = dock_pose
             p = max(0.0, min(1.0, float(peek)))
             sign = -1.0 if side == "right" else 1.0
-            sway = 0.0 if self.reduced_motion else math.sin(snapshot.elapsed_seconds * 2.1) * 1.3
-            pose = EffectPose(rotation_degrees=sign * (27.0 - 23.0 * p) + sway)
+            if bespoke_dock:
+                sway = 0.0 if self.reduced_motion else math.sin(snapshot.elapsed_seconds * 2.0) * 1.1
+                bob = 0.0 if self.reduced_motion else math.sin(snapshot.elapsed_seconds * 2.4) * 1.5
+                pose = EffectPose(rotation_degrees=sign * (2.5 * p) + sway, offset_y=bob - 18.0)
+            else:
+                sway = 0.0 if self.reduced_motion else math.sin(snapshot.elapsed_seconds * 2.1) * 1.3
+                pose = EffectPose(rotation_degrees=sign * (27.0 - 23.0 * p) + sway)
         elif hanging:
             # On a wall or a window edge: no floor shadow and no procedural
             # sway, bob or tilt; she sits (or hangs) still.
