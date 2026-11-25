@@ -296,7 +296,7 @@ def parse_iso_ms(value: object) -> int | None:
     if not isinstance(value, str) or not value:
         return None
     text = value.strip()
-    if text.endswith("Z"):
+    if text.endswith(("Z", "z")):
         text = text[:-1] + "+00:00"
     # Python < 3.11 cannot parse more than 6 fractional digits.
     text = re.sub(r"(\.\d{6})\d+", r"\1", text)
@@ -429,16 +429,20 @@ def format_tokens(value: float) -> str:
 
 def format_reset_countdown(iso: str | None, *, now_ms: int | None = None) -> str:
     target = parse_iso_ms(iso)
-    if target is None:
+    if target is None or target <= 0:
         return ""
     now_ms = int(time.time() * 1000) if now_ms is None else now_ms
     minutes = (target - now_ms) / 60_000
-    clock = datetime.fromtimestamp(target / 1000).strftime("%H:%M")
+    try:
+        clock = datetime.fromtimestamp(target / 1000).strftime("%H:%M")
+    except (OSError, OverflowError, ValueError):
+        return ""
     if minutes <= 0:
         return "即将重置"
-    if minutes >= 60:
-        return f"{int(minutes // 60)}h {int(minutes % 60)}m 后重置 ({clock})"
-    return f"{int(minutes + 0.999)}m 后重置 ({clock})"
+    rounded = int(minutes + 0.999)
+    if rounded >= 60:
+        return f"{rounded // 60}h {rounded % 60}m 后重置 ({clock})"
+    return f"{rounded}m 后重置 ({clock})"
 
 
 # --------------------------------------------------------------------------

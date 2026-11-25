@@ -51,8 +51,8 @@ LINES: dict[str, tuple[str, ...]] = {
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),
     "quota_critical": ("限额快见底了（{quota}%），{reset}。", "只剩 {quota}% 限额！{reset}"),
     "quota_reset_soon": (
-        "小鱼干马上补货！限额还有约 {reset} 重置～",
-        "坚持一下，再过 {reset} 限额就刷新啦！",
+        "小鱼干马上补货！限额 {reset}～",
+        "坚持一下，限额 {reset}，马上满血！",
     ),
     "quota_refilled": (
         "限额补满啦（{quota}%）！干活能量回满～",
@@ -107,7 +107,7 @@ _LUNAR_FESTIVALS: dict[tuple[int, int, int], tuple[str, str]] = {
 
 def greeting_for_moment(dt: datetime | None = None) -> tuple[str, str, str | None]:
     """Return ``(kind, greeting_line, particle_effect)`` for the local clock/festival."""
-    now = dt or datetime.now()
+    now = dt.astimezone() if (dt is not None and dt.tzinfo is not None) else (dt or datetime.now())
     lunar = _LUNAR_FESTIVALS.get((now.year, now.month, now.day))
     if lunar is not None:
         return f"fest_{lunar[0]}", lunar[1], "confetti"
@@ -147,10 +147,11 @@ class ReactionTracker:
         self._last_at: dict[str, float] = {}
         self._quota_band = 2  # 2 ok, 1 low, 0 critical
         self._last_quota_pct: float | None = None
+        self._last_quota_group: str | None = None
         self._reset_soon_active = False
         self._was_waiting = False
         self._last_subagent_count = 0
-        self._context_warned_for = ""
+        self._context_warned_for: set[str] = set()
         self._update_notified_for = ""
         self._last_ai_comment_id = ""
         self._was_offline = False
@@ -214,8 +215,9 @@ class ReactionTracker:
             if snapshot.running and not self._last_running and self._ready("started", now, 45):
                 reactions.append(Reaction("started", self._line("started"), "WORKING"))
             elif not snapshot.running and self._last_running:
-                if snapshot.termination_reason.upper() == "ERROR" and self._ready("turn_error", now, 30):
-                    reactions.append(Reaction("turn_error", self._line("turn_error"), "DIZZY", particle="sweat"))
+                if snapshot.termination_reason.upper() == "ERROR":
+                    if self._ready("turn_error", now, 30):
+                        reactions.append(Reaction("turn_error", self._line("turn_error"), "DIZZY", particle="sweat"))
                 elif self._ready("finished", now, 30):
                     rate = snapshot.avg_decode_tps or snapshot.display_rate or 0
                     reactions.append(
@@ -236,12 +238,14 @@ class ReactionTracker:
 
         # Active subagent clones
         sub_count = len(snapshot.active_subagents)
-        if sub_count >= 2 and self._last_subagent_count < 2 and self._ready("subagent_many", now, 180):
-            reactions.append(
-                Reaction("subagent_many", self._line("subagent_many", count=sub_count), "CELEBRATE", particle="sparkles")
-            )
-        elif sub_count >= 1 and self._last_subagent_count == 0 and self._ready("subagent_start", now, 120):
-            reactions.append(Reaction("subagent_start", self._line("subagent_start"), "HAPPY", particle="sparkles"))
+        if sub_count >= 2 and self._last_subagent_count < 2:
+            if self._ready("subagent_many", now, 180):
+                reactions.append(
+                    Reaction("subagent_many", self._line("subagent_many", count=sub_count), "CELEBRATE", particle="sparkles")
+                )
+        elif sub_count >= 1 and self._last_subagent_count == 0:
+            if self._ready("subagent_start", now, 120):
+                reactions.append(Reaction("subagent_start", self._line("subagent_start"), "HAPPY", particle="sparkles"))
         self._last_subagent_count = sub_count
 
         rate = snapshot.latest_decode_tps or 0
@@ -250,9 +254,26 @@ class ReactionTracker:
 
         quota, quota_reset = self._effective_quota(snapshot)
         if quota is not None:
+            model_lower = (snapshot.model_for_form or "").lower()
+            quota_group = (
+                "third_party"
+                if any(w in model_lower for w in ("claude", "gpt", "oss", "opus", "sonnet"))
+                else ("gemini" if model_lower else "")
+            )
+            switched_group = (
+                self._last_quota_group is not None
+                and quota_group != ""
+                and self._last_quota_group != ""
+                and quota_group != self._last_quota_group
+            )
             band = 0 if quota <= 10 else 1 if quota <= 25 else 2
-            if band < self._quota_band:
-                reset = format_reset_countdown(quota_reset) or "等待重置"
+            now_ms = int(time.time() * 1000)
+            if switched_group:
+                # Model quota group switched (e.g. Gemini <-> Claude): re-baseline without fake refill/alert spam.
+                self._last_quota_pct = quota
+                self._quota_band = band
+            elif band < self._quota_band:
+                reset = format_reset_countdown(quota_reset, now_ms=now_ms) or "等待重置"
                 kind = "quota_critical" if band == 0 else "quota_low"
                 reactions.append(
                     Reaction(
@@ -277,10 +298,10 @@ class ReactionTracker:
                 )
 
             reset_ms = parse_iso_ms(quota_reset)
-            remaining_reset_ms = (reset_ms - time.time() * 1000) if reset_ms else None
+            remaining_reset_ms = (reset_ms - now_ms) if reset_ms else None
             reset_soon = remaining_reset_ms is not None and 0 < remaining_reset_ms <= 20 * 60_000 and quota <= 50.0
             if reset_soon and not self._reset_soon_active and self._ready("quota_reset_soon", now, 1800):
-                countdown = format_reset_countdown(quota_reset) or "不到 20 分钟"
+                countdown = format_reset_countdown(quota_reset, now_ms=now_ms) or "不到 20 分钟后重置"
                 reactions.append(
                     Reaction(
                         "quota_reset_soon",
@@ -292,10 +313,15 @@ class ReactionTracker:
             self._reset_soon_active = reset_soon
             self._quota_band = band
             self._last_quota_pct = quota
+            if quota_group:
+                self._last_quota_group = quota_group
 
         ctx = snapshot.context_pct
-        if ctx >= 80 and self._context_warned_for != snapshot.conversation_id:
-            self._context_warned_for = snapshot.conversation_id
+        ctx_key = snapshot.conversation_id or "__default__"
+        if ctx >= 80 and ctx_key not in self._context_warned_for:
+            if len(self._context_warned_for) >= 64:
+                self._context_warned_for.clear()
+            self._context_warned_for.add(ctx_key)
             reactions.append(
                 Reaction("context_high", self._line("context_high", ctx=f"{ctx:.0f}"), "DIZZY", particle="sweat")
             )

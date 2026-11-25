@@ -252,6 +252,64 @@ class TelemetryAndReactionV3Tests(unittest.TestCase):
             self.assertEqual(len(snap.active_subagents), 1)
             self.assertEqual(snap.active_subagents[0].conversation_id, "sub-999")
 
+    def test_error_cooldown_never_celebrates_and_zero_timestamp_safe(self) -> None:
+        from agy.telemetry import format_reset_countdown, parse_iso_ms
+
+        # Windows-safe handling of Protobuf zero timestamps and lowercase 'z'
+        self.assertEqual(format_reset_countdown("0001-01-01T00:00:00Z"), "")
+        self.assertIsNotNone(parse_iso_ms("2026-11-25T10:00:00z"))
+
+        tracker = ReactionTracker(random.Random(0), cooldown_seconds=60.0)
+        t = 2000.0
+        tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_RUNNING", selected_model_label="Gemini 4 Neon", quota_remaining_pct=80.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        t += 2.0
+        r_err1 = tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_IDLE", termination_reason="ERROR", selected_model_label="Gemini 4 Neon", quota_remaining_pct=80.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        self.assertEqual([r.kind for r in r_err1], ["turn_error"])
+
+        # Second error inside 30s cooldown must NOT fall through to finished/confetti
+        t += 5.0
+        tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_RUNNING", selected_model_label="Gemini 4 Neon", quota_remaining_pct=80.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        t += 5.0
+        r_err2 = tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_IDLE", termination_reason="ERROR", selected_model_label="Gemini 4 Neon", quota_remaining_pct=80.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        self.assertFalse(any(r.kind == "finished" for r in r_err2))
+
+        # Switching quota groups (Gemini 15% -> Claude 95%) must not fire fake quota_refilled
+        t += 100.0
+        tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_IDLE", selected_model_label="Gemini 4 Neon", quota_remaining_pct=15.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        t += 2.0
+        r_switch = tracker.observe(
+            LiveSnapshot(source="pet_live", conversation_id="c1", status="CASCADE_RUN_STATUS_IDLE", selected_model_label="Claude 4.5 Sonnet", quota_remaining_pct=95.0),
+            now=t,
+            follow_model=False,
+            current_form="neon",
+        )
+        self.assertFalse(any(r.kind == "quota_refilled" for r in r_switch))
+
 
 class ParticleSystemTests(unittest.TestCase):
     @classmethod
