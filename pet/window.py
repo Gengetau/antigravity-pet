@@ -25,7 +25,7 @@ from app.recovery import RecoveryStatus
 from agy.autonomy import AgyAutonomy, AutonomyCommand, AutonomyInput, WindowTarget, plan_hop
 from agy.characters import FORMS, FORM_IDS, form_by_id, normalize_form
 from agy.hud_bar import HudBar
-from agy.reactions import ReactionTracker
+from agy.reactions import ReactionTracker, TOOL_STATUS_NAMES, greeting_for_moment
 from agy.service import TelemetryService
 from agy.telemetry import TelemetryCollector
 from agy.token_meter import TokenMeterWindow
@@ -53,9 +53,11 @@ from dialogue.personality import normalize_personality
 from pet.climb import JumpPlan, pick_jump, uncovered_top_span, ClimbController, Rect as ClimbRect, is_exposed, plan_climb
 from pet.interaction import FoodPanel, InteractionController, parse_food_menu
 from pet.movement import MovementController
+from pet.particles import ParticleSystem
 from pet.physics import PhysicsBounds, ThrowPhysics
 from pet.renderer import Bubble, PetRenderer
 from pet.state import PetStateStore
+from pet.subagent_clones import SubagentCloneManager
 from pet.surfaces import DesktopSurfaceTracker
 from settings.config import ConfigManager
 from settings.panel import PetControlPanel
@@ -155,6 +157,19 @@ class PetWindow(QWidget):
         self.renderer = PetRenderer(BUBBLE_HEIGHT, MARGIN)
         self.renderer.set_reduced_motion(bool(comfort.get("reduced_motion", False)))
         self.renderer.set_motion_scale(float(comfort.get("motion_scale", 0.4)))
+        self.particles = ParticleSystem(self.rng)
+        self.particles.enabled = bool(self._agy().get("particles", True))
+        self.particles.reduced_motion = bool(comfort.get("reduced_motion", False))
+        self.subagent_clones = SubagentCloneManager(
+            self.paths.characters_root,
+            self.paths.base_manifest_path,
+            topmost=bool(config.get("topmost", True)),
+        )
+        self.subagent_clones.set_scale_from_host(self.current_height)
+        self._dock_side: str | None = None
+        self._dock_peeking = False
+        self._dock_leave_at = 0.0
+        self._sulk_until = 0.0
         self.expressions = ExpressionDirector()
         self.surface_tracker = DesktopSurfaceTracker(
             enabled=bool(comfort.get("desktop_surfaces", True))
@@ -351,12 +366,28 @@ class PetWindow(QWidget):
             immediate=True,
         )
 
+    def emit_particles(self, effect: str | None) -> int:
+        if not effect or not hasattr(self, "particles"):
+            return 0
+        self.particles.enabled = bool(self._agy().get("particles", True))
+        self.particles.reduced_motion = self.renderer.reduced_motion
+        count = self.particles.emit(
+            effect,
+            origin_x=self.width() / 2.0,
+            origin_y=float(BUBBLE_HEIGHT + MARGIN) + self.current_height * 0.34,
+            spread_w=max(80.0, self.width() * 0.65),
+        )
+        if count:
+            self.update()
+        return count
+
     def paintEvent(self, _event) -> None:
         self._update_expression()
         self.renderer.paint(
             self,
             snapshot=self.player.snapshot(),
             bubble=self.bubble,
+            particles=getattr(self, "particles", None),
         )
 
     _EXPRESSION_CUES = {
@@ -485,6 +516,20 @@ class PetWindow(QWidget):
         )
 
     def _display_state_name(self) -> str:
+        if self._dock_side is not None:
+            return "探头看你" if self._dock_peeking else "贴边藏身"
+        if time.monotonic() < self._sulk_until:
+            return "闹别扭中"
+        telemetry = getattr(self, "telemetry", None)
+        snap = telemetry.last_snapshot if telemetry is not None else None
+        if snap is not None and getattr(snap, "waiting_for_user", False):
+            return TOOL_STATUS_NAMES["asking"]
+        tool_category = getattr(snap, "latest_tool_category", "") if snap is not None else ""
+        if (
+            self.action_machine.current == PetAction.WORKING
+            and tool_category in TOOL_STATUS_NAMES
+        ):
+            return TOOL_STATUS_NAMES[tool_category]
         if self.action_machine.current != PetAction.IDLE:
             return STATE_NAMES.get(self.action_machine.current, "待机")
         return {
@@ -510,6 +555,12 @@ class PetWindow(QWidget):
         if raw_action in {"CLIMB", "EDGE_SIT"}:
             self._panel_climb(sit_after=raw_action == "EDGE_SIT")
             return
+        if raw_action == "EDGE_DOCK":
+            if self._dock_side is not None:
+                self.undock_from_edge()
+            else:
+                self.dock_to_edge("right")
+            return
         try:
             action = PetAction.coerce(raw_action)
         except ValueError:
@@ -523,6 +574,7 @@ class PetWindow(QWidget):
     def _hide_from_panel(self) -> None:
         self.control_panel.hide()
         self.hide()
+        self._sync_subagent_clones()
 
     # ----- main animation loop --------------------------------------------------
 
@@ -531,10 +583,13 @@ class PetWindow(QWidget):
         delta_seconds = min(0.10, max(0.001, now - self._last_tick_at))
         self._last_tick_at = now
         self.player.tick(delta_seconds)
+        self.particles.update(delta_seconds)
         change = self.action_machine.update(now=now)
         if change is not None:
             self._sync_animation_clip(immediate=self._edge_change(change))
-        if not self.physics.active and not self.interaction.active:
+        if self._dock_side is not None and not self.interaction.active:
+            self._tick_edge_dock(now)
+        if not self.physics.active and not self.interaction.active and self._dock_side is None:
             attachment = self.surface_tracker.follow_attachment(
                 now=now,
                 widget_x=float(self.x()),
@@ -570,6 +625,7 @@ class PetWindow(QWidget):
             walking = self._tick_descend(delta_seconds, now)
         elif (
             not self.interaction.active
+            and self._dock_side is None
             and not hover_paused
             and activity_allows_movement
             and self.action_machine.current in movable_actions
@@ -597,11 +653,18 @@ class PetWindow(QWidget):
             pending, self._pending_form = self._pending_form, None
             self.set_form(pending, announce=False)
         self._follow_hud()
+        if self.subagent_clones.active_count > 0:
+            self.subagent_clones.position_around(
+                self._sprite_rect(),
+                now=now,
+                reduced_motion=self.renderer.reduced_motion,
+            )
         if now >= getattr(self, "_next_config_poll", 0.0):
             self._next_config_poll = now + 1.5
             self._sync_external_config()
         self._tick_autonomy(now)
-        self._tick_explore(now)
+        if self._dock_side is None:
+            self._tick_explore(now)
         if now - self._last_state_update >= 5.0:
             self.pet_state.advance(
                 now - self._last_state_update,
@@ -800,7 +863,16 @@ class PetWindow(QWidget):
         elif self.recovery_status.unclean_exit:
             situation = "recovered"
         elif self._first_session_today:
-            situation = "first_today"
+            kind, greeting, particle = greeting_for_moment()
+            if kind.startswith("fest_") or kind == "late_night":
+                if particle:
+                    self.emit_particles(particle)
+                self.say(greeting)
+                return
+            if particle:
+                self.emit_particles(particle)
+            self.say(greeting)
+            return
         else:
             line = self.dialogue.pick_relationship(
                 self.pet_state.affinity,
@@ -864,6 +936,8 @@ class PetWindow(QWidget):
         if self._drag_offset is None:
             self._click_timer.stop()
             self._hold_timer.stop()
+            self._dock_side = None
+            self._dock_peeking = False
             self._drag_offset = position - QPoint(self.x(), self.y())
             self.physics.cancel()
             self.surface_tracker.detach()
@@ -897,6 +971,11 @@ class PetWindow(QWidget):
             throw_speed = (
                 outcome.velocity_x * outcome.velocity_x + outcome.velocity_y * outcome.velocity_y
             ) ** 0.5
+            if throw_speed < 650.0 and bool(self._agy().get("edge_dock", True)):
+                edge = self._near_screen_edge()
+                if edge is not None:
+                    self.dock_to_edge(edge)
+                    return
             self._launch_throw(
                 outcome.velocity_x,
                 outcome.velocity_y,
@@ -932,8 +1011,16 @@ class PetWindow(QWidget):
     def _do_click_reaction(self) -> None:
         region = self._pending_click_region
         personality = self._personality()
+        now = time.monotonic()
         if region == "head":
             self.pet_state.pet_head()
+            self.emit_particles("hearts")
+            if now < self._sulk_until:
+                self._sulk_until = 0.0
+                self.pet_state.annoyance = max(0.0, self.pet_state.annoyance - 0.18)
+                self._request_action(PetAction.HAPPY, reason="sulk_forgiven", force=True)
+                self.say("哼……好吧，看在摸头的份上原谅你啦～", preserve_action=True)
+                return
             self._request_action(PetAction.HEAD_PAT, reason="head_pat")
             self.say(
                 self.dialogue.pick_interaction("head", personality=personality),
@@ -941,12 +1028,25 @@ class PetWindow(QWidget):
             )
             return
 
-        now = time.monotonic()
+        if now < self._sulk_until:
+            self.pet_state.tap(0.6)
+            self.emit_particles("sweat")
+            self._request_action(PetAction.ANGRY, reason="sulking_ignore", force=True)
+            self.say("哼，还在生闷气呢……摸摸头再哄我嘛。", preserve_action=True)
+            return
+
         self._recent_pokes.append(now)
-        recent_count = sum(1 for timestamp in self._recent_pokes if now - timestamp <= 5.0)
+        recent_count = sum(1 for timestamp in self._recent_pokes if now - timestamp <= 8.0)
         intensity = {"face": 1.15, "body": 1.0, "tail": 2.0}.get(region, 1.0)
         self.pet_state.tap(intensity)
-        if recent_count >= 3:
+        if recent_count >= 4:
+            self._sulk_until = now + 30.0
+            self.emit_particles("sweat")
+            self._request_action(PetAction.ANGRY, reason="poke_sulk", force=True)
+            self.say("气鼓鼓！不理你了，要摸头才原谅！", preserve_action=True)
+            return
+        if recent_count == 3:
+            self.emit_particles("sweat")
             self._request_action(PetAction.ANGRY, reason="repeated_poke")
             self.say(
                 self.dialogue.pick_routine("repeated_poke", personality=personality),
@@ -954,12 +1054,15 @@ class PetWindow(QWidget):
             )
             return
         if region == "tail":
+            self.emit_particles("sweat")
             self._request_action(PetAction.TAIL_REACT, reason="tail_touch")
             self.say(
                 self.dialogue.pick_routine("tail_touch", personality=personality),
                 preserve_action=True,
             )
             return
+        if recent_count == 2:
+            self.emit_particles("sweat")
         reaction = PetAction.ANGRY if self.pet_state.annoyance >= 0.26 else PetAction.POKE_REACT
         self._request_action(reaction, reason=f"poke_{region}")
         self.say(
@@ -975,6 +1078,14 @@ class PetWindow(QWidget):
             return
         self._long_press_handled = True
         self.pet_state.pet_head()
+        self.emit_particles("hearts")
+        now = time.monotonic()
+        if now < self._sulk_until:
+            self._sulk_until = 0.0
+            self.pet_state.annoyance = max(0.0, self.pet_state.annoyance - 0.22)
+            self._request_action(PetAction.HAPPY, reason="long_pat_forgiven", force=True)
+            self.say("唔……摸这么温柔，那就原谅你吧～", preserve_action=True)
+            return
         self._request_action(PetAction.HEAD_PAT, reason="long_head_pat")
         self.say(
             self.dialogue.pick_interaction("head_hold", personality=self._personality())
@@ -1007,7 +1118,11 @@ class PetWindow(QWidget):
             line = self.dialogue.pick_routine("repeated_feed", personality=self._personality())
         else:
             if taste == "favorite":
+                self._sulk_until = 0.0
+                self.emit_particles("hearts")
                 self.action_machine.queue_after_current(PetAction.HAPPY)
+            else:
+                self.emit_particles("sparkles")
             generic = self.dialogue.pick_interaction("food", personality=self._personality())
             if own_lines and (taste == "favorite" or self.rng.random() < 0.6 or not generic):
                 line = self.rng.choice(item.lines)
@@ -1086,10 +1201,12 @@ class PetWindow(QWidget):
                     self._hidden_by_fullscreen = True
                     self.control_panel.hide()
                     self.hide()
+                    self._sync_subagent_clones()
             elif event.type == EventType.FULLSCREEN_EXIT and self._hidden_by_fullscreen:
                 self._hidden_by_fullscreen = False
                 self.show()
                 self.raise_()
+                self._sync_subagent_clones()
 
         reaction = self.behavior_engine.react(
             snapshot,
@@ -1188,6 +1305,9 @@ class PetWindow(QWidget):
     def set_reduced_motion(self, enabled: bool) -> None:
         enabled = bool(enabled)
         self.renderer.set_reduced_motion(enabled)
+        self.particles.reduced_motion = enabled
+        if enabled:
+            self.particles.clear()
         self.config.set_nested("comfort", "reduced_motion", enabled)
         self._refresh_control_panel()
         self.update()
@@ -1210,10 +1330,14 @@ class PetWindow(QWidget):
         self.current_height = self._height_for_size(multiplier)
         self.config.set("size", multiplier)
         self._resize_window()
+        self.subagent_clones.set_scale_from_host(self.current_height)
+        self._sync_subagent_clones()
         self._sync_animation_clip(crossfade=False, immediate=True)
         self.snap_into_screen()
 
     def snap_into_screen(self) -> None:
+        self._dock_side = None
+        self._dock_peeking = False
         self.physics.cancel()
         self.surface_tracker.detach()
         self.movement.cancel_target()
@@ -1229,14 +1353,100 @@ class PetWindow(QWidget):
         max_y = geometry.bottom() - self.height() + 1
         self.move(max(geometry.left(), min(max_x, self.x())), max_y)
 
+    # ----- edge dock & peek ----------------------------------------------------
+
+    def _screen_area_for_pet(self) -> QRect | None:
+        screen = (
+            QApplication.screenAt(self.frameGeometry().center())
+            or self.screen()
+            or QApplication.primaryScreen()
+        )
+        return screen.availableGeometry() if screen is not None else None
+
+    def _near_screen_edge(self, threshold: int = 16) -> str | None:
+        area = self._screen_area_for_pet()
+        if area is None:
+            return None
+        if self.x() <= area.left() + threshold:
+            return "left"
+        if self.x() + self.width() >= area.right() - threshold:
+            return "right"
+        return None
+
+    def _dock_target_x(self, side: str, *, peeking: bool) -> int:
+        area = self._screen_area_for_pet()
+        if area is None:
+            return self.x()
+        hidden_ratio = 0.14 if peeking else 0.56
+        offset = round(self.width() * hidden_ratio)
+        if side == "left":
+            return area.left() - offset
+        return area.right() - self.width() + 1 + offset
+
+    def dock_to_edge(self, side: str = "right") -> None:
+        side = "left" if side == "left" else "right"
+        area = self._screen_area_for_pet()
+        self.physics.cancel()
+        self.climb.cancel()
+        self.surface_tracker.detach()
+        self.movement.cancel_target()
+        self._dock_side = side
+        self._dock_peeking = False
+        self._dock_leave_at = 0.0
+        target_x = self._dock_target_x(side, peeking=False)
+        target_y = self.y()
+        if area is not None:
+            target_y = max(area.top(), min(area.bottom() - self.height() + 1, target_y))
+        self.move(target_x, target_y)
+        self._set_direction("right" if side == "left" else "left")
+        self._request_action(PetAction.IDLE, reason="edge_dock", force=True, immediate=True)
+        self.say("先躲到屏幕边上偷看你写代码，鼠标过来我再探头～", preserve_action=True)
+        self._refresh_control_panel()
+
+    def undock_from_edge(self) -> None:
+        if self._dock_side is None:
+            return
+        self._dock_side = None
+        self._dock_peeking = False
+        self._dock_leave_at = 0.0
+        area = self._screen_area_for_pet()
+        if area is not None:
+            clamped_x = max(area.left() + 8, min(area.right() - self.width() - 8, self.x()))
+            self.move(clamped_x, self.y())
+        self._set_direction("down")
+        self.emit_particles("sparkles")
+        self._refresh_control_panel()
+
+    def _tick_edge_dock(self, now: float) -> None:
+        if self._dock_side is None:
+            return
+        if not self._hovered and self._dock_peeking and self._dock_leave_at > 0 and now >= self._dock_leave_at:
+            self._dock_peeking = False
+            self._dock_leave_at = 0.0
+            self._refresh_control_panel()
+        target_x = self._dock_target_x(self._dock_side, peeking=self._dock_peeking)
+        dx = target_x - self.x()
+        if abs(dx) <= 2 or self.renderer.reduced_motion:
+            if dx != 0:
+                self.move(target_x, self.y())
+        else:
+            step = max(2, round(abs(dx) * 0.24))
+            self.move(self.x() + (step if dx > 0 else -step), self.y())
+
     def enterEvent(self, event) -> None:
         self._hovered = True
-        if bool(self.config.section("comfort").get("hover_pause", True)):
+        if self._dock_side is not None:
+            self._dock_peeking = True
+            self._dock_leave_at = 0.0
+            self._refresh_control_panel()
+        elif bool(self.config.section("comfort").get("hover_pause", True)):
             self._interrupt_activity(delay_seconds=5.0)
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
         self._hovered = False
+        if self._dock_side is not None:
+            self._dock_leave_at = time.monotonic() + 0.65
         super().leaveEvent(event)
 
     def set_passthrough(self, enabled: bool) -> None:
@@ -1267,6 +1477,7 @@ class PetWindow(QWidget):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, bool(enabled))
         self.config.set("topmost", bool(enabled))
         self.show()
+        self.subagent_clones.set_topmost(bool(enabled))
         self._refresh_control_panel()
 
     def set_autostart(self, enabled: bool) -> None:
@@ -1324,6 +1535,7 @@ class PetWindow(QWidget):
             self.show()
             self.raise_()
         self._sync_hud_visibility()
+        self._sync_subagent_clones()
 
     def activate_from_shortcut(self) -> None:
         """Bring the existing pet back when its shortcut is clicked again."""
@@ -1331,6 +1543,7 @@ class PetWindow(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+        self._sync_subagent_clones()
 
     def _show_privacy_notice(self) -> None:
         QMessageBox.information(
@@ -1514,6 +1727,12 @@ class PetWindow(QWidget):
             self.hud_bar.update_snapshot(self.telemetry.last_snapshot)
         if not settings.get("autonomy", True) and self.action_machine.current in {PetAction.WORKING, PetAction.PERCH}:
             self._request_action(PetAction.IDLE, reason="autonomy_off", force=True)
+        self.particles.enabled = bool(settings.get("particles", True))
+        if not self.particles.enabled:
+            self.particles.clear()
+        if not bool(settings.get("edge_dock", True)) and self._dock_side is not None:
+            self.undock_from_edge()
+        self._sync_subagent_clones()
         self._refresh_control_panel()
         self._sync_tray_forms()
 
@@ -1567,6 +1786,7 @@ class PetWindow(QWidget):
             bool(settings.get("hop_to_window", True))
             and self.surface_tracker.enabled
             and self.movement.mode != "still"
+            and self._dock_side is None
         )
         window = None
         if can_hop and snapshot is not None and snapshot.running and not self.surface_tracker.attached:
@@ -2157,11 +2377,31 @@ class PetWindow(QWidget):
         head_top = self.y() + self.height() - MARGIN - 7 - self.current_height
         return max(self.y() + BUBBLE_HEIGHT, head_top) - 2
 
+    def _sync_subagent_clones(self, snapshot=None) -> None:
+        if not hasattr(self, "subagent_clones"):
+            return
+        snap = snapshot if snapshot is not None else getattr(getattr(self, "telemetry", None), "last_snapshot", None)
+        subagents = list(getattr(snap, "active_subagents", None) or [])
+        self.subagent_clones.sync(
+            subagents,
+            default_form=self.form_id,
+            enabled=bool(self._agy().get("subagent_clones", True)),
+            host_visible=self.isVisible(),
+        )
+        if self.subagent_clones.active_count > 0:
+            self.subagent_clones.position_around(
+                self._sprite_rect(),
+                now=time.monotonic(),
+                reduced_motion=self.renderer.reduced_motion,
+            )
+
     def _on_live_snapshot(self, snapshot) -> None:
         self.hud_bar.update_snapshot(snapshot)
         self._hud_anchor = None
         if self.token_meter.isVisible():
             self.token_meter.update_live(snapshot)
+        self._sync_subagent_clones(snapshot)
+        self._refresh_control_panel()
         settings = self._agy()
         if not settings.get("reactions", True) and not settings.get("follow_model"):
             return
@@ -2192,6 +2432,9 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.coerce(action_name), reason=f"agy_{reaction.kind}")
                 except ValueError:
                     pass
+            particle = getattr(reaction, "particle", None)
+            if particle:
+                self.emit_particles(particle)
             self.say(reaction.text, preserve_action=True)
 
     def _personality(self) -> str:
@@ -2200,6 +2443,7 @@ class PetWindow(QWidget):
     def quit_app(self) -> None:
         self.save_snapshot()
         self.telemetry.stop()
+        self.subagent_clones.close_all()
         self.hud_bar.hide()
         self.token_meter.hide()
         self.tray.hide()

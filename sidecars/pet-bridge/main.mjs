@@ -11,10 +11,11 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { AiCommentEngine } from './ai_comment.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -178,9 +179,11 @@ function readBridgeSettings() {
     return {
       autoLaunchPet: Boolean(raw?.autoLaunchPet),
       checkUpdates: raw?.checkUpdates === undefined ? true : Boolean(raw.checkUpdates),
+      aiComments: Boolean(raw?.aiComments),
+      aiPrivacy: raw?.aiPrivacy === 'minimal' ? 'minimal' : 'title',
     };
   } catch {
-    return { autoLaunchPet: false, checkUpdates: true };
+    return { autoLaunchPet: false, checkUpdates: true, aiComments: false, aiPrivacy: 'title' };
   }
 }
 
@@ -189,19 +192,59 @@ function writeBridgeSettings(patch) {
   const next = {
     autoLaunchPet: patch.autoLaunchPet !== undefined ? Boolean(patch.autoLaunchPet) : current.autoLaunchPet,
     checkUpdates: patch.checkUpdates !== undefined ? Boolean(patch.checkUpdates) : current.checkUpdates,
+    aiComments: patch.aiComments !== undefined ? Boolean(patch.aiComments) : current.aiComments,
+    aiPrivacy: patch.aiPrivacy === 'minimal' || patch.aiPrivacy === 'title' ? patch.aiPrivacy : current.aiPrivacy,
   };
   atomicWriteJson(join(resolvePetDataDir(), 'bridge_settings.json'), next);
   return next;
 }
 
 // ---------------------------------------------------------------------------
-// GitHub Repo Link, 24h Update Check (Opt-In) & Safe One-Click Update
+// GitHub Repo Link, 6h Update Check (Semver + Commit SHA) & Safe One-Click Update
 // ---------------------------------------------------------------------------
 
 const GITHUB_REPO_URL = 'https://github.com/Gengetau/antigravity-pet';
 const GITHUB_RAW_PLUGIN_URL = 'https://raw.githubusercontent.com/Gengetau/antigravity-pet/main/plugin.json';
 const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/Gengetau/antigravity-pet/releases/latest';
-const UPDATE_CHECK_INTERVAL_MS = 24 * 3600 * 1000;
+const GITHUB_COMMITS_API_URL = 'https://api.github.com/repos/Gengetau/antigravity-pet/commits/main';
+const UPDATE_CHECK_INTERVAL_MS = 6 * 3600 * 1000;
+const GIT_SHA_RE = /^[a-f0-9]{40}$/i;
+
+function readLocalGitHead() {
+  if (!existsSync(join(PET_ROOT, '.git'))) return { sha: '', branch: '' };
+  try {
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: PET_ROOT,
+      encoding: 'utf-8',
+      timeout: 3000,
+      windowsHide: true,
+    }).trim();
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: PET_ROOT,
+      encoding: 'utf-8',
+      timeout: 3000,
+      windowsHide: true,
+    }).trim();
+    return { sha: GIT_SHA_RE.test(sha) ? sha : '', branch };
+  } catch {
+    return { sha: '', branch: '' };
+  }
+}
+
+function isLocalAncestor(commitSha) {
+  if (!GIT_SHA_RE.test(commitSha || '') || !existsSync(join(PET_ROOT, '.git'))) return false;
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', commitSha, 'HEAD'], {
+      cwd: PET_ROOT,
+      timeout: 3000,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function readLocalPluginVersion() {
   for (const root of [PET_ROOT, dirname(dirname(__dirname))]) {
@@ -230,17 +273,35 @@ function compareSemver(a, b) {
   return 0;
 }
 
+function computeHasUpdate(localVersion, latestVersion, localGit, latestSha) {
+  if (latestVersion && compareSemver(latestVersion, localVersion) > 0) return true;
+  if (
+    localGit?.branch === 'main' &&
+    localGit?.sha &&
+    GIT_SHA_RE.test(latestSha || '') &&
+    latestSha.toLowerCase() !== localGit.sha.toLowerCase() &&
+    !isLocalAncestor(latestSha)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function readUpdateCache() {
   const p = join(resolvePetDataDir(), 'update_check.json');
   const localVersion = readLocalPluginVersion();
+  const localGit = readLocalGitHead();
   try {
     const raw = JSON.parse(readFileSync(p, 'utf-8'));
     const latestVersion = String(raw?.latestVersion || '').replace(/^v/i, '').trim();
+    const latestSha = GIT_SHA_RE.test(String(raw?.latestSha || '')) ? String(raw.latestSha) : '';
     const checkedMs = Number(raw?.checkedMs) || 0;
-    const hasUpdate = Boolean(latestVersion && compareSemver(latestVersion, localVersion) > 0);
+    const hasUpdate = computeHasUpdate(localVersion, latestVersion, localGit, latestSha);
     return {
       localVersion,
       latestVersion,
+      localSha: localGit.sha ? localGit.sha.slice(0, 7) : '',
+      latestSha: latestSha ? latestSha.slice(0, 7) : '',
       checkedMs,
       hasUpdate,
       repoUrl: GITHUB_REPO_URL,
@@ -250,6 +311,8 @@ function readUpdateCache() {
     return {
       localVersion,
       latestVersion: '',
+      localSha: localGit.sha ? localGit.sha.slice(0, 7) : '',
+      latestSha: '',
       checkedMs: 0,
       hasUpdate: false,
       repoUrl: GITHUB_REPO_URL,
@@ -273,7 +336,9 @@ async function maybeCheckForUpdates({ force = false } = {}) {
 
   updateCheckPromise = (async () => {
     const localVersion = readLocalPluginVersion();
+    const localGit = readLocalGitHead();
     let latestVersion = '';
+    let latestSha = '';
     let error = '';
     try {
       const res = await fetch(GITHUB_RAW_PLUGIN_URL, { signal: AbortSignal.timeout(4000) });
@@ -284,10 +349,25 @@ async function maybeCheckForUpdates({ force = false } = {}) {
     } catch (err) {
       error = String(err?.message || 'fetch failed').slice(0, 80);
     }
+    try {
+      const commitRes = await fetch(GITHUB_COMMITS_API_URL, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'antigravity-pet-updater' },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (commitRes.ok) {
+        const commitData = await commitRes.json();
+        if (GIT_SHA_RE.test(String(commitData?.sha || ''))) {
+          latestSha = String(commitData.sha);
+          error = '';
+        }
+      }
+    } catch {
+      // Non-fatal: fall back to semver check.
+    }
     if (!latestVersion) {
       try {
         const relRes = await fetch(GITHUB_RELEASES_API_URL, {
-          headers: { Accept: 'application/vnd.github+json' },
+          headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'antigravity-pet-updater' },
           signal: AbortSignal.timeout(4000),
         });
         if (relRes.ok) {
@@ -299,20 +379,28 @@ async function maybeCheckForUpdates({ force = false } = {}) {
         if (!error) error = String(err?.message || 'release fetch failed').slice(0, 80);
       }
     }
+    const resolvedVersion = latestVersion || cached.latestVersion || localVersion;
+    const hasUpdate = computeHasUpdate(localVersion, latestVersion, localGit, latestSha);
     const next = {
       localVersion,
-      latestVersion: latestVersion || cached.latestVersion || localVersion,
+      latestVersion: resolvedVersion,
+      localSha: localGit.sha ? localGit.sha.slice(0, 7) : '',
+      latestSha,
       checkedMs: Date.now(),
-      hasUpdate: Boolean(latestVersion && compareSemver(latestVersion, localVersion) > 0),
+      hasUpdate,
       repoUrl: GITHUB_REPO_URL,
-      error: latestVersion ? '' : error,
+      error: latestVersion || latestSha ? '' : error,
     };
     try {
       atomicWriteJson(join(resolvePetDataDir(), 'update_check.json'), next);
     } catch {
       // Non-fatal.
     }
-    return { ...next, checkUpdates: settings.checkUpdates };
+    return {
+      ...next,
+      latestSha: latestSha ? latestSha.slice(0, 7) : '',
+      checkUpdates: settings.checkUpdates,
+    };
   })();
 
   try {
@@ -355,6 +443,7 @@ function syncInstalledPluginFilesFromRepo() {
     'hooks/track_session.mjs',
     'skills/agy-pet/SKILL.md',
     'sidecars/pet-bridge/main.mjs',
+    'sidecars/pet-bridge/ai_comment.mjs',
     'sidecars/pet-bridge/index.html',
     'sidecars/pet-bridge/app.js',
     'sidecars/pet-bridge/styles.css',
@@ -1039,6 +1128,9 @@ const DEFAULT_AGY_CONFIG = {
   autonomy: true,
   hop_to_window: true,
   explore_windows: true,
+  subagent_clones: true,
+  particles: true,
+  edge_dock: true,
   hud_enabled: true,
   hud_mode: 'attached',
   hud_appearance: 'dialog',
@@ -1074,7 +1166,7 @@ function updatePetConfig(patch) {
   if (typeof patch.form === 'string' && VALID_FORM_IDS.has(patch.form)) {
     agy.form = patch.form;
   }
-  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_locked', 'autonomy', 'reactions']) {
+  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_locked', 'autonomy', 'reactions', 'subagent_clones', 'particles', 'edge_dock']) {
     if (typeof patch[boolKey] === 'boolean') {
       agy[boolKey] = patch[boolKey];
     }
@@ -1164,6 +1256,113 @@ function launchPet() {
 let tickBusy = false;
 let lastPetPayload = null;
 let hostFocus = { conversationId: '', workspaceUris: [], updatedMs: 0 };
+let prevActiveSignal = null;
+
+const aiEngine = new AiCommentEngine({
+  lsRpc,
+  petRoot: PET_ROOT,
+  budgetFile: join(resolvePetDataDir(), 'ai_budget.json'),
+});
+
+const TOOL_CATEGORY_MAP = new Map([
+  ['read_file', 'reading'],
+  ['view_file', 'reading'],
+  ['view_file_outline', 'reading'],
+  ['list_dir', 'reading'],
+  ['find_by_name', 'reading'],
+  ['grep_search', 'reading'],
+  ['mcp_agy-fast_fast_batch_search', 'reading'],
+  ['mcp_agy-fast_fast_quick_outline', 'reading'],
+  ['mcp_agy-fast_fast_read_slices', 'reading'],
+  ['write_file', 'writing'],
+  ['write_to_file', 'writing'],
+  ['edit_file', 'writing'],
+  ['replace_file_content', 'writing'],
+  ['multi_replace_file_content', 'writing'],
+  ['mcp_agy-fast_fast_apply_edits', 'writing'],
+  ['run_command', 'running'],
+  ['command_status', 'running'],
+  ['send_command_input', 'running'],
+  ['mcp_agy-fast_fast_run_checks', 'running'],
+  ['search_web', 'searching'],
+  ['read_url_content', 'searching'],
+  ['search_marketplace', 'searching'],
+  ['generate_image', 'drawing'],
+  ['invoke_subagent', 'delegating'],
+  ['define_subagent', 'delegating'],
+  ['manage_subagents', 'delegating'],
+  ['send_message', 'delegating'],
+  ['ask_question', 'asking'],
+]);
+const QUIET_TOOL_NAMES = new Set(['update_focus', 'update_steps', 'manage_task', 'schedule', 'list_plugin_accounts']);
+
+function classifyToolName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n || QUIET_TOOL_NAMES.has(n)) return '';
+  const hit = TOOL_CATEGORY_MAP.get(n);
+  if (hit) return hit;
+  if (/image|draw|paint/.test(n)) return 'drawing';
+  if (/subagent|delegate|swarm/.test(n)) return 'delegating';
+  if (/ask_/.test(n)) return 'asking';
+  if (/browser|web|url|fetch/.test(n)) return 'searching';
+  if (/write|edit|replace|patch|create/.test(n)) return 'writing';
+  if (/read|view|list|grep|find|search|glob|outline/.test(n)) return 'reading';
+  return 'running';
+}
+
+function formForModelLabel(label) {
+  const s = String(label || '').toLowerCase();
+  if (s.includes('neon')) return 'neon';
+  if (s.includes('carbon')) return 'carbon';
+  if (s.includes('hydrogen') || s.includes('hydergon')) return 'hydergon';
+  if (s.includes('argon')) return 'argon';
+  if (s.includes('claude')) return 'claude';
+  return '';
+}
+
+function readLatestToolFromTranscript(convId) {
+  if (!convId) return { name: '', category: '' };
+  for (const appData of findAppDataDirs()) {
+    const p = join(appData, 'brain', convId, '.system_generated', 'logs', 'transcript.jsonl');
+    let fd = null;
+    try {
+      const st = statSync(p);
+      const readLen = Math.min(st.size, 32 * 1024);
+      if (readLen <= 0) continue;
+      const buf = Buffer.alloc(readLen);
+      fd = openSync(p, 'r');
+      readSync(fd, buf, 0, readLen, st.size - readLen);
+      closeSync(fd);
+      fd = null;
+      const text = buf.toString('utf-8');
+      const lines = text.split(/\r?\n/).reverse();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let obj;
+        try {
+          obj = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        const calls = Array.isArray(obj?.tool_calls) ? obj.tool_calls : [];
+        for (let i = calls.length - 1; i >= 0; i--) {
+          const toolName = String(calls[i]?.name || calls[i]?.tool || '').trim();
+          const cat = classifyToolName(toolName);
+          if (cat) return { name: toolName, category: cat };
+        }
+        if (obj?.type === 'USER_INPUT') break;
+      }
+      return { name: '', category: '' };
+    } catch {
+      if (fd !== null) {
+        try {
+          closeSync(fd);
+        } catch {}
+      }
+    }
+  }
+  return { name: '', category: '' };
+}
 
 function resolveModelLabel(modelId, labelMap) {
   return labelMap.get(modelId) || prettifyModelEnum(modelId);
@@ -1381,9 +1580,37 @@ async function updatePetLiveFile() {
     ).filter(Boolean);
 
     const focusSourceById = new Map(topPool.map((item) => [item.cid, item.focusSource]));
+    const summaryById = new Map(Object.entries(summaries));
     const convSnapList = records.map((rec) => {
       const snap = buildConvHud(rec, modelState);
       snap.focusSource = focusSourceById.get(rec.conversationId) || 'recent';
+      const sum = summaryById.get(rec.conversationId);
+      const waitingSteps = Array.isArray(sum?.waitingSteps) ? sum.waitingSteps : [];
+      snap.waitingForUser = waitingSteps.length > 0;
+      snap.terminationReason = String(sum?.latestExecutorTerminationReason || '').replace(
+        /^EXECUTOR_TERMINATION_REASON_/,
+        ''
+      );
+      const lastTools = rec.steps.length > 0 ? rec.steps[rec.steps.length - 1].toolCalls || [] : [];
+      let toolName = '';
+      let toolCat = '';
+      for (let i = lastTools.length - 1; i >= 0; i--) {
+        const c = classifyToolName(lastTools[i]);
+        if (c) {
+          toolName = lastTools[i];
+          toolCat = c;
+          break;
+        }
+      }
+      if (snap.status === 'CASCADE_RUN_STATUS_RUNNING' && (!toolCat || rec.conversationId === topPool[0]?.cid)) {
+        const liveTool = readLatestToolFromTranscript(rec.conversationId);
+        if (liveTool.category) {
+          toolName = liveTool.name;
+          toolCat = liveTool.category;
+        }
+      }
+      snap.latestToolName = toolName;
+      snap.latestToolCategory = toolCat;
       return snap;
     });
 
@@ -1391,11 +1618,91 @@ async function updatePetLiveFile() {
     const selectedQuota = quotaMap.get(selectedModelId) || null;
     const selectedModelLabel = selectedModelId ? resolveModelLabel(selectedModelId, labelMap) : '';
 
+    const runningMainCount = mainEntries.filter(([, s]) => s?.status === 'CASCADE_RUN_STATUS_RUNNING').length;
+    const runningSubEntries = Object.entries(summaries)
+      .filter(([, s]) => Boolean(s?.trajectoryMetadata?.parentConversationId) && s?.status === 'CASCADE_RUN_STATUS_RUNNING')
+      .slice(0, 6);
+    const activeSubagents = await Promise.all(
+      runningSubEntries.map(async ([cid, sum]) => {
+        const rec = await fetchAndCacheConversation(cid, sum).catch(() => null);
+        const latestStep = rec?.steps?.length ? rec.steps[rec.steps.length - 1] : null;
+        const modelLabel = latestStep?.modelId ? resolveModelLabel(latestStep.modelId, labelMap) : '';
+        const annPb = readAnnotationPbtxt(cid);
+        const title =
+          rec?.title ||
+          extractCleanUserTitle(sum?.annotations?.title || sum?.summary || annPb.title || '') ||
+          `子代理 ${cid.slice(0, 6)}`;
+        return {
+          conversationId: cid,
+          parentConversationId: String(sum?.trajectoryMetadata?.parentConversationId || ''),
+          title,
+          modelLabel,
+          formId: formForModelLabel(modelLabel),
+        };
+      })
+    );
+
     const bridge = readBridgeSettings();
     const updCache = readUpdateCache();
     if (bridge.checkUpdates && (!updCache.checkedMs || Date.now() - updCache.checkedMs >= UPDATE_CHECK_INTERVAL_MS)) {
       maybeCheckForUpdates().catch(() => {});
     }
+
+    // Trigger optional zero-API-key AI comment only on salient transitions.
+    if (active) {
+      const isRunning = active.status === 'CASCADE_RUN_STATUS_RUNNING';
+      const activeQuota = active.quotaRemainingPct ?? selectedQuota?.remainingPct ?? null;
+      const petCfg = readPetConfig();
+      const activeForm = petCfg.follow_model
+        ? formForModelLabel(active.lastStepModelLabel || active.selectedModelLabel) || petCfg.form
+        : petCfg.form;
+      let aiTrigger = '';
+      if (prevActiveSignal && prevActiveSignal.cid === active.conversationId) {
+        if (prevActiveSignal.running && !isRunning) {
+          if (active.terminationReason === 'ERROR') aiTrigger = 'turn_error';
+          else if ((active.steps || 0) - (prevActiveSignal.steps || 0) >= 4) aiTrigger = 'turn_done_big';
+        } else if (!prevActiveSignal.waiting && active.waitingForUser) {
+          aiTrigger = 'waiting_user';
+        } else if (activeSubagents.length >= 2 && (prevActiveSignal.subagents || 0) < 2) {
+          aiTrigger = 'subagent_many';
+        } else if (activeQuota !== null && prevActiveSignal.quota !== null) {
+          if (activeQuota <= 10 && prevActiveSignal.quota > 10) aiTrigger = 'quota_critical';
+          else if (activeQuota - prevActiveSignal.quota >= 12) aiTrigger = 'quota_refilled';
+        }
+      }
+      prevActiveSignal = {
+        cid: active.conversationId,
+        running: isRunning,
+        steps: active.steps || 0,
+        waiting: Boolean(active.waitingForUser),
+        subagents: activeSubagents.length,
+        quota: activeQuota,
+      };
+      if (aiTrigger && bridge.aiComments) {
+        aiEngine
+          .maybeGenerate({
+            enabled: true,
+            trigger: aiTrigger,
+            formId: activeForm,
+            facts: {
+              title: active.title,
+              modelLabel: active.lastStepModelLabel || active.selectedModelLabel,
+              steps: active.steps || 0,
+              subagents: activeSubagents.length,
+              quotaPct: activeQuota,
+              toolCategory: active.latestToolCategory || '',
+            },
+            modelState,
+            privacyLevel: bridge.aiPrivacy,
+          })
+          .catch(() => {});
+      }
+    }
+
+    const freshAiComment =
+      aiEngine.latestComment && Date.now() - aiEngine.latestComment.createdAtMs < 60_000
+        ? aiEngine.latestComment
+        : null;
 
     const payload = {
       updatedAt: new Date().toISOString(),
@@ -1403,6 +1710,7 @@ async function updatePetLiveFile() {
       userTierName: userTierName || '',
       accountId: accountId || '',
       availableUpdateVersion: bridge.checkUpdates && updCache.hasUpdate ? updCache.latestVersion : '',
+      availableUpdateSha: bridge.checkUpdates && updCache.hasUpdate ? updCache.latestSha || '' : '',
       modelLabels: Object.fromEntries(labelMap),
       selectedModelId,
       selectedModelLabel,
@@ -1412,6 +1720,13 @@ async function updatePetLiveFile() {
       quotaSummaryStatus: quotaSummary.status,
       activeConversationId: active?.conversationId || '',
       focusSource: active?.focusSource || '',
+      runningSessionsCount: runningMainCount,
+      waitingForUser: Boolean(active?.waitingForUser),
+      terminationReason: String(active?.terminationReason || ''),
+      latestToolName: String(active?.latestToolName || ''),
+      latestToolCategory: String(active?.latestToolCategory || ''),
+      activeSubagents,
+      aiComment: freshAiComment,
       active,
       conversations: convSnapList,
     };
@@ -1541,6 +1856,7 @@ app.api(
       petStatus,
       agyConfig: readPetConfig(),
       bridgeSettings,
+      aiBudgetUsage: aiEngine.budget.usage,
       updateStatus: {
         ...updCache,
         hasUpdate: Boolean(bridgeSettings.checkUpdates && updCache.hasUpdate),
@@ -1598,6 +1914,8 @@ app.api(
     const bridgePatch = {};
     if (typeof patch.autoLaunchPet === 'boolean') bridgePatch.autoLaunchPet = patch.autoLaunchPet;
     if (typeof patch.checkUpdates === 'boolean') bridgePatch.checkUpdates = patch.checkUpdates;
+    if (typeof patch.aiComments === 'boolean') bridgePatch.aiComments = patch.aiComments;
+    if (patch.aiPrivacy === 'minimal' || patch.aiPrivacy === 'title') bridgePatch.aiPrivacy = patch.aiPrivacy;
     const bridgeSettings = Object.keys(bridgePatch).length > 0 ? writeBridgeSettings(bridgePatch) : readBridgeSettings();
     if (patch.checkUpdates === true) {
       maybeCheckForUpdates().catch(() => {});
@@ -1657,9 +1975,12 @@ app.api(
       });
       syncInstalledPluginFilesFromRepo();
       const newVer = readLocalPluginVersion();
+      const newGit = readLocalGitHead();
       atomicWriteJson(join(resolvePetDataDir(), 'update_check.json'), {
         localVersion: newVer,
         latestVersion: newVer,
+        localSha: newGit.sha ? newGit.sha.slice(0, 7) : '',
+        latestSha: newGit.sha || '',
         checkedMs: Date.now(),
         hasUpdate: false,
         repoUrl: GITHUB_REPO_URL,

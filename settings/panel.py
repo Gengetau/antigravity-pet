@@ -211,7 +211,7 @@ class PetControlPanel(QWidget):
 
         action_row = QHBoxLayout()
         action_row.setSpacing(5)
-        for label, action in (("发呆", "THINKING"), ("扫地", "SWEEPING"), ("爬窗口", "CLIMB"), ("坐窗沿", "EDGE_SIT")):
+        for label, action in (("发呆", "THINKING"), ("扫地", "SWEEPING"), ("爬窗", "CLIMB"), ("坐沿", "EDGE_SIT"), ("贴边", "EDGE_DOCK")):
             button = self._quick_button(label)
             button.clicked.connect(lambda _checked=False, value=action: on_action(value))
             action_row.addWidget(button)

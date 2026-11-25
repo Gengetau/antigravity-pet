@@ -143,6 +143,15 @@ def _group_has_model(group: str, model_label: str) -> bool:
     return "gemini" in group
 
 
+@dataclass(frozen=True)
+class SubagentInfo:
+    conversation_id: str
+    parent_conversation_id: str = ""
+    title: str = ""
+    model_label: str = ""
+    form_id: str = ""
+
+
 @dataclass
 class LiveSnapshot:
     source: str
@@ -167,6 +176,16 @@ class LiveSnapshot:
     user_tier_name: str = ""
     account_id: str = ""
     available_update_version: str = ""
+    available_update_sha: str = ""
+    waiting_for_user: bool = False
+    termination_reason: str = ""
+    latest_tool_name: str = ""
+    latest_tool_category: str = ""
+    active_subagents: list[SubagentInfo] = field(default_factory=list)
+    running_sessions_count: int = 0
+    ai_comment_id: str = ""
+    ai_comment_text: str = ""
+    ai_comment_trigger: str = ""
 
     def quota_for(self, kind: str) -> tuple[float | None, str | None]:
         """Remaining % and reset time of the 5-hour (``"5h"``) or weekly window.
@@ -659,6 +678,20 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
     last_step_label = str(chosen.get("lastStepModelLabel") or "")
     limit_labels = (last_step_label, selected_label) if is_running else (selected_label, last_step_label)
 
+    raw_subagents = payload.get("activeSubagents") if isinstance(payload.get("activeSubagents"), list) else []
+    subagents = [
+        SubagentInfo(
+            conversation_id=str(item.get("conversationId") or ""),
+            parent_conversation_id=str(item.get("parentConversationId") or ""),
+            title=str(item.get("title") or ""),
+            model_label=str(item.get("modelLabel") or ""),
+            form_id=str(item.get("formId") or ""),
+        )
+        for item in raw_subagents
+        if isinstance(item, dict) and item.get("conversationId")
+    ]
+    ai_raw = payload.get("aiComment") if isinstance(payload.get("aiComment"), dict) else {}
+
     return LiveSnapshot(
         source=source,
         conversation_id=str(chosen.get("conversationId") or ""),
@@ -685,6 +718,16 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
         user_tier_name=str(payload.get("userTierName") or chosen.get("userTierName") or ""),
         account_id=str(payload.get("accountId") or ""),
         available_update_version=str(payload.get("availableUpdateVersion") or ""),
+        available_update_sha=str(payload.get("availableUpdateSha") or ""),
+        waiting_for_user=bool(chosen.get("waitingForUser") or payload.get("waitingForUser")),
+        termination_reason=str(chosen.get("terminationReason") or payload.get("terminationReason") or ""),
+        latest_tool_name=str(chosen.get("latestToolName") or payload.get("latestToolName") or ""),
+        latest_tool_category=str(chosen.get("latestToolCategory") or payload.get("latestToolCategory") or ""),
+        active_subagents=subagents,
+        running_sessions_count=int(payload.get("runningSessionsCount") or (1 if is_running else 0)),
+        ai_comment_id=str(ai_raw.get("id") or ""),
+        ai_comment_text=str(ai_raw.get("text") or ""),
+        ai_comment_trigger=str(ai_raw.get("trigger") or ""),
         conversations=[
             (str(c.get("conversationId")), str(c.get("title") or c.get("conversationId", "")[:8]))
             for c in convs
@@ -1189,13 +1232,15 @@ class TelemetryCollector:
 
     def _live_from_ls(self, pinned_id: str) -> LiveSnapshot | None:
         self._refresh_user_status()
-        summaries = [item for item in self._ls_summaries() if not (item[1].get("trajectoryMetadata") or {}).get("parentConversationId")]
+        all_summaries = self._ls_summaries()
+        summaries = [item for item in all_summaries if not (item[1].get("trajectoryMetadata") or {}).get("parentConversationId")]
         if not summaries:
             return None
         summary_map = dict(summaries)
         candidates = [self._ls_focus_candidate(cid, summary) for cid, summary in summaries]
         kind, target, extra = self._select_focused_candidate(candidates, pinned_id=pinned_id)
         listing = [(cid, self._title_for(cid, summary_map.get(cid))) for cid, _ in summaries[:12]]
+        active_summary: dict[str, Any] | None = None
         if kind == "empty_hook" and extra is not None:
             title = clean_title(str(extra.get("lastUserInput") or extra.get("title") or "")) or "新对话"
             conversation = ConversationUsage(conversation_id=target, title=title, status="CASCADE_RUN_STATUS_IDLE", steps=[])
@@ -1208,9 +1253,10 @@ class TelemetryCollector:
                 target = summaries[0][0]
             if not any(cid == target for cid, _ in listing):
                 listing.insert(0, (target, self._title_for(target, summary_map.get(target))))
-            conversation = self._ls_conversation(target, summary_map[target])
+            active_summary = summary_map[target]
+            conversation = self._ls_conversation(target, active_summary)
         quota_key = self._selected_model or (conversation.steps[-1].model_id if conversation.steps else "")
-        return summarize_conversation(
+        snap = summarize_conversation(
             conversation,
             source="ls",
             selected_model_label=self._selected_label(),
@@ -1219,6 +1265,23 @@ class TelemetryCollector:
             user_tier_name=self._user_tier_name,
             account_id=self._account_id,
         )
+        if active_summary:
+            waiting = active_summary.get("waitingSteps")
+            snap.waiting_for_user = isinstance(waiting, list) and len(waiting) > 0
+            snap.termination_reason = str(active_summary.get("latestExecutorTerminationReason") or "").removeprefix(
+                "EXECUTOR_TERMINATION_REASON_"
+            )
+        snap.running_sessions_count = sum(1 for _, s in summaries if RUNNING_STATUS in str(s.get("status")))
+        snap.active_subagents = [
+            SubagentInfo(
+                conversation_id=cid,
+                parent_conversation_id=str((s.get("trajectoryMetadata") or {}).get("parentConversationId") or ""),
+                title=self._title_for(cid, s),
+            )
+            for cid, s in all_summaries
+            if (s.get("trajectoryMetadata") or {}).get("parentConversationId") and RUNNING_STATUS in str(s.get("status"))
+        ][:6]
+        return snap
 
     def _title_for(self, cid: str, summary: dict[str, Any] | None = None) -> str:
         cached = self._trajectory_cache.get(cid)

@@ -113,11 +113,18 @@
 
     const updateBtn = $('btn-update');
     const upd = state.updateStatus || {};
-    const showUpdate = Boolean(state.bridgeSettings?.checkUpdates !== false && upd.hasUpdate && upd.latestVersion);
+    const showUpdate = Boolean(
+      state.bridgeSettings?.checkUpdates !== false &&
+        upd.hasUpdate &&
+        (upd.latestVersion || upd.latestSha)
+    );
     updateBtn.hidden = !showUpdate;
     if (showUpdate && !updateBtn.disabled) {
-      updateBtn.textContent = `↑ 更新 v${upd.latestVersion}`;
-      updateBtn.title = `发现新版本 v${upd.latestVersion}（当前 v${upd.localVersion || state.version || '0.2.0'}），点击自动更新`;
+      const sameVer = upd.latestVersion && upd.latestVersion === (upd.localVersion || state.version);
+      updateBtn.textContent = sameVer && upd.latestSha ? `↑ 更新 (${upd.latestSha})` : `↑ 更新 v${upd.latestVersion}`;
+      updateBtn.title = sameVer && upd.latestSha
+        ? `GitHub 主分支有新提交 ${upd.latestSha}（本地 ${upd.localSha || '未知'}），点击安全拉取`
+        : `发现新版本 v${upd.latestVersion}（当前 v${upd.localVersion || state.version || '0.2.0'}），点击自动更新`;
     }
 
     const agy = state.agyConfig || {};
@@ -128,6 +135,16 @@
     $('chk-hud-locked').checked = Boolean(agy.hud_locked);
     $('chk-autonomy').checked = Boolean(agy.autonomy);
     $('chk-reactions').checked = Boolean(agy.reactions);
+    $('chk-subagent-clones').checked = agy.subagent_clones !== false;
+    $('chk-particles').checked = agy.particles !== false;
+    $('chk-edge-dock').checked = agy.edge_dock !== false;
+    $('chk-ai-comments').checked = Boolean(state.bridgeSettings?.aiComments);
+    const aiUsage = state.aiBudgetUsage;
+    const aiLabel = $('lbl-ai-comments');
+    if (aiLabel) {
+      const suffix = aiUsage && aiUsage.calls > 0 ? `（今日 ${aiUsage.calls}/${aiUsage.maxPerDay} 次）` : '';
+      aiLabel.textContent = `AI 活台词（走本地最省档额度）${suffix}`;
+    }
     $('chk-auto-launch').checked = Boolean(state.bridgeSettings?.autoLaunchPet);
     $('chk-check-updates').checked = state.bridgeSettings?.checkUpdates !== false;
     $('sel-appearance').value = agy.hud_appearance || 'dialog';
@@ -172,7 +189,13 @@
     } else {
       const running = shown.status === 'CASCADE_RUN_STATUS_RUNNING';
       const activeModel = running && shown.lastStepModelLabel ? shown.lastStepModelLabel : shown.selectedModelLabel;
-      $('focus-badge').textContent = pinned ? '已锁定会话' : FOCUS_LABELS[shown.focusSource || live.focusSource] || '实时追踪';
+      const subCount = Array.isArray(live.activeSubagents) ? live.activeSubagents.length : 0;
+      const focusBase = pinned ? '已锁定会话' : FOCUS_LABELS[shown.focusSource || live.focusSource] || '实时追踪';
+      $('focus-badge').textContent = shown.waitingForUser
+        ? '等你确认'
+        : subCount > 0
+          ? `${focusBase} · ${subCount} 子代理`
+          : focusBase;
       $('conv-title').textContent = `${running ? '生成中 · ' : ''}${shown.title || '新对话'}`;
       $('conv-model').textContent = `当前模型：${activeModel || '未知模型'}${shown.lastStepModelLabel ? ` · 最近一步：${shown.lastStepModelLabel}` : ''}`;
 
@@ -295,6 +318,10 @@
   $('chk-hud-locked').addEventListener('change', (e) => saveConfig({ hud_locked: e.target.checked }));
   $('chk-autonomy').addEventListener('change', (e) => saveConfig({ autonomy: e.target.checked }));
   $('chk-reactions').addEventListener('change', (e) => saveConfig({ reactions: e.target.checked }));
+  $('chk-subagent-clones').addEventListener('change', (e) => saveConfig({ subagent_clones: e.target.checked }));
+  $('chk-particles').addEventListener('change', (e) => saveConfig({ particles: e.target.checked }));
+  $('chk-edge-dock').addEventListener('change', (e) => saveConfig({ edge_dock: e.target.checked }));
+  $('chk-ai-comments').addEventListener('change', (e) => saveConfig({ aiComments: e.target.checked }));
   $('chk-auto-launch').addEventListener('change', (e) => saveConfig({ autoLaunchPet: e.target.checked }));
   $('chk-check-updates').addEventListener('change', (e) => saveConfig({ checkUpdates: e.target.checked }));
   $('sel-appearance').addEventListener('change', (e) => saveConfig({ hud_appearance: e.target.value }));

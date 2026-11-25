@@ -64,7 +64,7 @@ class PetRenderer:
     def set_reduced_motion(self, enabled: bool) -> None:
         self.reduced_motion = bool(enabled)
 
-    def paint(self, widget, *, snapshot: PlayerSnapshot, bubble: Bubble) -> None:
+    def paint(self, widget, *, snapshot: PlayerSnapshot, bubble: Bubble, particles=None) -> None:
         painter = QPainter(widget)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -72,6 +72,8 @@ class PetRenderer:
             self._draw_bubble(painter, widget.width(), bubble)
 
         if snapshot.current is None:
+            if particles is not None:
+                particles.paint(painter)
             return
         pose = EffectPose() if self.reduced_motion else scaled(pose_for(snapshot.effect, snapshot.elapsed_seconds), self.motion_scale)
         hanging = snapshot.current.asset_id in HANGING_ASSETS
@@ -92,6 +94,8 @@ class PetRenderer:
                 snapshot.previous_opacity,
             )
         self._draw_layer(painter, snapshot.current, current_anchor, pose, snapshot.current_opacity)
+        if particles is not None:
+            particles.paint(painter)
 
     def _render_anchor(self, widget, layer: RenderLayer) -> QPointF:
         """Keep non-standing actions inside the allocated sprite slot.
