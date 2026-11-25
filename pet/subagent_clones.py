@@ -211,13 +211,28 @@ class SubagentCloneManager:
         overflow = max(0, len(subagents) - MAX_VISIBLE_CLONES)
         entries: list[tuple[SubagentInfo, str, str]] = []
         for idx, info in enumerate(shown):
-            resolved_form = (
-                normalize_form(info.form_id)
-                if info.form_id
-                else (form_for_model_label(info.model_label) or normalize_form(default_form))
-            )
+            label_lower = (info.model_label or "").lower()
+            if info.form_id:
+                resolved_form = normalize_form(info.form_id)
+            else:
+                matched = form_for_model_label(info.model_label)
+                if matched:
+                    resolved_form = matched
+                elif any(w in label_lower for w in ("flash", "lite", "mini")):
+                    resolved_form = "argon"
+                elif any(w in label_lower for w in ("gpt", "oss")):
+                    resolved_form = "carbon"
+                else:
+                    resolved_form = normalize_form(default_form)
             form_meta = form_by_id(resolved_form)
-            badge = f"+{overflow + 1}" if overflow > 0 and idx == len(shown) - 1 else form_meta.name
+            if overflow > 0 and idx == len(shown) - 1:
+                badge = f"+{overflow + 1}"
+            elif "flash" in label_lower and "lite" in label_lower:
+                badge = "Flash Lite"
+            elif "flash" in label_lower and resolved_form == "argon":
+                badge = "Flash"
+            else:
+                badge = form_meta.name
             entries.append((info, resolved_form, badge))
         self._entries = entries
 

@@ -401,6 +401,16 @@ class PetWindowCompanionV3Tests(unittest.TestCase):
         self.assertFalse(self.pet.subagent_clones.visible_widgets[0]._pixmap.isNull())
         self.assertFalse(self.pet.subagent_clones.visible_widgets[1]._pixmap.isNull())
 
+        # Flash Lite (without explicit form_id) maps to argon with a distinct Flash Lite badge
+        snap_flash = LiveSnapshot(
+            source="pet_live",
+            conversation_id="m1",
+            active_subagents=[SubagentInfo("sub-fl", "m1", "轻量检查", "Gemini 3.5 Flash Lite", "")],
+        )
+        self.pet._on_live_snapshot(snap_flash)
+        self.application.processEvents()
+        self.assertEqual(self.pet.subagent_clones.visible_widgets[0]._badge, "Flash Lite")
+
         # 5 subagents -> capped at MAX_VISIBLE_CLONES with +2 overflow badge on the last visible clone
         snap5 = LiveSnapshot(source="pet_live", conversation_id="m1", active_subagents=subagents)
         self.pet._on_live_snapshot(snap5)

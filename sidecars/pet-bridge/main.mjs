@@ -1317,7 +1317,76 @@ function formForModelLabel(label) {
   if (s.includes('carbon')) return 'carbon';
   if (s.includes('hydrogen') || s.includes('hydergon')) return 'hydergon';
   if (s.includes('argon')) return 'argon';
-  if (s.includes('claude')) return 'claude';
+  if (s.includes('claude') || s.includes('opus') || s.includes('sonnet')) return 'claude';
+  return '';
+}
+
+function formForSubagentModel(label) {
+  const exact = formForModelLabel(label);
+  if (exact) return exact;
+  const s = String(label || '').toLowerCase();
+  if (s.includes('flash') || s.includes('lite') || s.includes('mini')) return 'argon';
+  if (s.includes('gpt') || s.includes('oss')) return 'carbon';
+  return '';
+}
+
+const discoveredPlaceholderLabels = new Map();
+
+function prettifyTranscriptModel(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const m = /^gemini-(\d+(?:\.\d+)?)-([a-z]+)(?:-tiered)?-(xhigh|high|medium|low)$/i.exec(s);
+  if (m) {
+    const cap = (w) => (w.toLowerCase() === 'xhigh' ? 'XHigh' : w[0].toUpperCase() + w.slice(1).toLowerCase());
+    return `Gemini ${m[1]} ${cap(m[2])} (${cap(m[3])})`;
+  }
+  return s
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => {
+      const low = part.toLowerCase();
+      if (low === 'gpt' || low === 'oss') return low.toUpperCase();
+      if (low === 'xhigh') return 'XHigh';
+      return part[0].toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+function readLatestModelFromTranscript(convId) {
+  if (!convId) return '';
+  for (const appData of findAppDataDirs()) {
+    const p = join(appData, 'brain', convId, '.system_generated', 'logs', 'transcript.jsonl');
+    let fd = null;
+    try {
+      const st = statSync(p);
+      const readLen = Math.min(st.size, 24 * 1024);
+      if (readLen <= 0) continue;
+      const buf = Buffer.alloc(readLen);
+      fd = openSync(p, 'r');
+      readSync(fd, buf, 0, readLen, st.size - readLen);
+      closeSync(fd);
+      fd = null;
+      const lines = buf.toString('utf-8').split(/\r?\n/).reverse();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (typeof obj?.model === 'string' && obj.model.trim()) {
+            return obj.model.trim();
+          }
+        } catch {
+          // ignore partial leading line
+        }
+      }
+      return '';
+    } catch {
+      if (fd !== null) {
+        try {
+          closeSync(fd);
+        } catch {}
+      }
+    }
+  }
   return '';
 }
 
@@ -1365,8 +1434,20 @@ function readLatestToolFromTranscript(convId) {
   return { name: '', category: '' };
 }
 
-function resolveModelLabel(modelId, labelMap) {
-  return labelMap.get(modelId) || prettifyModelEnum(modelId);
+function resolveModelLabel(modelId, labelMap, convId = '') {
+  if (labelMap.has(modelId)) return labelMap.get(modelId);
+  if (discoveredPlaceholderLabels.has(modelId)) return discoveredPlaceholderLabels.get(modelId);
+  if (convId && (!modelId || String(modelId).startsWith('MODEL_PLACEHOLDER_'))) {
+    const raw = readLatestModelFromTranscript(convId);
+    if (raw) {
+      const friendly = prettifyTranscriptModel(raw);
+      if (friendly) {
+        if (modelId) discoveredPlaceholderLabels.set(modelId, friendly);
+        return friendly;
+      }
+    }
+  }
+  return prettifyModelEnum(modelId);
 }
 
 function buildConvHud(rec, modelState) {
@@ -1641,7 +1722,11 @@ async function updatePetLiveFile() {
       runningSubEntries.map(async ([cid, sum]) => {
         const rec = await fetchAndCacheConversation(cid, sum).catch(() => null);
         const latestStep = rec?.steps?.length ? rec.steps[rec.steps.length - 1] : null;
-        const modelLabel = latestStep?.modelId ? resolveModelLabel(latestStep.modelId, labelMap) : '';
+        let modelLabel = latestStep?.modelId ? resolveModelLabel(latestStep.modelId, labelMap, cid) : '';
+        if (!modelLabel) {
+          const rawTr = readLatestModelFromTranscript(cid);
+          if (rawTr) modelLabel = prettifyTranscriptModel(rawTr);
+        }
         const annPb = readAnnotationPbtxt(cid);
         const annTitle = extractCleanUserTitle(sum?.annotations?.title || sum?.summary || annPb.title || '');
         const recTitle = rec?.title && !/^The following is a\b/i.test(rec.title) ? rec.title : '';
@@ -1651,7 +1736,7 @@ async function updatePetLiveFile() {
           parentConversationId: String(sum?.trajectoryMetadata?.parentConversationId || ''),
           title,
           modelLabel,
-          formId: formForModelLabel(modelLabel),
+          formId: formForSubagentModel(modelLabel),
         };
       })
     );
@@ -1807,7 +1892,7 @@ async function updatePetMeterFile(summaries, modelState) {
     steps: (rec.steps || []).map((st) => [
       parseIsoMs(st.createdAt) || 0,
       st.modelId,
-      resolveModelLabel(st.modelId, modelState.labelMap),
+      resolveModelLabel(st.modelId, modelState.labelMap, rec.conversationId),
       st.inputTokens,
       st.cacheReadTokens,
       st.outputTokens,
