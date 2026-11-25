@@ -107,9 +107,9 @@ class InteractionController:
         y = (float(local_y) - float(body_top)) / float(body_height)
         if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
             return "body"
-        if 0.27 <= x <= 0.73 and 0.20 <= y <= 0.43:
+        if 0.24 <= x <= 0.76 and 0.30 <= y <= 0.44:
             return "face"
-        if 0.14 <= x <= 0.86 and 0.02 <= y <= 0.40:
+        if 0.14 <= x <= 0.86 and 0.02 <= y <= 0.30:
             return "head"
         if (x >= 0.72 or x <= 0.24) and 0.45 <= y <= 0.88:
             return "tail"

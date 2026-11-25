@@ -4,15 +4,22 @@ import math
 import time
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPolygonF
 
 from animation.effects import EffectPose, pose_for, scaled
 from animation.player import PlayerSnapshot, RenderLayer
 
 # Poses that hang off a wall or a window edge rather than stand on a floor.
-HANGING_ASSETS = frozenset({"perch_sit", "perch_work", "climb_side", "climb_side_right"})
-BESPOKE_DOCK_ASSETS = frozenset({"dock_peek", "dock_peek_right", "dock_work", "dock_work_right"})
+HANGING_ASSETS = frozenset({"perch_sit", "perch_work", "perch_sleep", "climb_side", "climb_side_right"})
+BESPOKE_DOCK_ASSETS = frozenset({
+    "dock_peek",
+    "dock_peek_right",
+    "dock_work",
+    "dock_work_right",
+    "dock_sleep",
+    "dock_sleep_right",
+})
 
 
 @dataclass(slots=True)
@@ -74,10 +81,13 @@ class PetRenderer:
         particles=None,
         dock_pose: tuple[str, float] | None = None,
         visible_x_range: tuple[float, float] | None = None,
+        clip_rect: QRect | None = None,
     ) -> None:
         painter = QPainter(widget)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if clip_rect is not None:
+            painter.setClipRect(clip_rect)
 
         tail_x: float | None = None
         bespoke_dock = (
@@ -193,11 +203,11 @@ class PetRenderer:
         painter.setOpacity(max(0.0, min(1.0, opacity)))
         offset_y = pose.offset_y
         if layer.anchor.kind not in {"drag", "seat", "sleep"}:
-            # Grounded clips pivot at the feet: never push them through the
-            # floor, and lift by the dip a tilt gives the lower sole corner.
+            # Grounded clips pivot at the feet: allow a subtle downward squash
+            # for landing/head_pat/tired while still lifting by tilt dip.
             dip_factor = 0.12 if docked else 0.32
             dip = abs(math.sin(math.radians(pose.rotation_degrees))) * pixmap.width() * dip_factor
-            offset_y = min(0.0, offset_y) - dip
+            offset_y = min(12.0, offset_y) - dip
         painter.translate(ground.x() + pose.offset_x, ground.y() + offset_y)
         painter.rotate(pose.rotation_degrees)
         scale_x = pose.scale_x * (-1.0 if layer.mirrored else 1.0)

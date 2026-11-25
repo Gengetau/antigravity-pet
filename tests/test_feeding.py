@@ -77,7 +77,7 @@ class FeedingTests(unittest.TestCase):
 
         window._request_action(PetAction.IDLE, reason="test", force=True)
         window.on_food(menu["dislike"]["id"])
-        self.assertEqual(window.action_machine.current, PetAction.POKE_REACT)
+        self.assertEqual(window.action_machine.current, PetAction.REFUSE_FOOD)
         self.assertIn(window.bubble.text, menu["dislike"]["lines"])
         self.assertEqual(state.total_feedings, fed + 1)  # turned down, not eaten
 

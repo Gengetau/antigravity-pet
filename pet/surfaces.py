@@ -48,6 +48,15 @@ class WindowRectReader(Protocol):
 
     def foreground_handle(self) -> int: ...
 
+    def is_point_occluded(
+        self,
+        handle: int,
+        x: float,
+        y: float,
+        *,
+        ignore_handles: tuple[int, ...] | set[int] = (),
+    ) -> bool: ...
+
 
 class _MONITORINFO(ctypes.Structure):
     _fields_ = [
@@ -62,6 +71,7 @@ class Win32WindowRectReader:
     """Read visible extended window bounds without inspecting window content."""
 
     DWMWA_EXTENDED_FRAME_BOUNDS = 9
+    GW_HWNDPREV = 3
 
     def __init__(self) -> None:
         self.available = sys.platform == "win32"
@@ -181,6 +191,78 @@ class Win32WindowRectReader:
             return 0
         handle = self.user32.GetForegroundWindow()
         return int(ctypes.cast(handle, ctypes.c_void_p).value or 0)
+
+    def is_point_occluded(
+        self,
+        handle: int,
+        x: float,
+        y: float,
+        *,
+        ignore_handles: tuple[int, ...] | set[int] = (),
+    ) -> bool:
+        """Return True if another visible top-level window above ``handle`` covers ``(x, y)``."""
+        if not self.available or not handle:
+            return False
+        hwnd = wintypes.HWND(int(handle))
+        if not self.user32.IsWindow(hwnd):
+            return False
+        own_pid = os.getpid()
+        ignored = {int(h) for h in ignore_handles if h}
+        target_int = int(handle)
+        seen: set[int] = {target_int}
+        curr = hwnd
+        for _ in range(512):
+            curr = self.user32.GetWindow(curr, self.GW_HWNDPREV)
+            if not curr:
+                break
+            curr_int = (
+                int(curr)
+                if isinstance(curr, int)
+                else int(ctypes.cast(curr, ctypes.c_void_p).value or 0)
+            )
+            if not curr_int or curr_int in seen:
+                break
+            seen.add(curr_int)
+            curr_hwnd = wintypes.HWND(curr_int)
+            if curr_int in ignored:
+                curr = curr_hwnd
+                continue
+            try:
+                if not self.user32.IsWindowVisible(curr_hwnd) or self.user32.IsIconic(curr_hwnd):
+                    curr = curr_hwnd
+                    continue
+                if self.user32.GetWindowTextLengthW(curr_hwnd) <= 0:
+                    curr = curr_hwnd
+                    continue
+                ex_style = self.user32.GetWindowLongW(curr_hwnd, -20)  # GWL_EXSTYLE
+                if ex_style & 0x00000080:  # WS_EX_TOOLWINDOW
+                    curr = curr_hwnd
+                    continue
+                if (ex_style & 0x00080020) == 0x00080020:  # WS_EX_LAYERED | WS_EX_TRANSPARENT
+                    curr = curr_hwnd
+                    continue
+                pid = wintypes.DWORD()
+                self.user32.GetWindowThreadProcessId(curr_hwnd, ctypes.byref(pid))
+                if pid.value == own_pid:
+                    curr = curr_hwnd
+                    continue
+                if self._cloaked(curr_hwnd):
+                    curr = curr_hwnd
+                    continue
+                rect = self.read(curr_int)
+                if rect is None:
+                    curr = curr_hwnd
+                    continue
+                left, top, right, bottom = rect
+                if (right - left) < 40 or (bottom - top) < 40:
+                    curr = curr_hwnd
+                    continue
+                if left <= x <= right and top <= y <= bottom:
+                    return True
+            except OSError:
+                pass
+            curr = curr_hwnd
+        return False
 
     def _monitor_origin(self, hwnd) -> tuple[int, int]:
         if self._monitor_from_window is None or self._get_monitor_info is None:
@@ -384,6 +466,8 @@ class DesktopSurfaceTracker:
         widget_height: float,
         sink: float = 0.0,
         work_area_top: float | Callable[[SurfaceRect], float] | None = None,
+        pet_x: float | None = None,
+        ignore_handles: tuple[int, ...] | set[int] = (),
     ) -> AttachmentUpdate | None:
         """Where the widget goes to stay on the attached window.
 
@@ -408,6 +492,14 @@ class DesktopSurfaceTracker:
         target_x = target_center - widget_width / 2.0
         lower, upper = self._movement_bounds_for(surface, widget_width)
         target_x = max(lower, min(upper, target_x))
+        occluded_fn = getattr(self.reader, "is_point_occluded", None)
+        if callable(occluded_fn):
+            foot_x = float(pet_x) if pet_x is not None else (target_x + widget_width / 2.0)
+            foot_y = min(surface.bottom, surface.top + 2.0)
+            if occluded_fn(surface.handle, foot_x, foot_y, ignore_handles=ignore_handles):
+                self.ignore_platform(surface.handle, seconds=2.0, now=now)
+                self.detach()
+                return AttachmentUpdate(widget_x, surface.top - widget_height + sink, lost=True)
         return AttachmentUpdate(target_x, surface.top - widget_height + sink)
 
     def ignore_platform(self, handle: int | None, *, seconds: float = 3.0, now: float | None = None) -> None:
