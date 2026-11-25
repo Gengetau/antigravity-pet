@@ -218,8 +218,15 @@ def _frame_job(form: str, asset: str, index: int, size: str, pose: str, quality:
 
 def cmd_frames(args) -> None:
     reference(args.form)
-    assets = args.assets.split(",") if args.assets else [a for a in ASSETS if a not in SKIP_REGENERATE]
-    unknown = [a for a in assets if a not in ASSETS]
+    raw_assets = args.assets.split(",") if args.assets else [a for a in ASSETS if a not in SKIP_REGENERATE]
+    assets: list[str] = []
+    unknown: list[str] = []
+    for a in raw_assets:
+        src = MIRRORS.get(a, a)
+        if src not in ASSETS:
+            unknown.append(a)
+        elif src not in assets:
+            assets.append(src)
     if unknown:
         sys.exit(f"未知 asset：{unknown}")
     # Frame 0 of every asset first (later frames reference it), then the rest.

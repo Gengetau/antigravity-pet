@@ -1237,7 +1237,8 @@
         "type": "perch"
       },
       "quality": "agy_fallback_until_art",
-      "requires_real_frames": false
+      "requires_real_frames": false,
+      "frame_ms": 380
     },
     "CLIMBING": {
       "id": "CLIMBING",
@@ -1447,9 +1448,6 @@
     "用户提供的付费状态图仅作为动作语义参考，不混入最终显示图集。"
   ],
   "frame_pick": {
-    "perch_sit": [
-      0
-    ],
     "dock_peek": [
       0,
       0,

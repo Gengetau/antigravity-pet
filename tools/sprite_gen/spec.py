@@ -19,7 +19,7 @@ DOCK_STYLE = (
     "Single character only, transparent background, NO wall, NO doorframe, NO border line, NO desk, NO ground shadow, NO text, NO watermark, NO frame."
 )
 
-DOCK_ASSETS = frozenset({"dock_peek", "dock_work"})
+DOCK_ASSETS = frozenset({"dock_peek", "dock_work", "dock_sleep", "dock_sleep_right"})
 
 # The three forms keep their ORIGINAL catgirl designs (reference image =
 # <form>/processed/masters/generated/idle_front.png).  What differs is how
@@ -135,7 +135,12 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
         "talk": ["chattering excitedly on tiptoes, both hands waving, bubbles popping"],
         "angry": ["puffing her cheeks like a balloon, little fists up, bouncing in place"],
         "idle_think": ["floating slightly, head tilted, finger on her lips, a question-mark bubble"],
-        "falling": ["drifting down softly like a feather, arms out, hair floating up, amazed face"],
+        "falling": [
+            "drifting down softly mid-air like a feather, horizontally and vertically centered in the canvas, arms spread gently outward, left knee slightly raised, fluffy white-blue hair and tail floating upward, cute amazed expression",
+            "same character, outfit, scale and centered framing as image 2, mid-air feather-flutter cycle frame 2: arms buoyantly waving slightly higher, right knee lifting softly while left leg trails, hair and white-blue skirt billowing to the left, amazed curious face",
+            "same character, outfit, scale and centered framing as image 2, mid-air feather-flutter cycle frame 3: arms tucked lightly near shoulders, legs bicycling softly mid-air, hair and tail floating upward to the right with tiny air bubbles",
+            "same character, outfit, scale and centered framing as image 2, mid-air feather-flutter cycle frame 4: arms opening back outward gracefully, hair and skirt drifting softly upward smoothly transitioning back to image 2",
+        ],
     },
     "neon": {
         "happy": ["winking with a peace sign next to her eye, hip tilted, neon sparkles"],
@@ -172,8 +177,12 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
         "sleep": ["fast asleep lying on her stomach horizontally, head resting on her cat pillow, tail curled, eyes closed"],
         "dizzy": ["dizzy, swirl eyes, wobbly stance, clutching the cat pillow, small stars circling her head"],
         "dragging": ["being lifted up from above, still clutching the cat pillow to her chest, legs dangling loosely, sleepy surprised face"],
-        "falling": ["falling, clutching the cat pillow with both arms, hair and tail streaming upward, mildly alarmed face",
-                    "same pose, hair and tail flapping in a different position, holding the pillow tighter"],
+        "falling": [
+            "mid-air falling downward, horizontally and vertically centered in the canvas, clutching her lavender cat pillow tightly with both oversized-sleeve arms, knees slightly bent with left knee higher, pale lavender hair and tail streaming upward from the wind, mildly alarmed sleepy face, no floating sparkles",
+            "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 2: hugging the cat pillow tighter against her chest, right knee kicked slightly higher while left slipper trails down, hair and hoodie hem fluttering to the left, mildly alarmed face",
+            "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 3: hugging the cat pillow close to her chin, both legs kicking gently mid-air, hair and tail whipping upward to the right, sleepy flustered face",
+            "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 4: still clutching the cat pillow securely, legs swinging smoothly back toward image 2, hair and hoodie billowing upward",
+        ],
         "released_airborne": ["mid-air after being thrown, legs spread out, hugging the cat pillow, calm surprised face"],
         "poke_react": ["startled, flinching to one side, hugging the cat pillow tighter, eyes wide"],
         "tail_react": [
@@ -182,29 +191,29 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
             "the pillow under her left arm, right hand holding her tail protectively, blushing",
         ],
         "eat": [
-            "the cat pillow tucked under her left arm, holding a small snack in her right hand, mouth open about to bite",
-            "same pose, biting the snack, eyes closed happily",
-            "same pose, chewing, cheeks full, very satisfied",
+            "standing centered facing the viewer, the lavender cat pillow tucked cozily under her left arm, holding a small cute glazed star-shaped pastry cookie in her right oversized-sleeve hand at chest height, sleepy eager half-lidded eyes looking at the snack, no floating sparkles",
+            "same character, outfit, scale, centered standing feet, cat pillow tucked under her left arm, and exact same pastry snack as image 2: raising the snack to her mouth with her right hand, opening her mouth to take a happy bite, sleepy bright eyes",
+            "same character, outfit, scale, centered standing feet, cat pillow under her left arm, and exact same bitten snack held lower as image 2: happily chewing with her left cheek puffed cute and full, eyes softly closed in bliss, warm blush",
+            "same character, outfit, scale, centered standing feet, cat pillow under her left arm, and exact same bitten snack held lower as image 2: happily chewing with her right cheek puffed cute and full, head tilted gently the other way, eyes softly closed, warm blush",
+            "same character, outfit, scale, centered standing feet, and cat pillow hugged against her chest as image 2: swallowed happily, delighted sleepy smile with happy closed-arc eyes, rosy cheeks and faint cozy contentment",
         ],
         "landing": ["landing impact, deep squat, hugging the cat pillow"],
         "sleep_enter": [
-            "standing on the left of the canvas, big yawn, hugging the cat pillow",
-            "sitting down on the ground, drowsy, head nodding onto the pillow",
-            "lying down on her stomach horizontally, head on the cat pillow, eyes closed, falling asleep",
+            "standing upright DEAD CENTER horizontally in the exact middle of the landscape canvas (x=50%), big sleepy yawn hugging her lavender cat pillow against her chest, half-lidded drowsy eyes, both slippers planted centered",
+            "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: kneeling and curling down slowly onto the ground directly beneath her standing position, drowsy, head nodding forward onto her lavender cat pillow, eyes almost closed",
+            "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: curled up lying horizontally on her stomach directly in the center of the landscape canvas, head resting snugly on her lavender cat pillow, tail curled, eyes peacefully closed asleep",
         ],
         "sleep_wake": [
-            "lying on her stomach horizontally, head on the cat pillow, eyes just opening",
-            "sitting up on the ground hugging the pillow, rubbing one eye with her sleeve",
-            "standing on the left of the canvas, hugging the pillow, small lazy stretch of the neck",
+            "lying horizontally on her stomach DEAD CENTER in the exact middle of the landscape canvas (x=50%), head resting on her lavender cat pillow, eyes just fluttering open drowsily, tail curled",
+            "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: sitting up on the ground directly in the center of the canvas hugging her lavender cat pillow with one arm while rubbing one eye sleepily with her other oversized sleeve",
+            "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: standing upright DEAD CENTER in the exact middle of the landscape canvas (NOT shifted left or right), hugging her lavender cat pillow against her chest, small lazy neck stretch awake, sleepy half-lidded eyes",
         ],
         "work_typing": [
             "sitting cross-legged with the cat pillow on her lap, a small floating translucent screen and keyboard in front of her above the pillow, left hand typing, half-lidded eyes on the screen, screen light on her face",
         ],
         "sit_edge": ["sitting on an invisible ledge at the very bottom edge of the canvas, legs hanging down and cut off at the bottom, hugging the cat pillow on her lap, relaxed, left leg forward"],
         "perch_sit": [
-            "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
-            "the cat pillow resting on her lap hugged with both arms, sleepy content face, tail hanging down behind. The ledge itself is NOT drawn: no bench, "
-            "no wall, no shadow, only the character on a transparent background, full body including both slippers",
+            "sitting calmly on an invisible horizontal window ledge, facing straight toward the viewer, horizontally centered: thighs resting flat on the invisible horizontal perch line, knees together, both lower legs and lavender cat-face slippers hanging straight down side by side beneath the perch line, hugging her lavender cat pillow snugly on her lap with both oversized sleeves, sleepy content face with both half-lidded violet eyes open (NO winking), tail hanging softly behind. Keep head, shoulders, upper torso, pillow, and seated hips level and centered. Draw NO bench, NO ledge, NO wall, NO shadow, NO floating sparkles; full body including both slippers on pure transparent background",
         ],
         "perch_work": [
             "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
@@ -255,10 +264,29 @@ FORM_NOTES: dict[str, dict[str, str]] = {
         "transform": "hugging her cat pillow; the light is a soft lavender glow with a few lavender light motes instead of stars",
         "dock_peek": "Hugging her lavender cat pillow under her lower left arm while her right oversized-sleeve hand grips the invisible vertical edge on the left; sleepy half-lidded violet eyes (both eyes softly half-open in frame 1, closed in frame 2)",
         "dock_work": "Her lavender cat pillow tucked cozy against her chest/left side while typing lazily with her oversized sleeves on the tiny floating translucent lavender screen and keyboard; sleepy half-lidded eyes",
+        "perch_sit": "Keep her lavender cat pillow hugged in the exact same position on her lap across every frame, no floating sparkles",
+        "sulk": "Instead of bare crossed arms, she hugs her lavender cat pillow tightly up to her chin with her oversized sleeves, turning slightly away with puffed cheeks and a sleepy grumpy pout, no floating sparkles",
+        "waiting_user": "Hugging her lavender cat pillow under her left arm while tapping sleepily toward the viewer with her right oversized-sleeve hand, sleepy curious half-lidded eyes, NO text, NO letters, NO floating sparkles",
+        "jump_up": "Still clutching her lavender cat pillow safely in her arms during her buoyant lazy upward hop, oversized sleeves and hair trailing softly downward, cute cheerful sleepy smile, no floating sparkles",
+        "pet_purr": "Hugging her lavender cat pillow snugly against her chest while nuzzling upward into the invisible head pat with blissful closed eyes and rosy cheeks, do NOT draw any extra hand, no floating sparkles",
+        "perch_sleep": "Hugging her lavender cat pillow on her lap with her chin resting sleepily on top of the pillow, eyes softly closed, dangling legs with lavender cat-face slippers hanging straight down, no floating sparkles",
+        "dock_sleep": "Her lavender cat pillow tucked cozy against her chest/cheek as she dozes peacefully hugging the invisible vertical edge on the left; both eyes softly closed in peaceful sleep, no floating sparkles",
+        "refuse_food": "Holding her lavender cat pillow tucked under her left arm while waving her oversized sleeves 'no thanks' and turning her sleepy flustered face away, NO food prop, NO text, no floating sparkles",
     },
     "claude": {
         "dock_peek": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, orange flower hair ornament, and white-and-black lace dress",
         "dock_work": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, white-and-black lace dress, and a warm amber-gold floating translucent holographic screen and mini keyboard",
+        "perch_sit": "She is a HUMAN girl: NO animal ears and NO tail. Instead of a tail swaying, her long coral-orange curly hair tips sway barely noticeably",
+        "sleep_enter": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair and white-and-black lace dress",
+        "sleep_wake": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair and white-and-black lace dress",
+        "falling": "She is a HUMAN girl: NO animal ears and NO tail. Her long coral-orange curly hair and layered lace skirt billow upward in the wind",
+        "sulk": "She is a HUMAN girl: NO animal ears and NO tail. Instead of a tail, her long coral-orange curly hair and lace skirt swish subtly",
+        "waiting_user": "She is a HUMAN girl: NO animal ears and NO tail. Gently knocking politely toward the viewer with her right knuckles, NO text, NO letters",
+        "jump_up": "She is a HUMAN girl: NO animal ears and NO tail. Her long coral-orange curly hair and ruffled white-and-black lace skirt trail gracefully downward",
+        "pet_purr": "She is a HUMAN girl: NO animal ears and NO tail. Blissfully enjoying gentle head pats (do NOT draw any extra hand), long coral-orange curly hair swaying gently",
+        "perch_sleep": "She is a HUMAN girl: NO animal ears and NO tail. Sitting gracefully on the invisible ledge with her lace skirt and dangling cream-heeled shoes, hands folded on her lap",
+        "dock_sleep": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, orange flower hair ornament, and white-and-black lace dress, resting her cheek peacefully against the invisible vertical left edge with eyes softly closed",
+        "refuse_food": "She is a HUMAN girl: NO animal ears and NO tail. Politely yet firmly turning her face away with a flustered expression and waving both hands 'no thank you', NO food prop, NO text",
     },
 }
 
@@ -337,8 +365,10 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but the other leg raised and arms flailing a little",
     ]),
     "falling": (PORTRAIT, [
-        "falling, arms raised, hair and tail streaming upward, alarmed face",
-        "same character, outfit, scale and framing as image 2, same overall pose and expression as image 2, but arms and hair flapping in a different position, mouth open wider",
+        "mid-air falling downward, horizontally and vertically centered in the canvas, arms thrown up and outward, knees slightly bent with left knee higher than right, hair, skirt and tail streaming sharply upward from the wind, cute alarmed surprised face with wide eyes and small open mouth",
+        "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 2: arms flailing slightly higher and wider, right knee kicked higher while left leg extends down, hair and skirt fluttering strongly to the left, cute surprised face",
+        "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 3: arms tucked slightly closer near head in a cute panic flutter, legs bicycling mid-air with left leg pulled up, hair and tail whipping upward and slightly right, flustered wide-eyed face",
+        "same character, outfit, scale and centered framing as image 2, mid-air falling cycle frame 4: arms swinging back outward for balance, right leg slightly forward and left leg trailing, hair and clothes billowing upward smoothly transitioning back to image 2",
     ]),
     "released_airborne": (PORTRAIT, ["mid-air after being thrown, arms and legs spread out, excited face"]),
     "idle_blink": (PORTRAIT, [
@@ -378,9 +408,11 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "back to standing, embarrassed smile",
     ]),
     "eat": (PORTRAIT, [
-        "holding a small snack with both hands, mouth open about to bite",
-        "biting the snack, eyes closed happily",
-        "chewing, cheeks full, very satisfied",
+        "standing centered facing the viewer, happily holding a cute small glazed star-shaped pastry cookie in both hands at chest height, eyes sparkling eagerly looking at the snack with a happy smile",
+        "same character, outfit, scale, centered standing feet and exact same pastry snack as image 2: raising the snack up to her mouth, opening her mouth wide to take a big happy bite, eager bright eyes",
+        "same character, outfit, scale, centered standing feet and exact same bitten snack held lower at chest height as image 2: happily chewing with her left cheek puffed cute and full, eyes closed happily in bliss, warm rosy blush",
+        "same character, outfit, scale, centered standing feet and exact same bitten snack held at chest height as image 2: happily chewing with her right cheek puffed cute and full, head tilted gently the other way, happy closed eyes, warm rosy blush",
+        "same character, outfit, scale and centered standing feet as image 2: swallowed happily, hands clasped warmly near chest, delighted radiant smile with joyful closed-arc eyes, rosy cheeks and tiny happy sparkles",
     ]),
     "landing": (PORTRAIT, [
         "landing impact, deep squat, arms out for balance",
@@ -388,14 +420,14 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "standing up again, steady",
     ]),
     "sleep_enter": (LANDSCAPE, [
-        "standing on the left of the canvas, big yawn, rubbing eyes",
-        "sitting down on the ground, drowsy, head nodding",
-        "lying down on her stomach horizontally, eyes closed, falling asleep",
+        "standing upright DEAD CENTER horizontally in the exact middle of the landscape canvas (x=50%, NOT on the left or right edge), big drowsy yawn, rubbing one eye sleepily, both feet planted centered",
+        "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: kneeling and curling down gently onto the ground directly beneath her standing position, very drowsy, head nodding forward, eyes half closed",
+        "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: curled up lying horizontally on her stomach directly in the center of the landscape canvas, head resting on folded arms, tail curled, eyes peacefully closed falling asleep",
     ]),
     "sleep_wake": (LANDSCAPE, [
-        "lying on her stomach horizontally, eyes just opening",
-        "sitting up on the ground, rubbing eyes sleepily",
-        "standing on the left of the canvas, stretching awake",
+        "lying horizontally on her stomach DEAD CENTER in the exact middle of the landscape canvas (x=50%), head resting on folded arms, tail curled, eyes just fluttering open drowsily",
+        "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: sitting up on the ground directly in the center of the canvas, rubbing one eye sleepily with a small drowsy yawn",
+        "same character, outfit, scale and DEAD CENTER horizontal alignment (x=50%) as image 2: standing upright DEAD CENTER in the exact middle of the landscape canvas (NOT shifted to the left or right), cute sleepy stretch awake with arms raised gently, bright waking smile",
     ]),
     "walk_side": (PORTRAIT, [
         "walking in pure side view facing LEFT, a big lively stride: left leg stepping far forward with the heel just touching the ground, right leg stretched far behind, right arm swinging forward, left arm swinging back, hair and tail trailing behind",
@@ -439,12 +471,15 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
     ]),
     # Sitting on a window's top edge with the legs hanging over the front.
     "perch_sit": (PORTRAIT, [
-        "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
-        "both hands resting on the ledge beside her hips, relaxed happy face, tail hanging down behind. The ledge itself is NOT drawn: no bench, no wall, "
-        "no shadow, only the character on a transparent background, full body including both shoes",
-        "same character, outfit, scale and framing as image 2, same sitting pose and hands, but her left lower leg swung forward and up a little, swinging her legs happily",
-        "same character, outfit, scale and framing as image 2, same sitting pose, both lower legs hanging straight down again, eyes closed in a slow content blink",
-        "same character, outfit, scale and framing as image 2, same sitting pose and hands, but her right lower leg swung forward and up a little, head tilted, looking around",
+        "sitting calmly on an invisible horizontal window ledge, facing straight toward the viewer, horizontally centered: thighs resting flat on the invisible horizontal perch line, knees together, both lower legs and shoes hanging straight down side by side beneath the perch line, "
+        "both hands resting lightly on the invisible ledge beside her hips, relaxed happy face with BOTH eyes open (NO winking), tail hanging softly behind. Keep head, shoulders, upper torso, and seated hips level and centered. "
+        "The ledge itself is NOT drawn: no bench, no wall, no shadow, only the character on a transparent background, full body including both shoes",
+        "EXACTLY the same as image 2: pixel-locked identical head position, head angle, open eyes, facial expression, hair, shoulders, upper torso, arms, hands, and seated hip height at the exact same vertical and horizontal coordinates — DO NOT stand up, DO NOT tilt head, DO NOT move torso or hips even slightly. "
+        "ONLY change her dangling lower legs below the knees and tail: swing her left lower calf and left shoe gently forward and slightly upward while her right calf hangs slightly back, tiny gentle tail sway to the left",
+        "EXACTLY the same as image 2: pixel-locked identical head position, head angle, hair, shoulders, upper torso, arms, hands, and seated hip height at the exact same vertical and horizontal coordinates — DO NOT stand up, DO NOT tilt head, DO NOT move torso or hips even slightly. "
+        "Both lower legs and shoes hanging straight down side by side exactly like image 2, ONLY change her eyes to a gentle natural blink (both eyes softly closed with a peaceful smile) and subtle neutral tail position",
+        "EXACTLY the same as image 2: pixel-locked identical head position, head angle, open eyes, facial expression, hair, shoulders, upper torso, arms, hands, and seated hip height at the exact same vertical and horizontal coordinates — DO NOT stand up, DO NOT tilt head, DO NOT move torso or hips even slightly. "
+        "ONLY change her dangling lower legs below the knees and tail: swing her right lower calf and right shoe gently forward and slightly upward while her left calf hangs slightly back, tiny gentle tail sway to the right",
     ]),
     "perch_work": (PORTRAIT, [
         "sitting on an invisible ledge, facing the viewer: thighs horizontal and pointing toward the viewer, lower legs hanging straight down side by side, "
@@ -509,6 +544,50 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical scale, framing, body and the SAME glowing floating translucent screen (abstract UI icons only, no text) and mini keyboard in the exact same position; "
         "only her eyes and hands changed: both hands resting on the keys, a calm happy slow blink with eyes closed and a tiny satisfied smile",
     ]),
+    "dock_sleep": (PORTRAIT, [
+        "clinging sleepily to an invisible vertical wall on her LEFT side, facing slightly to the RIGHT: keep her chibi head size and vertical three-quarter body scale matching the reference image (head, upper torso, waist, skirt/outfit and flowing hair/tail visible down to mid-thigh, legs hidden behind the left edge). "
+        "Her left cheek, left shoulder, and left side of her torso and skirt rest flush along one clean straight vertical cut on the far left of her silhouette as if hugging and resting her cheek sleepily against a monitor bezel. "
+        "Both arms wrap snugly around the invisible vertical left edge (upper hand near cheek/shoulder height, lower hand near waist height), cheek gently pressed against the vertical edge, both eyes peacefully closed in sweet sleep, soft relaxed smile, hair and tail resting calmly downward. "
+        "Draw NO wall, NO line, NO frame, NO shadow, NO text, NO floating Z letters; pure transparent background",
+        "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical arms hugging the invisible left edge, identical scale, framing and outfit; "
+        "still peacefully asleep with both eyes gently closed, breathing in softly: chest and shoulders risen very slightly, head nestled a tiny fraction more snugly into the left edge, hair tips swaying subtly, NO text, NO floating Z letters",
+        "exactly the same as image 2: identical character, identical straight vertical left-edge flush cut, identical arms hugging the invisible left edge, identical scale, framing and outfit; "
+        "still peacefully asleep with both eyes gently closed, exhaling softly: shoulders settled gently down, tiny peaceful content sigh expression, hair and tail relaxed downward, NO text, NO floating Z letters",
+    ]),
+    # ----- v3.1 Batch 3 high-charm companion actions -----
+    "sulk": (PORTRAIT, [
+        "standing centered facing three-quarters slightly turned away, adorable pouting sulk: arms crossed tightly over her chest, cheeks puffed out cutely, pouty frown and slightly furrowed brows glancing sideways with a grumpy little huff, tail curled tightly low, both feet planted",
+        "same character, outfit, scale, centered framing and sulking crossed-arms pose as image 2: cheeks puffed slightly fuller, tapping her right toe impatiently on the ground, tail flicking sharply to the left in a tiny grumpy fidget",
+        "same character, outfit, scale, centered framing and sulking crossed-arms pose as image 2: shifting weight slightly onto her other foot, turning her shoulder and chin a touch further away while peeking side-eye toward viewer, pouty frown, tail flicking to the right",
+        "same character, outfit, scale, centered framing and sulking crossed-arms pose as image 2: shoulders settling slightly in a cute stubborn pout, cheeks still softly puffed, both feet planted, tail swishing back low",
+    ]),
+    "waiting_user": (PORTRAIT, [
+        "standing centered facing straight toward the viewer, leaning slightly forward curiously with eager wide sparkling eyes and an expectant cheerful smile, raising her right hand/knuckles gently forward toward the viewer as if playfully about to knock on an invisible glass screen (other hand relaxed at side). Draw NO glass pane, NO border, NO speech bubble, NO text, NO letters, NO symbols anywhere",
+        "same character, outfit, scale and centered framing as image 2: leaning slightly closer toward the viewer, her raised right hand/knuckles tapping forward against the invisible glass screen (first playful knock) with tiny pure abstract curved motion lines (NO text, NO letters, NO glass frame), bright eager wide eyes",
+        "same character, outfit, scale and centered framing as image 2: pulling her raised right hand back slightly preparing to tap a second time, head tilted playfully with an expectant cute smile and wide curious eyes, NO text, NO letters, NO glass frame",
+        "same character, outfit, scale and centered framing as image 2: tapping forward a second time with her raised right hand/knuckles against the invisible screen (second playful knock) with tiny pure abstract motion lines, leaning eagerly with bright wide eyes and cute open-mouth smile, NO text, NO letters, NO glass frame",
+    ]),
+    "jump_up": (PORTRAIT, [
+        "horizontally centered, energetic confident launch crouch preparing to leap upward: knees bent low, body coiled downward, arms pulled back for momentum, excited bright eyes and determined cheerful smile, hair and skirt gathered cleanly",
+        "same character, outfit, scale and horizontally centered framing as image 2: mid-air joyful upward soar, both feet lifted high off the ground, both arms stretched joyfully upward, knees slightly tucked, hair, skirt and tail streaming straight downward behind her, bright joyful grin",
+        "same character, outfit, scale and horizontally centered framing as image 2: at the peak apex stretch of the upward leap in mid-air, body extended sleekly upward with one knee raised and one leg trailing downward, arms reaching triumphantly up, hair and tail trailing cleanly downward, sparkling triumphant smile",
+    ]),
+    "pet_purr": (PORTRAIT, [
+        "standing centered facing the viewer, blissfully enjoying gentle head pats (single character only, do NOT draw any extra hand): eyes squeezed happily shut in joyful curved arcs, warm rosy blushing cheeks, cute content smile, head tilting slightly upward and nuzzling gently to the left, hands clasped happily near her chest, ears angled comfortably, tail swaying softly to the left",
+        "same character, outfit, scale, centered standing feet and blissful expression as image 2 (do NOT draw any extra hand): nuzzling her head gently upward a tiny bit higher into the invisible head pat with happy squeezed-shut curved eyes, warm rosy blush, ears twitching playfully slightly lowered, tail curling softly upward to the left",
+        "same character, outfit, scale, centered standing feet and blissful expression as image 2 (do NOT draw any extra hand): gently tilting and nuzzling her head to the right with joyful squeezed-shut curved eyes, warm rosy cheeks, happy purring smile, ears perked softly, tail swaying smoothly to the right",
+        "same character, outfit, scale, centered standing feet and blissful expression as image 2 (do NOT draw any extra hand): settling softly centered with chin slightly lifted in pure bliss, eyes squeezed happily shut in curved arcs, warm rosy blush, tail curving softly back toward center",
+    ]),
+    "perch_sleep": (PORTRAIT, [
+        "sitting peacefully asleep on an invisible horizontal window ledge, facing toward the viewer, horizontally centered (matching perch_sit seated hip line and scale): thighs resting flat on the invisible horizontal perch line, knees together, both lower legs and shoes hanging relaxed straight down side by side beneath the perch line, hands resting softly on her lap/thighs, head nodding gently forward and tilted slightly dozing peacefully with both eyes softly closed, calm sleeping expression, tail hanging relaxed behind. Draw NO bench, NO ledge, NO wall, NO shadow, NO text, NO floating Z letters; full body including both shoes on pure transparent background",
+        "EXACTLY the same as image 2: pixel-locked identical seated hip height, thighs, dangling lower legs, shoes, hands, and outfit on the invisible horizontal perch line; ONLY gentle slow breathing inhale: shoulders and chest rising very slightly, head nodding a tiny fraction deeper forward dozing peacefully with eyes softly closed, tail barely swaying, NO text, NO floating Z letters",
+        "EXACTLY the same as image 2: pixel-locked identical seated hip height, thighs, dangling lower legs, shoes, hands, and outfit on the invisible horizontal perch line; ONLY gentle slow breathing exhale: shoulders settling softly back down, head bobbing subtly upward a tiny fraction still peacefully asleep with eyes softly closed and a faint content sleeping smile, NO text, NO floating Z letters",
+    ]),
+    "refuse_food": (PORTRAIT, [
+        "standing centered, playfully refusing food: leaning upper body slightly back and turning her face away to her left with a cute flustered scrunched-up 'no thanks' expression (squinting eyes, cute wavy grimace/frown, light blush), raising BOTH open palms in front of her waving 'no no', both feet planted, NO food prop, NO text",
+        "same character, outfit, scale and centered standing feet as image 2: shaking her head slightly the other way with eyes squeezed tightly shut and a cute flustered disgusted pout, waving both open hands briskly to the right in an emphatic 'no thanks!' gesture, hair swinging slightly, NO food prop, NO text",
+        "same character, outfit, scale and centered standing feet as image 2: turning her face away again with cheeks puffed in a cute stubborn 'nope!' frown, waving both open hands back to the left defensively, NO food prop, NO text",
+    ]),
 }
 
 MIRRORS = {
@@ -518,6 +597,7 @@ MIRRORS = {
     "walk_stop_right": "walk_stop_left",
     "dock_peek_right": "dock_peek",
     "dock_work_right": "dock_work",
+    "dock_sleep_right": "dock_sleep",
 }
 
 

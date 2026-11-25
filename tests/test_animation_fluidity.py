@@ -454,9 +454,9 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
         self.assertEqual(actions["REFUSE_FOOD"]["duration_ms"], 1260)  # 2 * 3f * 210ms
         self.assertEqual(actions["DRAGGING"]["frame_ms"], 200)
 
-        # Dock pacing & frame_pick contract (perch_sit=[0] preserved until Batch 2).
+        # Dock pacing & frame_pick contract (perch_sit unlocked to full 4-frame leg swing!).
         frame_pick = self.manifest["frame_pick"]
-        self.assertEqual(frame_pick["perch_sit"], [0])
+        self.assertNotIn("perch_sit", frame_pick)
         self.assertEqual(frame_pick["dock_peek"], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         self.assertEqual(frame_pick["dock_peek_right"], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
 
@@ -476,34 +476,37 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
         self.assertIn("dock_sleep_right", BESPOKE_DOCK_ASSETS)
         self.assertEqual(EDGE_ASSETS[PetAction.PERCH_SLEEP], "perch_sleep")
 
+        # All 5 forms now ship real frames for every Batch 2 & Batch 3 v3.1 asset.
+        v31_cases = [
+            (PetAction.PERCH, "edge", "perch_sit", 4),
+            (PetAction.PERCH_SLEEP, "edge", "perch_sleep", 3),
+            (PetAction.DOCK_SLEEP, "dock_left", "dock_sleep", 3),
+            (PetAction.DOCK_SLEEP, "dock_right", "dock_sleep_right", 3),
+            (PetAction.SULK, "down", "sulk", 4),
+            (PetAction.WAITING_USER, "down", "waiting_user", 4),
+            (PetAction.JUMP_UP, "down", "jump_up", 3),
+            (PetAction.PET_PURR, "down", "pet_purr", 4),
+            (PetAction.REFUSE_FOOD, "down", "refuse_food", 3),
+            (PetAction.FALLING, "down", "falling", 4),
+            (PetAction.EATING, "down", "eat", 5),
+        ]
+        for form in ("carbon", "hydergon", "neon", "argon", "claude"):
+            registry = AssetRegistry(ROOT / form, base_manifest=BASE_MANIFEST)
+            for action, direction, asset_name, expected_frames in v31_cases:
+                clip = registry.clip_for(action, height=238, direction=direction)
+                self.assertEqual(clip.asset_id, asset_name, (form, action, direction))
+                self.assertEqual(len(clip.frames), expected_frames, (form, asset_name))
+                self.assertTrue(all(not f.pixmap.isNull() for f in clip.frames), (form, asset_name))
+
+        # Verify graceful directional fallback if dock_sleep assets are absent.
         registry = AssetRegistry(ROOT / "neon", base_manifest=BASE_MANIFEST)
-        # Before Batch 3 art lands: DOCK_SLEEP falls back cleanly per dock edge.
+        registry._assets.pop("dock_sleep", None)
+        registry._assets.pop("dock_sleep_right", None)
+        registry._frame_cache.clear()
         left_clip = registry.clip_for(PetAction.DOCK_SLEEP, height=238, direction="dock_left")
         right_clip = registry.clip_for(PetAction.DOCK_SLEEP, height=238, direction="dock_right")
         self.assertEqual(left_clip.asset_id, "dock_peek")
         self.assertEqual(right_clip.asset_id, "dock_peek_right")
-
-        # When real frames are registered, all v3.1 assets resolve to themselves.
-        sample_frames = registry.manifest["assets"]["idle_front"]["frames"]
-        v31_cases = [
-            (PetAction.PERCH, "edge", "perch_sit"),
-            (PetAction.PERCH_SLEEP, "edge", "perch_sleep"),
-            (PetAction.DOCK_SLEEP, "dock_left", "dock_sleep"),
-            (PetAction.DOCK_SLEEP, "dock_right", "dock_sleep_right"),
-            (PetAction.SULK, "down", "sulk"),
-            (PetAction.WAITING_USER, "down", "waiting_user"),
-            (PetAction.JUMP_UP, "down", "jump_up"),
-            (PetAction.PET_PURR, "down", "pet_purr"),
-            (PetAction.REFUSE_FOOD, "down", "refuse_food"),
-        ]
-        for _action, _direction, asset_name in v31_cases:
-            if asset_name not in registry._assets:
-                registry._assets[asset_name] = {"frames": sample_frames, "frame_count": 1}
-        registry._frame_cache.clear()
-        for action, direction, asset_name in v31_cases:
-            clip = registry.clip_for(action, height=238, direction=direction)
-            self.assertEqual(clip.asset_id, asset_name, (action, direction))
-            self.assertTrue(clip.frames and not clip.frames[0].pixmap.isNull())
 
 
 class ProceduralEffectsFluidityTests(unittest.TestCase):

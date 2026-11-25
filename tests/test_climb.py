@@ -307,7 +307,7 @@ class ExploreTests(WidgetCase):
         self.assertEqual(window.action_machine.current, PetAction.PERCH)  # no stand-up transform
         self.assertEqual(window.player.snapshot().current.asset_id, "perch_sit")
         clip = window.asset_registry.clip_for(PetAction.PERCH, height=window.current_height, direction="edge")
-        self.assertEqual(len(clip.frames), 1)  # sits still: one frame, no wobble
+        self.assertEqual(len(clip.frames), 4)  # v3.1 rock-steady 4-frame swinging-leg perch_sit
         window._request_action(PetAction.POKE_REACT, reason="test", force=True)
         window.action_machine.update(now=time.monotonic() + 30.0)
         self.assertEqual(window.action_machine.current, PetAction.PERCH)  # back to sitting, not standing
