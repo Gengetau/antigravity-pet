@@ -101,7 +101,7 @@ class TelemetryAndReactionV3Tests(unittest.TestCase):
         r2 = tracker.observe(s2, now=t, follow_model=False, current_form="carbon")
         waiting = [r for r in r2 if r.kind == "waiting"]
         self.assertEqual(len(waiting), 1)
-        self.assertEqual(waiting[0].action, "WAVE")
+        self.assertEqual(waiting[0].action, "WAITING_USER")
         self.assertEqual(waiting[0].particle, "alert")
 
         # Repeated poll while still waiting must not spam

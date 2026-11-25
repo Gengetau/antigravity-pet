@@ -13,7 +13,17 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QColor, QMouseEvent, QPainter, QPainterPath, QPen, QPolygonF
-from PySide6.QtWidgets import QApplication, QFrame, QGridLayout, QHBoxLayout, QLabel, QMenu, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .telemetry import LiveSnapshot, format_reset_countdown, format_tokens
 
@@ -21,7 +31,7 @@ TAIL = 9  # height of the dialog tail that points at the pet
 APPEARANCES = {
     "dialog": ("对话框（指向桌宠的气泡卡片）", ""),
     "capsule": ("暗色胶囊", "background:rgba(21,23,28,240);border:1px solid rgba(255,255,255,44);"),
-    "seamless": ("无边框融合（透明底）", "background:rgba(0,0,0,2);border:1px solid rgba(0,0,0,0);"),
+    "seamless": ("无边框融合（透明底）", "background:rgba(15,23,42,136);border:1px solid rgba(255,255,255,28);"),
     "glass": ("轻透毛玻璃", "background:rgba(20,22,27,184);border:1px solid rgba(255,255,255,56);"),
 }
 SOURCE_NAMES = {
@@ -44,6 +54,13 @@ class QuotaBar(QWidget):
         self.setFixedSize(64, 6)
         self.fraction: float | None = None
         self.color = QColor("#34D399")
+        self._seamless = False
+
+    def set_seamless(self, seamless: bool) -> None:
+        flag = bool(seamless)
+        if flag != self._seamless:
+            self._seamless = flag
+            self.update()
 
     def set_value(self, percent: float | None, color: str) -> None:
         self.fraction = None if percent is None else max(0.0, min(1.0, percent / 100.0))
@@ -54,7 +71,7 @@ class QuotaBar(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(255, 255, 255, 34))
+        painter.setBrush(QColor(255, 255, 255, 54 if self._seamless else 34))
         painter.drawRoundedRect(QRectF(self.rect()), 3, 3)
         if self.fraction:
             fill = QRectF(0, 0, self.width() * self.fraction, self.height())
@@ -113,22 +130,32 @@ class HudBar(QWidget):
         self.quota_week_bar = QuotaBar()
         self.cache = QLabel("—%")
         self.context = QLabel("—")
+        self._pill_muted_labels: list[QLabel] = []
+        self._pill_shadow_labels: list[QLabel] = [self.speed, self.quota_5h, self.quota_week, self.cache, self.context]
         head = QHBoxLayout()
         head.setSpacing(4)
         head.addWidget(self.dot)
-        head.addWidget(self._muted("⚡", "#38BDF8"))
+        bolt = self._muted("⚡", "#38BDF8")
+        self._pill_shadow_labels.append(bolt)
+        head.addWidget(bolt)
         head.addWidget(self.speed)
         head.addStretch(1)
         grid.addLayout(head, 0, 0, 1, 3)
         for row, (caption, bar, value) in enumerate(
             (("5h", self.quota_5h_bar, self.quota_5h), ("周", self.quota_week_bar, self.quota_week)), start=1
         ):
-            grid.addWidget(self._muted(caption), row, 0)
+            cap = self._muted(caption)
+            self._pill_muted_labels.append(cap)
+            self._pill_shadow_labels.append(cap)
+            grid.addWidget(cap, row, 0)
             grid.addWidget(bar, row, 1, Qt.AlignmentFlag.AlignVCenter)
             grid.addWidget(value, row, 2, Qt.AlignmentFlag.AlignRight)
             value.setStyleSheet(_rgb("#9CA3AF") + "font-weight:600;")
         for row, (caption, value) in enumerate((("缓存", self.cache), ("上下文", self.context)), start=3):
-            grid.addWidget(self._muted(caption), row, 0)
+            cap = self._muted(caption)
+            self._pill_muted_labels.append(cap)
+            self._pill_shadow_labels.append(cap)
+            grid.addWidget(cap, row, 0)
             grid.addWidget(value, row, 1, 1, 2, Qt.AlignmentFlag.AlignRight)
         for label, color in ((self.speed, "#E5E7EB"), (self.cache, "#2DD4BF"), (self.context, "#C4B5FD")):
             label.setStyleSheet(_rgb(color) + "font-weight:600;")
@@ -232,11 +259,27 @@ class HudBar(QWidget):
     def apply_appearance(self) -> None:
         key = self.settings.get("hud_appearance", "capsule")
         style = APPEARANCES.get(key, APPEARANCES["capsule"])[1]
+        is_seamless = key == "seamless"
         self.pill.setVisible(not self.dialog)
         self.card.setVisible(self.dialog)
         self.card.setStyleSheet("QFrame#card{background:transparent;border:none;}")
         self._sync_tail_margins()
         self.pill.setStyleSheet(f"QFrame#pill{{{style}border-radius:9px;}}")
+        self.quota_5h_bar.set_seamless(is_seamless)
+        self.quota_week_bar.set_seamless(is_seamless)
+        caption_color = "#E2E8F0" if is_seamless else "#9CA3AF"
+        for label in self._pill_muted_labels:
+            label.setStyleSheet(_rgb(caption_color))
+        self.speed.setStyleSheet(_rgb("#F8FAFC" if is_seamless else "#E5E7EB") + "font-weight:600;")
+        for label in self._pill_shadow_labels:
+            if is_seamless:
+                shadow = QGraphicsDropShadowEffect(label)
+                shadow.setBlurRadius(4)
+                shadow.setOffset(0, 1)
+                shadow.setColor(QColor(0, 0, 0, 190))
+                label.setGraphicsEffect(shadow)
+            else:
+                label.setGraphicsEffect(None)
         locked = self.settings.get("hud_mode") == "floating" and self.settings.get("hud_locked", False)
         self.setCursor(Qt.CursorShape.ArrowCursor if locked else Qt.CursorShape.SizeAllCursor)
         self.adjustSize()
@@ -256,10 +299,12 @@ class HudBar(QWidget):
         rate = snap.display_rate
         self.speed.setText(f"{rate:.1f} tok/s" if rate else "— tok/s")
 
+        is_seamless = self.settings.get("hud_appearance", "capsule") == "seamless"
+        none_color = "#CBD5E1" if is_seamless else "#9CA3AF"
         for label, bar, kind in ((self.quota_5h, self.quota_5h_bar, "5h"), (self.quota_week, self.quota_week_bar, "week")):
             q, _reset = snap.quota_for(kind)
             label.setText(f"{q:.0f}%" if q is not None else "—")
-            color = "#9CA3AF" if q is None else "#F87171" if q <= 15 else "#FBBF24" if q <= 35 else "#34D399"
+            color = none_color if q is None else "#F87171" if q <= 15 else "#FBBF24" if q <= 35 else "#34D399"
             label.setStyleSheet(_rgb(color) + "font-weight:600;")
             bar.set_value(q, color)
         self.cache.setText(f"{snap.cache_hit_pct:.1f}%")

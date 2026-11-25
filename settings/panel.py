@@ -84,7 +84,7 @@ class PetControlPanel(QWidget):
         self._pet_rect: QRect | None = None
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(6, 6, 6, 8)
+        root.setContentsMargins(6, 4, 6, 6)
         self._root_layout = root
         surface = QFrame()
         surface.setObjectName("controlSurface")
@@ -96,11 +96,11 @@ class PetControlPanel(QWidget):
         root.addWidget(surface)
 
         layout = QVBoxLayout(surface)
-        layout.setContentsMargins(14, 13, 14, 13)
-        layout.setSpacing(9)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(5)
 
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(6)
         title = QLabel("小A")
         title.setObjectName("panelTitle")
         header.addWidget(title)
@@ -119,7 +119,7 @@ class PetControlPanel(QWidget):
         layout.addLayout(header)
 
         quick_row = QHBoxLayout()
-        quick_row.setSpacing(5)
+        quick_row.setSpacing(4)
         for label, callback in (
             ("投喂", on_feed),
             ("说话", on_say),
@@ -127,22 +127,55 @@ class PetControlPanel(QWidget):
             ("休息", lambda: on_action("SLEEPING")),
         ):
             button = self._quick_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(callback)
             quick_row.addWidget(button)
         layout.addLayout(quick_row)
 
+        # Promote high-frequency spatial actions (dock, climb, perch, recall)
+        # into the primary area so users never have to expand advanced settings.
+        dock_cb = on_dock if on_dock is not None else (lambda: on_action("EDGE_DOCK"))
+        perch_cb = on_perch if on_perch is not None else (lambda: on_action("EDGE_SIT"))
+        recall_cb = on_recall_primary if on_recall_primary is not None else on_snap
+
+        spatial_row = QHBoxLayout()
+        spatial_row.setSpacing(4)
+        self.dock_button = self._quick_button("贴边")
+        self.dock_button.setToolTip("贴到屏幕边缘藏身 / 取消贴边")
+        self.dock_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.dock_button.clicked.connect(dock_cb)
+        self.climb_button = self._quick_button("爬窗")
+        self.climb_button.setToolTip("爬到附近窗口顶部")
+        self.climb_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.climb_button.clicked.connect(lambda: on_action("CLIMB"))
+        self.perch_button = self._quick_button("坐沿")
+        self.perch_button.setToolTip("坐在附近窗口顶部边缘")
+        self.perch_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.perch_button.clicked.connect(perch_cb)
+        self.recall_button = self._quick_button("召回主屏")
+        self.recall_button.setToolTip("取消贴边并召回到主屏幕")
+        self.recall_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.recall_button.clicked.connect(recall_cb)
+        spatial_row.addWidget(self.dock_button, 2)
+        spatial_row.addWidget(self.climb_button, 2)
+        spatial_row.addWidget(self.perch_button, 2)
+        spatial_row.addWidget(self.recall_button, 3)
+        layout.addLayout(spatial_row)
+
         layout.addWidget(self._divider())
-        mode_label = QLabel("移动")
-        mode_label.setObjectName("compactLabel")
-        layout.addWidget(mode_label)
         mode_row = QHBoxLayout()
-        mode_row.setSpacing(5)
+        mode_row.setSpacing(4)
+        mode_label = QLabel("移动")
+        mode_label.setObjectName("inlineLabel")
+        mode_label.setFixedWidth(28)
+        mode_row.addWidget(mode_label)
         for label, value in (("散步", "wander"), ("跟随", "follow"), ("静止", "still")):
             button = self._choice_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, key=value: on_mode(key))
             self._mode_group.addButton(button)
             self._mode_buttons[value] = button
-            mode_row.addWidget(button)
+            mode_row.addWidget(button, 1)
         layout.addLayout(mode_row)
 
         form_label = QLabel("形态")
@@ -150,8 +183,8 @@ class PetControlPanel(QWidget):
         layout.addWidget(form_label)
         # Two columns so four (or more) form names never get elided.
         form_row = QGridLayout()
-        form_row.setHorizontalSpacing(5)
-        form_row.setVerticalSpacing(5)
+        form_row.setHorizontalSpacing(4)
+        form_row.setVerticalSpacing(3)
         for index, (value, label) in enumerate(forms):
             button = self._choice_button(label)
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -162,8 +195,8 @@ class PetControlPanel(QWidget):
             form_row.addWidget(button, index // 2, index % 2)
         layout.addLayout(form_row)
         agy_row = QGridLayout()
-        agy_row.setHorizontalSpacing(8)
-        agy_row.setVerticalSpacing(6)
+        agy_row.setHorizontalSpacing(6)
+        agy_row.setVerticalSpacing(2)
         self.follow_model = self._toggle("跟随模型", on_follow_model or (lambda _enabled: None))
         self.follow_model.setToolTip("根据 Antigravity 当前使用的模型（Carbon / Hydrogen / Neon / Claude）自动切换形态")
         self.hud = self._toggle("HUD 条", on_hud or (lambda _enabled: None))
@@ -175,12 +208,13 @@ class PetControlPanel(QWidget):
         agy_row.addWidget(self.autonomy, 1, 0)
         layout.addLayout(agy_row)
         meter = self._quick_button("Token Meter 面板")
+        meter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if on_open_meter is not None:
             meter.clicked.connect(on_open_meter)
         layout.addWidget(meter)
 
         footer = QHBoxLayout()
-        footer.setSpacing(5)
+        footer.setSpacing(4)
         self.more_button = QToolButton()
         self.more_button.setObjectName("moreButton")
         self.more_button.setText("更多设置")
@@ -196,55 +230,67 @@ class PetControlPanel(QWidget):
         self._advanced = QWidget()
         advanced_layout = QVBoxLayout(self._advanced)
         advanced_layout.setContentsMargins(0, 1, 0, 0)
-        advanced_layout.setSpacing(8)
+        advanced_layout.setSpacing(4)
         advanced_layout.addWidget(self._divider())
 
-        size_label = QLabel("大小")
-        size_label.setObjectName("compactLabel")
-        advanced_layout.addWidget(size_label)
         size_row = QHBoxLayout()
-        size_row.setSpacing(5)
+        size_row.setSpacing(4)
+        size_label = QLabel("大小")
+        size_label.setObjectName("inlineLabel")
+        size_label.setFixedWidth(28)
+        size_row.addWidget(size_label)
         for label, value in (("小", 0.55), ("中", 0.70), ("大", 0.90)):
             button = self._choice_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, size=value: on_size(size))
             self._size_group.addButton(button)
             self._size_buttons[value] = button
-            size_row.addWidget(button)
+            size_row.addWidget(button, 1)
         advanced_layout.addLayout(size_row)
 
         action_row = QHBoxLayout()
-        action_row.setSpacing(5)
-        for label, action in (("发呆", "THINKING"), ("扫地", "SWEEPING"), ("爬窗", "CLIMB"), ("坐沿", "EDGE_SIT"), ("贴边", "EDGE_DOCK")):
+        action_row.setSpacing(4)
+        action_label = QLabel("动作")
+        action_label.setObjectName("inlineLabel")
+        action_label.setFixedWidth(28)
+        action_row.addWidget(action_label)
+        for label, action in (("发呆", "THINKING"), ("扫地", "SWEEPING")):
             button = self._quick_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, value=action: on_action(value))
-            action_row.addWidget(button)
-        action_row.addStretch(1)
+            action_row.addWidget(button, 1)
         advanced_layout.addLayout(action_row)
 
-        rhythm_label = QLabel("陪伴节奏")
-        rhythm_label.setObjectName("compactLabel")
-        advanced_layout.addWidget(rhythm_label)
         rhythm_row = QHBoxLayout()
-        rhythm_row.setSpacing(5)
+        rhythm_row.setSpacing(4)
+        rhythm_label = QLabel("节奏")
+        rhythm_label.setObjectName("inlineLabel")
+        rhythm_label.setToolTip("陪伴节奏")
+        rhythm_label.setFixedWidth(28)
+        rhythm_row.addWidget(rhythm_label)
         for label, value in (("安静", "calm"), ("适中", "balanced"), ("活泼", "lively")):
             button = self._choice_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, key=value: on_activity_level(key))
             self._activity_group.addButton(button)
             self._activity_buttons[value] = button
-            rhythm_row.addWidget(button)
+            rhythm_row.addWidget(button, 1)
         advanced_layout.addLayout(rhythm_row)
 
-        speed_label = QLabel("走路速度")
-        speed_label.setObjectName("compactLabel")
-        advanced_layout.addWidget(speed_label)
         speed_row = QHBoxLayout()
-        speed_row.setSpacing(5)
+        speed_row.setSpacing(4)
+        speed_label = QLabel("步速")
+        speed_label.setObjectName("inlineLabel")
+        speed_label.setToolTip("走路速度")
+        speed_label.setFixedWidth(28)
+        speed_row.addWidget(speed_label)
         for label, value in (("慢", 64.0), ("适中", 82.0), ("快", 104.0)):
             button = self._choice_button(label)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, speed=value: on_walk_speed(speed))
             self._speed_group.addButton(button)
             self._speed_buttons[value] = button
-            speed_row.addWidget(button)
+            speed_row.addWidget(button, 1)
         advanced_layout.addLayout(speed_row)
 
         self.awareness = self._toggle("本地感知", on_awareness)
@@ -258,8 +304,8 @@ class PetControlPanel(QWidget):
         self.hover_pause = self._toggle("悬停暂停", on_hover_pause)
         self.desktop_surfaces = self._toggle("窗口落脚", on_desktop_surfaces)
         toggle_grid = QGridLayout()
-        toggle_grid.setHorizontalSpacing(10)
-        toggle_grid.setVerticalSpacing(2)
+        toggle_grid.setHorizontalSpacing(8)
+        toggle_grid.setVerticalSpacing(1)
         for index, toggle in enumerate(
             (
                 self.awareness,
@@ -278,7 +324,7 @@ class PetControlPanel(QWidget):
         advanced_layout.addLayout(toggle_grid)
 
         tools = QHBoxLayout()
-        tools.setSpacing(5)
+        tools.setSpacing(4)
         for label, callback, object_name in (
             ("回到屏幕内", on_snap, "utilityButton"),
             ("隐私", on_privacy, "utilityButton"),
@@ -294,24 +340,24 @@ class PetControlPanel(QWidget):
 
         self.setStyleSheet(
             "#controlSurface{background:#141327;border-radius:14px;}"
-            "#panelTitle{color:#f6fbff;font-size:16px;font-weight:700;}"
-            "#stateLabel{padding:2px 7px;background:#2a2550;border-radius:8px;color:#d9d2ff;font-size:10px;font-weight:600;}"
-            "QLabel#compactLabel{color:#b8b0e8;font-size:10px;font-weight:600;}"
+            "#panelTitle{color:#f6fbff;font-size:15px;font-weight:700;}"
+            "#stateLabel{padding:1px 7px;background:#2a2550;border-radius:8px;color:#d9d2ff;font-size:10px;font-weight:600;}"
+            "QLabel#compactLabel,QLabel#inlineLabel{color:#b8b0e8;font-size:10px;font-weight:600;}"
             "QFrame#divider{background:rgba(200,190,255,38);min-height:1px;max-height:1px;}"
-            "QToolButton#quickButton{min-height:31px;padding:0 7px;background:#25214a;border:none;border-radius:9px;"
+            "QToolButton#quickButton{min-height:23px;padding:0 4px;background:#25214a;border:none;border-radius:8px;"
             "color:#ece8ff;font-size:11px;font-weight:600;}"
             "QToolButton#quickButton:hover{background:#36306b;color:#ffffff;}"
-            "QToolButton#choiceButton{min-height:29px;padding:0 8px;background:#1d1a3a;border:none;border-radius:8px;"
+            "QToolButton#choiceButton{min-height:21px;padding:0 5px;background:#1d1a3a;border:none;border-radius:7px;"
             "color:#ddd8ff;font-size:11px;font-weight:600;}"
             "QToolButton#choiceButton:hover{background:#2e2860;}"
             "QToolButton#choiceButton:checked{background:#8b7cf6;color:#0f0c24;}"
-            "QToolButton#moreButton,QToolButton#closeButton{min-height:28px;padding:0 8px;background:transparent;border:none;"
-            "border-radius:8px;color:#bdb5ee;font-size:11px;font-weight:600;}"
+            "QToolButton#moreButton,QToolButton#closeButton{min-height:22px;padding:0 8px;background:transparent;border:none;"
+            "border-radius:7px;color:#bdb5ee;font-size:11px;font-weight:600;}"
             "QToolButton#moreButton:hover,QToolButton#closeButton:hover{background:#2a2550;color:#f7fcff;}"
-            "QCheckBox{min-height:20px;color:#e4e0ff;font-size:11px;spacing:6px;}"
-            "QCheckBox::indicator{width:26px;height:14px;border-radius:7px;background:#2e2a55;}"
+            "QCheckBox{min-height:16px;padding:0px;color:#e4e0ff;font-size:11px;spacing:5px;}"
+            "QCheckBox::indicator{width:24px;height:13px;border-radius:6px;background:#2e2a55;}"
             "QCheckBox::indicator:checked{background:#8b7cf6;}"
-            "QPushButton#utilityButton,QPushButton#dangerButton{min-height:29px;padding:0 8px;border:none;border-radius:8px;"
+            "QPushButton#utilityButton,QPushButton#dangerButton{min-height:23px;padding:0 7px;border:none;border-radius:7px;"
             "font-size:11px;font-weight:600;}"
             "QPushButton#utilityButton{background:#e9e5ff;color:#1d1a3a;}"
             "QPushButton#utilityButton:hover{background:#ffffff;}"
