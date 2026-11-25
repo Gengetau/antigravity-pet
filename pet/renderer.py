@@ -64,26 +64,57 @@ class PetRenderer:
     def set_reduced_motion(self, enabled: bool) -> None:
         self.reduced_motion = bool(enabled)
 
-    def paint(self, widget, *, snapshot: PlayerSnapshot, bubble: Bubble, particles=None) -> None:
+    def paint(
+        self,
+        widget,
+        *,
+        snapshot: PlayerSnapshot,
+        bubble: Bubble,
+        particles=None,
+        dock_pose: tuple[str, float] | None = None,
+        visible_x_range: tuple[float, float] | None = None,
+    ) -> None:
         painter = QPainter(widget)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        tail_x: float | None = None
+        if snapshot.current is not None and dock_pose is not None:
+            side, peek = dock_pose
+            p = max(0.0, min(1.0, float(peek)))
+            sign = -1.0 if side == "right" else 1.0
+            angle = sign * (27.0 - 23.0 * p)
+            pix_h = max(120.0, float(snapshot.current.frame.pixmap.height()))
+            tail_x = widget.width() / 2.0 + math.sin(math.radians(angle)) * pix_h * 0.72
         if bubble.visible:
-            self._draw_bubble(painter, widget.width(), bubble)
+            self._draw_bubble(
+                painter,
+                widget.width(),
+                bubble,
+                visible_x_range=visible_x_range,
+                tail_x=tail_x,
+            )
 
         if snapshot.current is None:
             if particles is not None:
                 particles.paint(painter)
             return
-        pose = EffectPose() if self.reduced_motion else scaled(pose_for(snapshot.effect, snapshot.elapsed_seconds), self.motion_scale)
         hanging = snapshot.current.asset_id in HANGING_ASSETS
-        if hanging:
+        if dock_pose is not None:
+            side, peek = dock_pose
+            p = max(0.0, min(1.0, float(peek)))
+            sign = -1.0 if side == "right" else 1.0
+            sway = 0.0 if self.reduced_motion else math.sin(snapshot.elapsed_seconds * 2.1) * 1.3
+            pose = EffectPose(rotation_degrees=sign * (27.0 - 23.0 * p) + sway)
+        elif hanging:
             # On a wall or a window edge: no floor shadow and no procedural
             # sway, bob or tilt; she sits (or hangs) still.
             pose = EffectPose()
+        else:
+            pose = EffectPose() if self.reduced_motion else scaled(pose_for(snapshot.effect, snapshot.elapsed_seconds), self.motion_scale)
         floor = QPointF(widget.width() / 2.0, widget.height() - self.margin - 7.0)
         current_anchor = self._render_anchor(widget, snapshot.current)
-        if not hanging:
+        if not hanging and dock_pose is None:
             self._draw_shadow(painter, floor, snapshot.current, pose)
         if snapshot.previous is not None and snapshot.previous_opacity > 0:
             self._draw_layer(
@@ -92,8 +123,16 @@ class PetRenderer:
                 self._render_anchor(widget, snapshot.previous),
                 pose,
                 snapshot.previous_opacity,
+                docked=dock_pose is not None,
             )
-        self._draw_layer(painter, snapshot.current, current_anchor, pose, snapshot.current_opacity)
+        self._draw_layer(
+            painter,
+            snapshot.current,
+            current_anchor,
+            pose,
+            snapshot.current_opacity,
+            docked=dock_pose is not None,
+        )
         if particles is not None:
             particles.paint(painter)
 
@@ -118,6 +157,8 @@ class PetRenderer:
         ground: QPointF,
         pose: EffectPose,
         opacity: float,
+        *,
+        docked: bool = False,
     ) -> None:
         pixmap = layer.frame.pixmap
         if pixmap.isNull() or opacity <= 0:
@@ -139,7 +180,8 @@ class PetRenderer:
         if layer.anchor.kind not in {"drag", "seat", "sleep"}:
             # Grounded clips pivot at the feet: never push them through the
             # floor, and lift by the dip a tilt gives the lower sole corner.
-            dip = abs(math.sin(math.radians(pose.rotation_degrees))) * pixmap.width() * 0.32
+            dip_factor = 0.12 if docked else 0.32
+            dip = abs(math.sin(math.radians(pose.rotation_degrees))) * pixmap.width() * dip_factor
             offset_y = min(0.0, offset_y) - dip
         painter.translate(ground.x() + pose.offset_x, ground.y() + offset_y)
         painter.rotate(pose.rotation_degrees)
@@ -173,7 +215,15 @@ class PetRenderer:
         painter.drawEllipse(QRectF(ground.x() - width / 2, ground.y() - height / 2 + 1, width, height))
         painter.restore()
 
-    def _draw_bubble(self, painter: QPainter, width: int, bubble: Bubble) -> None:
+    def _draw_bubble(
+        self,
+        painter: QPainter,
+        width: int,
+        bubble: Bubble,
+        *,
+        visible_x_range: tuple[float, float] | None = None,
+        tail_x: float | None = None,
+    ) -> None:
         opacity = 1.0 if self.reduced_motion and bubble.visible else bubble.opacity_at()
         if opacity <= 0:
             return
@@ -194,14 +244,25 @@ class PetRenderer:
         label_font.setPointSize(8)
         label_font.setWeight(QFont.Weight.DemiBold)
         label_metrics = QFontMetrics(label_font)
-        max_width = min(242, width - 18)
-        lines = self._wrap_text(bubble.text, metrics, max_width - 28)
+        vis_left = 0.0
+        vis_right = float(width)
+        if visible_x_range is not None:
+            vis_left = max(0.0, min(float(width), float(visible_x_range[0])))
+            vis_right = max(vis_left, min(float(width), float(visible_x_range[1])))
+        avail_w = max(84.0, vis_right - vis_left - 12.0)
+        max_width = min(242, int(avail_w))
+        lines = self._wrap_text(bubble.text, metrics, max(56, max_width - 28))
         if not lines:
             return
-        bubble_width = max(126, max(metrics.horizontalAdvance(line) for line in lines) + 28)
+        min_bubble_w = min(126, max_width)
+        bubble_width = max(min_bubble_w, max(metrics.horizontalAdvance(line) for line in lines) + 28)
         bubble_width = min(max_width, bubble_width)
         bubble_height = label_metrics.height() + len(lines) * metrics.height() + 17
-        bubble_x = (width - bubble_width) / 2
+        center_x = width / 2.0 if tail_x is None else float(tail_x)
+        bubble_x = center_x - bubble_width / 2.0
+        min_bx = vis_left + 6.0
+        max_bx = max(min_bx, vis_right - bubble_width - 6.0)
+        bubble_x = max(min_bx, min(max_bx, bubble_x))
         bubble_y = 4.0
         body = QRectF(bubble_x, bubble_y, bubble_width, bubble_height)
 
@@ -214,13 +275,14 @@ class PetRenderer:
         painter.drawRoundedRect(body.translated(0, 3), 12, 12)
         painter.setBrush(background)
         painter.drawRoundedRect(body, 12, 12)
-        tail = QPointF(width / 2, bubble_y + bubble_height)
+        clamped_tail_x = max(bubble_x + 18.0, min(bubble_x + bubble_width - 18.0, center_x))
+        tail_y = bubble_y + bubble_height
         painter.drawPolygon(
             QPolygonF(
                 [
-                    tail,
-                    QPointF(tail.x() - 5.0, tail.y() + 6),
-                    QPointF(tail.x() + 5.0, tail.y() + 6),
+                    QPointF(clamped_tail_x - 5.0, tail_y),
+                    QPointF(clamped_tail_x + 5.0, tail_y),
+                    QPointF(clamped_tail_x, tail_y + 6.0),
                 ]
             )
         )

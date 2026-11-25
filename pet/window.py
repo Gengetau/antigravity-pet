@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import math
 import os
 import random
 import subprocess
@@ -168,6 +169,7 @@ class PetWindow(QWidget):
         self.subagent_clones.set_scale_from_host(self.current_height)
         self._dock_side: str | None = None
         self._dock_peeking = False
+        self._dock_peek_progress = 0.0
         self._dock_leave_at = 0.0
         self._sulk_until = 0.0
         self.expressions = ExpressionDirector()
@@ -383,11 +385,22 @@ class PetWindow(QWidget):
 
     def paintEvent(self, _event) -> None:
         self._update_expression()
+        dock_pose = (self._dock_side, self._dock_peek_progress) if self._dock_side is not None else None
+        vis_x: tuple[float, float] | None = None
+        if self._dock_side is not None:
+            area = self._screen_area_for_pet()
+            if area is not None:
+                vis_x = (
+                    max(0.0, float(area.left() - self.x())),
+                    min(float(self.width()), float(area.right() + 1 - self.x())),
+                )
         self.renderer.paint(
             self,
             snapshot=self.player.snapshot(),
             bubble=self.bubble,
             particles=getattr(self, "particles", None),
+            dock_pose=dock_pose,
+            visible_x_range=vis_x,
         )
 
     _EXPRESSION_CUES = {
@@ -942,6 +955,7 @@ class PetWindow(QWidget):
             self._hold_timer.stop()
             self._dock_side = None
             self._dock_peeking = False
+            self._dock_peek_progress = 0.0
             self._drag_offset = position - QPoint(self.x(), self.y())
             self.physics.cancel()
             self.surface_tracker.detach()
@@ -1342,6 +1356,7 @@ class PetWindow(QWidget):
     def snap_into_screen(self) -> None:
         self._dock_side = None
         self._dock_peeking = False
+        self._dock_peek_progress = 0.0
         self.physics.cancel()
         self.surface_tracker.detach()
         self.movement.cancel_target()
@@ -1367,25 +1382,39 @@ class PetWindow(QWidget):
         )
         return screen.availableGeometry() if screen is not None else None
 
-    def _near_screen_edge(self, threshold: int = 16) -> str | None:
+    def _near_screen_edge(self, threshold: int = 12) -> str | None:
         area = self._screen_area_for_pet()
         if area is None:
             return None
-        if self.x() <= area.left() + threshold:
+        sprite_w = max(80.0, float(self._frame_size()[0]))
+        body_left = self.x() + (self.width() - sprite_w) / 2.0
+        body_right = self.x() + (self.width() + sprite_w) / 2.0
+        if body_left <= area.left() + threshold:
             return "left"
-        if self.x() + self.width() >= area.right() - threshold:
+        if body_right >= area.right() - threshold:
             return "right"
         return None
 
-    def _dock_target_x(self, side: str, *, peeking: bool) -> int:
+    def _dock_target_x(self, side: str, *, peeking: bool = False, peek: float | None = None) -> int:
         area = self._screen_area_for_pet()
         if area is None:
             return self.x()
-        hidden_ratio = 0.14 if peeking else 0.56
-        offset = round(self.width() * hidden_ratio)
-        if side == "left":
-            return area.left() - offset
-        return area.right() - self.width() + 1 + offset
+        p = max(0.0, min(1.0, (1.0 if peeking else 0.0) if peek is None else float(peek)))
+        cx = self.width() / 2.0
+        raw_w, raw_h = self._frame_size()
+        sprite_w = max(80.0, float(raw_w))
+        sprite_h = max(120.0, float(raw_h))
+        # At p=0 (±27 deg lean inward): align screen bezel right behind her outer ear/shoulder
+        # so her full tilted head + eyes peek out with zero gap and her lower body hides off-screen.
+        # At p=1 (±4 deg): slide fully out (past fluffy hair/ribbons) to greet the user.
+        head_shift = math.sin(math.radians(27.0)) * sprite_h * 0.72
+        tuck_offset = max(sprite_w * 0.22, head_shift - sprite_w * 0.22)
+        hover_offset = sprite_w * 0.48
+        if side == "right":
+            cut_x = (cx - tuck_offset) * (1.0 - p) + (cx + hover_offset) * p
+            return round(area.right() + 1 - cut_x)
+        cut_x = (cx + tuck_offset) * (1.0 - p) + (cx - hover_offset) * p
+        return round(area.left() - cut_x)
 
     def dock_to_edge(self, side: str = "right") -> None:
         side = "left" if side == "left" else "right"
@@ -1396,15 +1425,16 @@ class PetWindow(QWidget):
         self.movement.cancel_target()
         self._dock_side = side
         self._dock_peeking = False
+        self._dock_peek_progress = 0.0
         self._dock_leave_at = 0.0
-        target_x = self._dock_target_x(side, peeking=False)
+        target_x = self._dock_target_x(side, peek=0.0)
         target_y = self.y()
         if area is not None:
             target_y = max(area.top(), min(area.bottom() - self.height() + 1, target_y))
         self.move(target_x, target_y)
-        self._set_direction("right" if side == "left" else "left")
+        self._set_direction("down")
         self._request_action(PetAction.IDLE, reason="edge_dock", force=True, immediate=True)
-        self.say("先躲到屏幕边上偷看你写代码，鼠标过来我再探头～", preserve_action=True)
+        self.say("先躲到屏幕边上探头看你，鼠标过来我再出来～", preserve_action=True)
         self._refresh_control_panel()
 
     def undock_from_edge(self) -> None:
@@ -1412,6 +1442,7 @@ class PetWindow(QWidget):
             return
         self._dock_side = None
         self._dock_peeking = False
+        self._dock_peek_progress = 0.0
         self._dock_leave_at = 0.0
         area = self._screen_area_for_pet()
         if area is not None:
@@ -1428,14 +1459,14 @@ class PetWindow(QWidget):
             self._dock_peeking = False
             self._dock_leave_at = 0.0
             self._refresh_control_panel()
-        target_x = self._dock_target_x(self._dock_side, peeking=self._dock_peeking)
-        dx = target_x - self.x()
-        if abs(dx) <= 2 or self.renderer.reduced_motion:
-            if dx != 0:
-                self.move(target_x, self.y())
+        goal = 1.0 if self._dock_peeking else 0.0
+        if self.renderer.reduced_motion or abs(goal - self._dock_peek_progress) <= 0.02:
+            self._dock_peek_progress = goal
         else:
-            step = max(2, round(abs(dx) * 0.24))
-            self.move(self.x() + (step if dx > 0 else -step), self.y())
+            self._dock_peek_progress += (goal - self._dock_peek_progress) * 0.22
+        target_x = self._dock_target_x(self._dock_side, peek=self._dock_peek_progress)
+        if target_x != self.x():
+            self.move(target_x, self.y())
 
     def enterEvent(self, event) -> None:
         self._hovered = True
@@ -1450,7 +1481,7 @@ class PetWindow(QWidget):
     def leaveEvent(self, event) -> None:
         self._hovered = False
         if self._dock_side is not None:
-            self._dock_leave_at = time.monotonic() + 0.65
+            self._dock_leave_at = time.monotonic() + 0.55
         super().leaveEvent(event)
 
     def set_passthrough(self, enabled: bool) -> None:
