@@ -233,7 +233,7 @@ class ReactionTracker:
 
         # Waiting for user confirmation / answer (e.g. approval prompt or ask_question)
         if snapshot.waiting_for_user and not self._was_waiting and self._ready("waiting", now, 60):
-            reactions.append(Reaction("waiting", self._line("waiting"), "WAVE", particle="alert"))
+            reactions.append(Reaction("waiting", self._line("waiting"), "WAITING_USER", particle="alert"))
         self._was_waiting = bool(snapshot.waiting_for_user)
 
         # Active subagent clones
@@ -275,14 +275,15 @@ class ReactionTracker:
             elif band < self._quota_band:
                 reset = format_reset_countdown(quota_reset, now_ms=now_ms) or "等待重置"
                 kind = "quota_critical" if band == 0 else "quota_low"
-                reactions.append(
-                    Reaction(
-                        kind,
-                        self._line(kind, quota=f"{quota:.0f}", reset=reset),
-                        "ANGRY" if band == 0 else None,
-                        particle="sweat" if band == 0 else None,
+                if self._ready(kind, now, 300):
+                    reactions.append(
+                        Reaction(
+                            kind,
+                            self._line(kind, quota=f"{quota:.0f}", reset=reset),
+                            "TIRED" if band == 0 else None,
+                            particle="sweat" if band == 0 else None,
+                        )
                     )
-                )
             elif (
                 self._last_quota_pct is not None
                 and quota - self._last_quota_pct >= 12.0
