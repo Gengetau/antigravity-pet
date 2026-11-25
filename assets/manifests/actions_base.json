@@ -1254,6 +1254,146 @@
       },
       "quality": "agy_fallback_until_art",
       "requires_real_frames": false
+    },
+    "SULK": {
+      "id": "SULK",
+      "asset": "sulk",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 33,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 280,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "sulk"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "WAITING_USER": {
+      "id": "WAITING_USER",
+      "asset": "waiting_user",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 34,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 210,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "wave"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "JUMP_UP": {
+      "id": "JUMP_UP",
+      "asset": "jump_up",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 92,
+      "interruptible": false,
+      "return_state": "IDLE",
+      "frame_ms": 160,
+      "anchor": {
+        "type": "drag",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "procedural_motion": {
+        "type": "jump_up"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "PET_PURR": {
+      "id": "PET_PURR",
+      "asset": "pet_purr",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 72,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 220,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "pet_purr"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "PERCH_SLEEP": {
+      "id": "PERCH_SLEEP",
+      "asset": "perch_sleep",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 35,
+      "interruptible": true,
+      "return_state": "PERCH",
+      "frame_ms": 520,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "sleep"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "DOCK_SLEEP": {
+      "id": "DOCK_SLEEP",
+      "asset": "dock_sleep",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 35,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 520,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "sleep"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "REFUSE_FOOD": {
+      "id": "REFUSE_FOOD",
+      "asset": "refuse_food",
+      "loop": false,
+      "duration_ms": 1050,
+      "priority": 66,
+      "interruptible": false,
+      "return_state": "IDLE",
+      "frame_ms": 210,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "refuse_food"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
     }
   },
   "fallbacks": {
@@ -1287,7 +1427,15 @@
     "dock_peek": "idle_front",
     "dock_peek_right": "idle_front",
     "dock_work": "work_typing",
-    "dock_work_right": "work_typing"
+    "dock_work_right": "work_typing",
+    "sulk": "idle_back",
+    "waiting_user": "wave",
+    "jump_up": "falling",
+    "pet_purr": "head_pat",
+    "perch_sleep": "perch_sit",
+    "dock_sleep": "dock_peek",
+    "dock_sleep_right": "dock_peek_right",
+    "refuse_food": "poke_react"
   },
   "notes": [
     "所有运行时动作均来自同一套统一角色母版；运行时不生成图片。",

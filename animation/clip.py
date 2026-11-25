@@ -38,6 +38,14 @@ class PetAction(str, Enum):
     WAVE = "WAVE"
     PERCH = "PERCH"
     CLIMBING = "CLIMBING"
+    # Companion v3.1 high-charm actions (graceful fallbacks until art lands).
+    SULK = "SULK"
+    WAITING_USER = "WAITING_USER"
+    JUMP_UP = "JUMP_UP"
+    PET_PURR = "PET_PURR"
+    PERCH_SLEEP = "PERCH_SLEEP"
+    DOCK_SLEEP = "DOCK_SLEEP"
+    REFUSE_FOOD = "REFUSE_FOOD"
 
     @classmethod
     def coerce(cls, value: "PetAction | str") -> "PetAction":

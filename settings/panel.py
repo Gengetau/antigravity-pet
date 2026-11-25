@@ -56,6 +56,9 @@ class PetControlPanel(QWidget):
         on_open_meter: Callable[[], None] | None = None,
         on_hud: Callable[[bool], None] | None = None,
         on_autonomy: Callable[[bool], None] | None = None,
+        on_dock: Callable[[], None] | None = None,
+        on_perch: Callable[[], None] | None = None,
+        on_recall_primary: Callable[[], None] | None = None,
         forms: tuple[tuple[str, str], ...] = (("carbon", "Carbon"), ("hydergon", "Hydrogen"), ("neon", "Neon")),
     ) -> None:
         super().__init__(

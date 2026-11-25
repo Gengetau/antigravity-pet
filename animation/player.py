@@ -57,6 +57,10 @@ class AnimationPlayer:
     def elapsed_seconds(self) -> float:
         return self._elapsed_seconds
 
+    @property
+    def in_exit_transition(self) -> bool:
+        return self._phase == AnimationPhase.EXIT and self._pending_program is not None
+
     def play(
         self,
         animation: AnimationClip | AnimationProgram,
@@ -132,8 +136,9 @@ class AnimationPlayer:
             self._transition.clear()
             self._previous = None
 
-    def tick(self, delta_seconds: float) -> None:
-        remaining = max(0.0, delta_seconds)
+    def tick(self, delta_seconds: float, *, frame_rate_scale: float = 1.0) -> None:
+        scale = max(0.25, min(3.0, float(frame_rate_scale)))
+        remaining = max(0.0, delta_seconds) * (scale if self._phase == AnimationPhase.BODY else 1.0)
         while remaining > 1e-9:
             clip = self._clip
             phase_duration = (

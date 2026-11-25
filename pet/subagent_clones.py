@@ -262,6 +262,8 @@ class SubagentCloneManager:
         now: float,
         reduced_motion: bool = False,
         screen=None,
+        dock_edge: str | None = None,
+        perched_window_rect: QRect | None = None,
     ) -> None:
         if not self._entries:
             return
