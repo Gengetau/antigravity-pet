@@ -731,7 +731,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "breath"
@@ -750,7 +750,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "micro_idle"
@@ -769,7 +769,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "micro_idle"
@@ -788,27 +788,27 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "think"
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 500
+      "frame_ms": 300
     },
     "WALKING": {
       "id": "WALKING",
       "asset": "walk_side",
       "loop": true,
       "duration_ms": null,
-      "priority": 30,
+      "priority": 28,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "walk_frames"
@@ -839,7 +839,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "bounce"
@@ -859,7 +859,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "head_pat"
@@ -871,41 +871,41 @@
       "id": "TALKING",
       "asset": "talk",
       "loop": false,
-      "duration_ms": 2900,
+      "duration_ms": 1680,
       "priority": 45,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "talk"
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 380
+      "frame_ms": 210
     },
     "ANGRY": {
       "id": "ANGRY",
       "asset": "angry",
       "loop": false,
-      "duration_ms": 1500,
+      "duration_ms": 1600,
       "priority": 70,
       "interruptible": false,
       "return_state": "IDLE",
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "angry"
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 300
+      "frame_ms": 200
     },
     "POKE_REACT": {
       "id": "POKE_REACT",
@@ -918,7 +918,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "poke_frames"
@@ -937,7 +937,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "tail_react"
@@ -949,33 +949,34 @@
       "id": "EATING",
       "asset": "eat",
       "loop": false,
-      "duration_ms": 1500,
+      "duration_ms": 2400,
       "priority": 65,
       "interruptible": false,
       "return_state": "IDLE",
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "eat"
       },
       "quality": "formal_unified_generated_daily_frames",
-      "requires_real_frames": false
+      "requires_real_frames": false,
+      "frame_ms": 240
     },
     "SWEEPING": {
       "id": "SWEEPING",
       "asset": "sweep",
       "loop": false,
-      "duration_ms": 2800,
+      "duration_ms": 2560,
       "priority": 25,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "sweep"
@@ -1034,7 +1035,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 300
+      "frame_ms": 200
     },
     "FALLING": {
       "id": "FALLING",
@@ -1074,7 +1075,7 @@
       "anchor": {
         "type": "ground",
         "x": 0.5,
-        "y": 0.96
+        "y": 0.985
       },
       "procedural_motion": {
         "type": "landing"
@@ -1086,7 +1087,7 @@
       "id": "DIZZY",
       "asset": "dizzy",
       "loop": false,
-      "duration_ms": 2100,
+      "duration_ms": 2080,
       "priority": 75,
       "interruptible": false,
       "return_state": "IDLE",
@@ -1107,7 +1108,7 @@
       "asset": "work_typing",
       "loop": true,
       "duration_ms": null,
-      "priority": 28,
+      "priority": 31,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
@@ -1144,8 +1145,8 @@
       "id": "TIRED",
       "asset": "tired_yawn",
       "loop": false,
-      "duration_ms": 2600,
-      "priority": 22,
+      "duration_ms": 2040,
+      "priority": 32,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
@@ -1157,14 +1158,15 @@
         "type": "tired"
       },
       "quality": "agy_fallback_until_art",
-      "requires_real_frames": false
+      "requires_real_frames": false,
+      "frame_ms": 340
     },
     "STRETCH": {
       "id": "STRETCH",
       "asset": "stretch",
       "loop": false,
-      "duration_ms": 2200,
-      "priority": 24,
+      "duration_ms": 1800,
+      "priority": 32,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
@@ -1176,7 +1178,8 @@
         "type": "stretch"
       },
       "quality": "agy_fallback_until_art",
-      "requires_real_frames": false
+      "requires_real_frames": false,
+      "frame_ms": 360
     },
     "TRANSFORM": {
       "id": "TRANSFORM",
@@ -1214,14 +1217,15 @@
         "type": "wave"
       },
       "quality": "agy_fallback_until_art",
-      "requires_real_frames": false
+      "requires_real_frames": false,
+      "frame_ms": 175
     },
     "PERCH": {
       "id": "PERCH",
       "asset": "sit_edge",
       "loop": true,
       "duration_ms": null,
-      "priority": 27,
+      "priority": 20,
       "interruptible": true,
       "return_state": "IDLE",
       "anchor": {
@@ -1379,7 +1383,7 @@
       "id": "REFUSE_FOOD",
       "asset": "refuse_food",
       "loop": false,
-      "duration_ms": 1050,
+      "duration_ms": 1260,
       "priority": 66,
       "interruptible": false,
       "return_state": "IDLE",
@@ -1452,9 +1456,17 @@
       0,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
       1
     ],
     "dock_peek_right": [
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0,

@@ -6,6 +6,7 @@ EFFECTS = [
     "breath", "micro_idle", "think", "walk_frames", "walk_start", "walk_stop", "bounce", "head_pat",
     "talk", "angry", "poke_frames", "tail_react", "eat", "sweep", "sleep", "sleep_enter", "sleep_wake",
     "float", "fall", "landing", "dizzy", "work", "celebrate", "tired", "stretch", "wave", "perch",
+    "sulk", "jump_up", "pet_purr", "refuse_food",
 ]
 
 
@@ -24,11 +25,18 @@ def test_all_effects_stay_within_safe_bounds():
 
 
 def test_hops_lift_off_and_squash_on_the_ground():
-    for effect, min_height in (("bounce", 5), ("celebrate", 12)):
+    # Drawn frames already carry the jump for bounce/celebrate, so procedural
+    # motion stays subtle without an out-of-phase hop.
+    for effect in ("bounce", "celebrate"):
         poses = _samples(effect, 1.2)
-        assert min(p.offset_y for p in poses) <= -min_height, effect
-        grounded = [p for p in poses if p.offset_y == 0.0]
-        assert any(p.scale_y < 0.95 and p.scale_x > 1.03 for p in grounded), effect
+        assert min(p.offset_y for p in poses) > -3.5, effect
+        assert max(p.scale_y for p in poses) > 1.01 and min(p.scale_y for p in poses) < 0.99, effect
+        assert max(abs(p.rotation_degrees) for p in poses) > 1.0, effect
+    # Ground-settle effects ease smoothly into a positive downward squash.
+    for effect in ("landing", "head_pat", "tired"):
+        poses = _samples(effect, 1.2)
+        assert max(p.offset_y for p in poses) >= 1.5, effect
+        assert min(p.scale_y for p in poses) < 0.97, effect
 
 
 def test_idle_keeps_moving_between_frames():

@@ -20,11 +20,23 @@ from .clip import (
 
 
 # Actions that have a "sitting on a window edge" version (direction "edge").
-EDGE_ASSETS = {PetAction.PERCH: "perch_sit", PetAction.WORKING: "perch_work"}
+EDGE_ASSETS = {
+    PetAction.PERCH: "perch_sit",
+    PetAction.WORKING: "perch_work",
+    PetAction.PERCH_SLEEP: "perch_sleep",
+}
 
-# Actions that have bespoke screen-edge peek/work versions (direction "dock_left" / "dock_right").
-DOCK_LEFT_ASSETS = {PetAction.IDLE: "dock_peek", PetAction.WORKING: "dock_work"}
-DOCK_RIGHT_ASSETS = {PetAction.IDLE: "dock_peek_right", PetAction.WORKING: "dock_work_right"}
+# Actions that have bespoke screen-edge peek/work/sleep versions (direction "dock_left" / "dock_right").
+DOCK_LEFT_ASSETS = {
+    PetAction.IDLE: "dock_peek",
+    PetAction.WORKING: "dock_work",
+    PetAction.DOCK_SLEEP: "dock_sleep",
+}
+DOCK_RIGHT_ASSETS = {
+    PetAction.IDLE: "dock_peek_right",
+    PetAction.WORKING: "dock_work_right",
+    PetAction.DOCK_SLEEP: "dock_sleep_right",
+}
 BESPOKE_DOCK_ASSETS = frozenset(
     (*DOCK_LEFT_ASSETS.values(), *DOCK_RIGHT_ASSETS.values())
 )
@@ -157,10 +169,11 @@ class AssetRegistry:
         if segment is None:
             return None
         asset_id = self._directional_transition_asset(segment.asset_id, direction)
-        frames, _selected_size = self._frames_for(asset_id, height)
+        resolved_asset = self.resolve_asset_id(asset_id)
+        frames, _selected_size = self._frames_for(resolved_asset, height)
         return AnimationClip(
             action=spec.action,
-            asset_id=asset_id,
+            asset_id=resolved_asset,
             frames=frames,
             loop=False,
             duration_ms=segment.duration_ms,
@@ -212,13 +225,20 @@ class AssetRegistry:
         fallbacks = self.manifest.get("fallbacks") or {}
         seen: set[str] = set()
         current = asset_id
-        while current not in self._assets and current in fallbacks and current not in seen:
+        while not self.has_real_frames(current) and current in fallbacks and current not in seen:
             seen.add(current)
             current = str(fallbacks[current])
         return current
 
     def has_real_frames(self, asset_id: str) -> bool:
-        return asset_id in self._assets
+        raw = self._assets.get(asset_id)
+        if not isinstance(raw, dict):
+            return False
+        frames = raw.get("frames")
+        return isinstance(frames, dict) and any(
+            str(size).isdigit() and isinstance(paths, list) and bool(paths)
+            for size, paths in frames.items()
+        )
 
     def _frames_for(self, asset_id: str, height: int) -> tuple[tuple[ClipFrame, ...], int]:
         asset_id = self.resolve_asset_id(asset_id)
@@ -281,9 +301,9 @@ class AssetRegistry:
         if frame_count <= 0:
             return 120
         if asset_id in {"dock_peek", "dock_peek_right"}:
-            return 420
+            return 200
         if asset_id in {"dock_work", "dock_work_right"}:
-            return 340
+            return 220
         if spec.frame_ms is not None and frame_count > 1:
             return max(60, spec.frame_ms)
         if spec.duration_ms is not None:

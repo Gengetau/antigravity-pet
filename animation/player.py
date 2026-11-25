@@ -14,6 +14,26 @@ from .clip import (
 )
 from .transitions import Crossfade
 
+# Same-silhouette asset groups that may use a brief crossfade without ghosting
+# mismatched limbs, heads or tails.
+COMPATIBLE_CROSSFADE_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset({"idle_front", "idle_blink", "idle_glance", "idle_think"}),
+    frozenset({"perch_sit", "perch_work", "perch_sleep"}),
+    frozenset({"dock_peek", "dock_work", "dock_sleep"}),
+    frozenset({"dock_peek_right", "dock_work_right", "dock_sleep_right"}),
+)
+SAME_ASSET_CROSSFADE_SECONDS = 0.09
+COMPATIBLE_POSE_CROSSFADE_SECONDS = 0.07
+
+
+def _is_compatible_crossfade_pair(previous_asset: str, next_asset: str) -> bool:
+    if previous_asset == next_asset:
+        return True
+    return any(
+        previous_asset in group and next_asset in group
+        for group in COMPATIBLE_CROSSFADE_GROUPS
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class RenderLayer:
@@ -92,6 +112,14 @@ class AnimationPlayer:
             and self._program is not None
             and self._program.exit is not None
         ):
+            if (
+                self._phase == AnimationPhase.EXIT
+                and self._pending_program is not None
+                and self._pending_program.action == program.action
+                and self._pending_program.body.identity == program.body.identity
+                and self._pending_crossfade == crossfade
+            ):
+                return False
             self._pending_program = program
             self._pending_crossfade = crossfade
             if self._phase != AnimationPhase.EXIT:
@@ -116,21 +144,33 @@ class AnimationPlayer:
     def _activate_clip(self, clip: AnimationClip, *, crossfade: bool) -> None:
         previous = self._layer_for_current_frame()
         # Crossfading unrelated full-body poses makes two heads, arms or tails
-        # visibly overlap.  Keep the tiny fade only when it is genuinely the
-        # same visual asset and direction; every actual state change gets a
-        # clean, intentional cut followed by its own motion effect.
-        keep_previous = bool(
+        # visibly overlap.  Keep the short fade only when the visual asset is
+        # identical or part of a same-silhouette compatible pair (with matching
+        # direction and anchor); every other state change gets a clean cut.
+        geometry_matches = bool(
             crossfade
             and previous is not None
-            and previous.asset_id == clip.asset_id
             and previous.mirrored == clip.mirrored
             and previous.anchor == clip.anchor
         )
+        same_asset = geometry_matches and previous is not None and previous.asset_id == clip.asset_id
+        compatible_pose = (
+            geometry_matches
+            and not same_asset
+            and previous is not None
+            and _is_compatible_crossfade_pair(previous.asset_id, clip.asset_id)
+        )
+        keep_previous = same_asset or compatible_pose
         self._previous = previous if keep_previous else None
         self._clip = clip
         self._phase = clip.phase
         self._elapsed_seconds = 0.0
         if keep_previous and self._previous is not None:
+            self._transition.duration_seconds = (
+                SAME_ASSET_CROSSFADE_SECONDS
+                if same_asset
+                else COMPATIBLE_POSE_CROSSFADE_SECONDS
+            )
             self._transition.start()
         else:
             self._transition.clear()
@@ -138,37 +178,43 @@ class AnimationPlayer:
 
     def tick(self, delta_seconds: float, *, frame_rate_scale: float = 1.0) -> None:
         scale = max(0.25, min(3.0, float(frame_rate_scale)))
-        remaining = max(0.0, delta_seconds) * (scale if self._phase == AnimationPhase.BODY else 1.0)
+        # Keep remaining time in real wall-clock seconds so ENTER/EXIT durations
+        # and Crossfade progress are never distorted by BODY frame_rate_scale.
+        remaining = max(0.0, float(delta_seconds))
         while remaining > 1e-9:
             clip = self._clip
-            phase_duration = (
-                clip.duration_ms / 1000.0
-                if clip is not None
-                and self._phase in {AnimationPhase.ENTER, AnimationPhase.EXIT}
-                and clip.duration_ms is not None
-                else None
-            )
-            advance = remaining
-            if phase_duration is not None:
-                advance = min(advance, max(0.0, phase_duration - self._elapsed_seconds))
-            self._elapsed_seconds += advance
-            self._transition.tick(advance)
-            remaining -= advance
-
-            if phase_duration is None or self._elapsed_seconds + 1e-9 < phase_duration:
-                break
-            if self._phase == AnimationPhase.ENTER and self._program is not None:
-                self._activate_clip(self._program.body, crossfade=False)
-                continue
-            if self._phase == AnimationPhase.EXIT and self._pending_program is not None:
-                pending = self._pending_program
-                pending_crossfade = self._pending_crossfade
-                self._activate_program(
-                    pending,
-                    crossfade=pending_crossfade,
-                    start_with_enter=True,
+            if self._phase in {AnimationPhase.ENTER, AnimationPhase.EXIT}:
+                phase_duration = (
+                    clip.duration_ms / 1000.0
+                    if clip is not None and clip.duration_ms is not None
+                    else None
                 )
-                continue
+                advance = remaining
+                if phase_duration is not None:
+                    advance = min(advance, max(0.0, phase_duration - self._elapsed_seconds))
+                self._elapsed_seconds += advance
+                self._transition.tick(advance)
+                remaining -= advance
+
+                if phase_duration is None or self._elapsed_seconds + 1e-9 < phase_duration:
+                    break
+                if self._phase == AnimationPhase.ENTER and self._program is not None:
+                    self._activate_clip(self._program.body, crossfade=False)
+                    continue
+                if self._phase == AnimationPhase.EXIT and self._pending_program is not None:
+                    pending = self._pending_program
+                    pending_crossfade = self._pending_crossfade
+                    self._activate_program(
+                        pending,
+                        crossfade=pending_crossfade,
+                        start_with_enter=True,
+                    )
+                    continue
+                break
+
+            self._elapsed_seconds += remaining * scale
+            self._transition.tick(remaining)
+            remaining = 0.0
             break
         if not self._transition.active:
             self._previous = None

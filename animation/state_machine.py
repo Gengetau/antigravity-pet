@@ -60,11 +60,11 @@ class ActionStateMachine:
         self._queued_after = PetAction.coerce(target)
 
     def update(self, *, now: float, hold_duration: bool = False) -> StateChange | None:
-        spec = self.spec
-        if spec.loop or spec.duration_ms is None:
-            return None
         if hold_duration:
             self.entered_at = now
+            return None
+        spec = self.spec
+        if spec.loop or spec.duration_ms is None:
             return None
         if now - self.entered_at < spec.duration_ms / 1000.0:
             return None

@@ -64,13 +64,14 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
     time = max(0.0, elapsed_seconds)
     breath = math.sin(time * 2.35)
     if effect == "breath":
-        # Idle: visible breathing plus a slow weight shift from foot to foot.
-        shift = math.sin(time * 0.47)
+        # Idle: visible, lively breathing plus a slow weight shift from foot to foot.
+        shift = math.sin(time * 0.52)
         return EffectPose(
-            offset_x=shift * 0.8,
-            rotation_degrees=math.sin(time * 0.47 + 0.7) * 0.6,
-            scale_x=1.0 - breath * 0.009,
-            scale_y=1.0 + breath * 0.019,
+            offset_x=shift * 1.1,
+            offset_y=-breath * 0.6,
+            rotation_degrees=math.sin(time * 0.52 + 0.7) * 0.9,
+            scale_x=1.0 - breath * 0.014,
+            scale_y=1.0 + breath * 0.028,
         )
     if effect == "micro_idle":
         return EffectPose(
@@ -124,9 +125,11 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.20,
         )
     if effect == "walk_stop":
-        settle = _settle(time, 9.0, 22.0)
+        engage = 1.0 - math.exp(-time * 24.0)
+        settle = engage * _settle(time, 8.5, 20.0)
+        dip = max(0.0, settle)
         return EffectPose(
-            offset_y=abs(settle) * 1.2,
+            offset_y=dip * 2.4,
             rotation_degrees=settle * 2.0,
             scale_x=1.0 + settle * 0.03,
             scale_y=1.0 - settle * 0.045,
@@ -134,26 +137,29 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.20,
         )
     if effect == "bounce":
-        # HAPPY: two springy hops in ~1 s.
-        # The frames include a jump, so this is only a light springy bob.
-        hop = _hop(time / 0.52, 6.0)
+        # HAPPY: drawn frames already animate a joyful hop; add only a light
+        # elastic squash/stretch and cheerful tilt accent without double-hopping.
+        pulse = math.sin(time * 6.0)
+        sway = math.sin(time * 3.0)
         return EffectPose(
-            offset_y=hop.y,
-            rotation_degrees=math.sin(time * 6.0) * 1.2,
-            scale_x=hop.scale_x,
-            scale_y=hop.scale_y,
-            shadow_scale=hop.shadow_scale,
+            offset_x=sway * 0.8,
+            offset_y=-abs(pulse) * 1.4,
+            rotation_degrees=sway * 2.2,
+            scale_x=1.0 - pulse * 0.018,
+            scale_y=1.0 + pulse * 0.026,
+            shadow_scale=1.0 - abs(pulse) * 0.04,
             decoration="sparkle",
         )
     if effect == "head_pat":
-        # Squish under the hand, then a happy wobble.
-        press = math.exp(-time * 3.2) * (0.5 + 0.5 * math.cos(time * 8.0))
+        # Soft grounded squish under the petting hand, then a happy wobble.
+        engage = 1.0 - math.exp(-time * 18.0)
+        press = engage * math.exp(-time * 2.4) * (0.55 + 0.45 * math.cos(time * 7.5))
         return EffectPose(
-            offset_y=press * 1.5,
+            offset_y=press * 3.6,
             rotation_degrees=math.sin(time * 5.0) * 2.4 * math.exp(-time * 1.2),
-            scale_x=1.0 + press * 0.05,
-            scale_y=1.0 - press * 0.07,
-            shadow_scale=1.0 + press * 0.05,
+            scale_x=1.0 + press * 0.055,
+            scale_y=1.0 - press * 0.075,
+            shadow_scale=1.0 + press * 0.06,
             shadow_opacity=0.20,
         )
     if effect == "talk":
@@ -259,14 +265,17 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.0,
         )
     if effect == "landing":
-        settle = _settle(time, 7.0, 19.0)
+        # Soft grounded downward cushion with quick ramp-in and damped rebound.
+        ramp = math.sin(min(1.0, time / 0.045) * math.pi * 0.5)
+        settle = ramp * _settle(max(0.0, time - 0.045), 6.2, 16.5)
         compression = max(0.0, settle)
+        rebound = max(0.0, -settle)
         return EffectPose(
-            offset_y=compression * 2.5,
+            offset_y=compression * 4.2 - rebound * 1.4,
             rotation_degrees=settle * 1.5,
-            scale_x=1.0 + compression * 0.09 - max(0.0, -settle) * 0.03,
-            scale_y=1.0 - compression * 0.12 + max(0.0, -settle) * 0.05,
-            shadow_scale=1.0 + compression * 0.2,
+            scale_x=1.0 + compression * 0.085 - rebound * 0.028,
+            scale_y=1.0 - compression * 0.115 + rebound * 0.042,
+            shadow_scale=1.0 + compression * 0.18 - rebound * 0.05,
             shadow_opacity=0.25,
         )
     if effect == "dizzy":
@@ -289,22 +298,27 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             decoration="code",
         )
     if effect == "celebrate":
-        # Three big hops with stretch, twisting a little in the air.
-        hop = _hop(time / 0.6, 14.0, squash=1.2)
+        # CELEBRATE: drawn frames already animate the jump; accent with subtle
+        # elastic squash/stretch and buoyant twist without out-of-phase lifting.
+        pulse = math.sin(time * 7.2)
+        sway = math.sin(time * 5.2)
         return EffectPose(
-            offset_y=hop.y,
-            scale_x=hop.scale_x,
-            scale_y=hop.scale_y,
-            rotation_degrees=math.sin(time * 10.5) * 3.5,
-            shadow_scale=hop.shadow_scale,
+            offset_x=sway * 1.2,
+            offset_y=-abs(pulse) * 2.2,
+            scale_x=1.0 - pulse * 0.026,
+            scale_y=1.0 + pulse * 0.036,
+            rotation_degrees=sway * 3.4,
+            shadow_scale=1.0 - abs(pulse) * 0.06,
             decoration="confetti",
         )
     if effect == "tired":
-        droop = min(1.0, time / 1.2)
+        # Smooth drowsy downward settle with slow breathing.
+        u = min(1.0, time / 1.1)
+        droop = u * u * (3.0 - 2.0 * u)
         return EffectPose(
-            offset_y=droop * 3.0 + breath * 1.0,
-            scale_x=1.0 + droop * 0.012,
-            scale_y=1.0 - droop * 0.035,
+            offset_y=droop * 3.8 + breath * 0.9,
+            scale_x=1.0 + droop * 0.018,
+            scale_y=1.0 - droop * 0.042 + breath * 0.012,
             rotation_degrees=math.sin(time * 0.9) * 2.6,
             decoration="yawn",
         )
@@ -338,6 +352,58 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
     if effect == "perch":
         swing = math.sin(time * 2.4)
         return EffectPose(offset_y=breath * 0.7, rotation_degrees=swing * 1.6, shadow_opacity=0.12)
+    # ----- Companion v3.1 high-charm actions --------------------------------
+    if effect == "sulk":
+        # Gentle pouty sway with an occasional annoyed little huff.
+        sway = math.sin(time * 1.35)
+        huff = max(0.0, math.sin(time * 1.8)) ** 4
+        return EffectPose(
+            offset_x=sway * 1.4,
+            offset_y=huff * 1.6 + breath * 0.4,
+            rotation_degrees=sway * 2.2 - huff * 1.4,
+            scale_x=1.0 + huff * 0.024 - breath * 0.008,
+            scale_y=1.0 - huff * 0.028 + breath * 0.015,
+            shadow_scale=1.0 + huff * 0.03,
+            shadow_opacity=0.20,
+        )
+    if effect == "jump_up":
+        # Eager upward stretch & buoyant tilt while ascending.
+        rise = 1.0 - math.exp(-time * 9.0)
+        flutter = math.sin(time * 11.0)
+        return EffectPose(
+            offset_y=-rise * 4.5 + flutter * 0.9,
+            rotation_degrees=-rise * 4.5 + flutter * 1.4,
+            scale_x=1.0 - rise * 0.055,
+            scale_y=1.0 + rise * 0.085,
+            shadow_opacity=0.0,
+        )
+    if effect == "pet_purr":
+        # Cozy continuous nuzzle swaying gently side-to-side into the hand.
+        nuzzle = math.sin(time * 2.6)
+        purr = math.sin(time * 16.0)
+        lean_down = 0.5 + 0.5 * math.cos(time * 5.2)
+        return EffectPose(
+            offset_x=nuzzle * 2.2,
+            offset_y=1.4 + lean_down * 1.4 + purr * 0.25,
+            rotation_degrees=nuzzle * 3.8,
+            scale_x=1.0 + lean_down * 0.026 + purr * 0.004,
+            scale_y=1.0 - lean_down * 0.032 - purr * 0.004,
+            shadow_scale=1.0 + lean_down * 0.03,
+            shadow_opacity=0.20,
+        )
+    if effect == "refuse_food":
+        # Quick playful head-shake oscillation ("no thanks!") that settles cleanly.
+        decay = math.exp(-time * 2.4)
+        shake = math.sin(time * 22.0) * decay
+        recoil = math.sin(min(1.0, time / 0.35) * math.pi)
+        return EffectPose(
+            offset_x=shake * 4.8,
+            offset_y=-abs(shake) * 1.2 + recoil * 0.8,
+            rotation_degrees=shake * 5.5,
+            scale_x=1.0 - abs(shake) * 0.025,
+            scale_y=1.0 + abs(shake) * 0.02,
+            shadow_opacity=0.20,
+        )
     return EffectPose()
 
 
