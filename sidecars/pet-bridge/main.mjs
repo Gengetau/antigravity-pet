@@ -818,7 +818,8 @@ function toInt(v) {
 function extractCleanUserTitle(text) {
   if (!text || typeof text !== 'string') return '';
   const reqMatch = /<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i.exec(text);
-  const body = (reqMatch ? reqMatch[1] : text)
+  const source = reqMatch ? reqMatch[1] : text.replace(/<SYSTEM_MESSAGE>[\s\S]*?<\/SYSTEM_MESSAGE>/gi, ' ');
+  const body = source
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -1477,8 +1478,22 @@ async function updatePetLiveFile() {
 
     const { labelMap, quotaMap, selectedModelId, userTierName, accountId } = modelState;
     const summaries = allTrajRes?.trajectorySummaries || {};
-    const hook = readActiveSessionHook();
+    const rawHook = readActiveSessionHook();
     const proj = latestProjectSwitch();
+
+    const subParentMap = new Map();
+    for (const [cid, s] of Object.entries(summaries)) {
+      const parent = String(s?.trajectoryMetadata?.parentConversationId || '').trim();
+      if (parent) subParentMap.set(cid, parent);
+    }
+    const hook =
+      rawHook?.conversationId && subParentMap.has(rawHook.conversationId)
+        ? { ...rawHook, conversationId: subParentMap.get(rawHook.conversationId), lastUserInput: '' }
+        : rawHook;
+    const effectiveHostCid =
+      hostFocus.conversationId && subParentMap.has(hostFocus.conversationId)
+        ? subParentMap.get(hostFocus.conversationId)
+        : hostFocus.conversationId;
 
     const mainEntries = Object.entries(summaries).filter(
       ([, s]) => !s?.trajectoryMetadata?.parentConversationId
@@ -1490,7 +1505,7 @@ async function updatePetLiveFile() {
       const viewMs = Math.max(lsViewMs, annPb.viewMs);
       const inputMs = parseIsoMs(sum?.lastUserInputTime) || 0;
       const hookMs = hook && hook.conversationId === cid ? hook.updatedMs : 0;
-      const hostMs = hostFocus.conversationId === cid ? hostFocus.updatedMs : 0;
+      const hostMs = effectiveHostCid === cid ? hostFocus.updatedMs : 0;
       const focusMs = Math.max(viewMs, inputMs, hookMs, hostMs);
       let focusSource = 'recent';
       if (focusMs > 0) {
@@ -1528,8 +1543,8 @@ async function updatePetLiveFile() {
     const maxFocusMs = scored.reduce((m, item) => Math.max(m, item.focusMs), 0);
     const projMs = proj ? proj.mtimeMs : 0;
     const activeCandidateId =
-      hostFocus.updatedMs >= (hook?.updatedMs || 0) && hostFocus.conversationId
-        ? { cid: hostFocus.conversationId, title: '', ms: hostFocus.updatedMs, source: 'host' }
+      hostFocus.updatedMs >= (hook?.updatedMs || 0) && effectiveHostCid
+        ? { cid: effectiveHostCid, title: '', ms: hostFocus.updatedMs, source: 'host' }
         : hook
           ? {
               cid: hook.conversationId,
@@ -1628,10 +1643,9 @@ async function updatePetLiveFile() {
         const latestStep = rec?.steps?.length ? rec.steps[rec.steps.length - 1] : null;
         const modelLabel = latestStep?.modelId ? resolveModelLabel(latestStep.modelId, labelMap) : '';
         const annPb = readAnnotationPbtxt(cid);
-        const title =
-          rec?.title ||
-          extractCleanUserTitle(sum?.annotations?.title || sum?.summary || annPb.title || '') ||
-          `子代理 ${cid.slice(0, 6)}`;
+        const annTitle = extractCleanUserTitle(sum?.annotations?.title || sum?.summary || annPb.title || '');
+        const recTitle = rec?.title && !/^The following is a\b/i.test(rec.title) ? rec.title : '';
+        const title = annTitle || recTitle || `子代理 ${cid.slice(0, 6)}`;
         return {
           conversationId: cid,
           parentConversationId: String(sum?.trajectoryMetadata?.parentConversationId || ''),

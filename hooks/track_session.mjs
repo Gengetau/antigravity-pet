@@ -7,7 +7,7 @@
  * Always writes `{}` to stdout and exits 0 so it never blocks the agent loop.
  */
 
-import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readSync, closeSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -52,12 +52,50 @@ function resolveAppDataDir(payload) {
   return join(homedir(), '.gemini', 'antigravity');
 }
 
+function isSubagentTranscript(transcriptPath) {
+  if (!transcriptPath || typeof transcriptPath !== 'string' || !existsSync(transcriptPath)) {
+    return false;
+  }
+  let fd;
+  try {
+    fd = openSync(transcriptPath, 'r');
+    const buf = Buffer.allocUnsafe(4096);
+    const bytes = readSync(fd, buf, 0, buf.length, 0);
+    if (bytes <= 0) return false;
+    const head = buf.subarray(0, bytes).toString('utf8');
+    const nl = head.indexOf('\n');
+    const firstLine = (nl >= 0 ? head.slice(0, nl) : head).trim();
+    if (!firstLine) return false;
+    const first = JSON.parse(firstLine);
+    return (
+      first &&
+      first.source === 'SYSTEM' &&
+      first.type === 'SYSTEM_MESSAGE' &&
+      !head.includes('"USER_EXPLICIT"')
+    );
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 async function main() {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : {};
     const conversationId = String(payload?.conversationId || '').trim();
-    if (conversationId) {
+    const isSubagent =
+      Boolean(payload?.isSubagent) ||
+      Boolean(payload?.parentConversationId) ||
+      isSubagentTranscript(payload?.transcriptPath);
+    if (conversationId && !isSubagent) {
       const appData = resolveAppDataDir(payload);
       const outDir = join(appData, 'sidecar_data', 'agy-pet');
       mkdirSync(outDir, { recursive: true });

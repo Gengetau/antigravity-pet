@@ -15,7 +15,7 @@ from PySide6.QtGui import QEnterEvent, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
 from agy.reactions import ReactionTracker, greeting_for_moment
-from agy.telemetry import LiveSnapshot, SubagentInfo, snapshot_from_hud_live
+from agy.telemetry import LiveSnapshot, SubagentInfo, TelemetryCollector, clean_title, snapshot_from_hud_live
 from animation.clip import PetAction
 from app.paths import AppPaths
 from pet.particles import ParticleSystem
@@ -189,6 +189,68 @@ class TelemetryAndReactionV3Tests(unittest.TestCase):
         self.assertEqual(greeting_for_moment(datetime(2026, 4, 10, 16, 0))[0], "afternoon")
         self.assertEqual(greeting_for_moment(datetime(2026, 4, 10, 20, 0))[0], "evening")
         self.assertEqual(greeting_for_moment(datetime(2026, 4, 10, 23, 30))[0], "night")
+
+    def test_subagent_hook_does_not_hijack_active_and_system_message_stripped(self) -> None:
+        import json
+
+        self.assertEqual(
+            clean_title("<SYSTEM_MESSAGE>The following is a message not actually sent by the user.</SYSTEM_MESSAGE> 真正任务"),
+            "真正任务",
+        )
+        with tempfile.TemporaryDirectory(prefix="agy-sub-hook-") as tmp:
+            root = Path(tmp)
+            pet_dir = root / "sidecar_data" / "agy-pet" / "pet-bridge" / "data"
+            hook_dir = root / "sidecar_data" / "agy-pet"
+            sub_log_dir = root / "brain" / "sub-999" / ".system_generated" / "logs"
+            pet_dir.mkdir(parents=True)
+            sub_log_dir.mkdir(parents=True)
+
+            now_ms = int(time.time() * 1000)
+            payload = {
+                "active": {
+                    "conversationId": "conv-main",
+                    "title": "主会话任务",
+                    "status": "CASCADE_RUN_STATUS_RUNNING",
+                    "selectedModelLabel": "Gemini 4 Neon (High)",
+                    "contextUsedTokens": 8000,
+                },
+                "activeSubagents": [
+                    {
+                        "conversationId": "sub-999",
+                        "parentConversationId": "conv-main",
+                        "title": "代码审查子代理",
+                        "modelLabel": "Gemini 4 Neon (XHigh)",
+                        "formId": "neon",
+                    }
+                ],
+                "conversations": [
+                    {
+                        "conversationId": "conv-main",
+                        "title": "主会话任务",
+                        "status": "CASCADE_RUN_STATUS_RUNNING",
+                        "lastModifiedTime": datetime.now(timezone.utc).isoformat(),
+                        "contextUsedTokens": 8000,
+                    }
+                ],
+            }
+            (pet_dir / "pet_live.json").write_text(json.dumps(payload), encoding="utf-8")
+            (hook_dir / "active_session.json").write_text(
+                json.dumps({"conversationId": "sub-999", "lastUserInput": "", "updatedMs": now_ms}),
+                encoding="utf-8",
+            )
+            (sub_log_dir / "transcript.jsonl").write_text(
+                json.dumps({"source": "SYSTEM", "type": "SYSTEM_MESSAGE", "content": "system prompt"}) + "\n",
+                encoding="utf-8",
+            )
+
+            collector = TelemetryCollector(root, use_language_server=False)
+            snap = collector.live_snapshot()
+            self.assertIsNotNone(snap)
+            assert snap is not None
+            self.assertEqual(snap.conversation_id, "conv-main")
+            self.assertEqual(snap.context_used_tokens, 8000)
+            self.assertEqual(len(snap.active_subagents), 1)
+            self.assertEqual(snap.active_subagents[0].conversation_id, "sub-999")
 
 
 class ParticleSystemTests(unittest.TestCase):

@@ -73,8 +73,12 @@ class SubagentCloneWidget(QWidget):
         self.update()
 
     def set_bob(self, offset_y: float, opacity: float) -> None:
-        self._bob_y = float(offset_y)
-        self._opacity = max(0.0, min(1.0, float(opacity)))
+        new_bob = float(offset_y)
+        new_op = max(0.0, min(1.0, float(opacity)))
+        if abs(new_bob - self._bob_y) < 0.05 and abs(new_op - self._opacity) < 0.005:
+            return
+        self._bob_y = new_bob
+        self._opacity = new_op
         self.update()
 
     def set_topmost(self, topmost: bool) -> None:
@@ -233,36 +237,56 @@ class SubagentCloneManager:
                 badge=badge,
                 accent=_ACCENTS.get(form_id, "#8b5cf6"),
                 tooltip=f"子代理分身 · {title}{model_line}",
-                opacity=max(0.25, self._fade),
+                opacity=self._fade,
             )
-            if not widget.isVisible():
-                widget.show()
 
-    def position_around(self, host_rect: QRect, *, now: float, reduced_motion: bool = False) -> None:
+    def position_around(
+        self,
+        host_rect: QRect,
+        *,
+        now: float,
+        reduced_motion: bool = False,
+        screen=None,
+    ) -> None:
         if not self._entries:
             return
-        self._fade = min(1.0, self._fade + 0.14) if not reduced_motion else 1.0
-        screen = QApplication.screenAt(host_rect.center()) or QApplication.primaryScreen()
-        area = screen.availableGeometry() if screen else QRect(0, 0, 1920, 1080)
+        self._fade = 1.0 if reduced_motion else min(1.0, max(0.22, self._fade + 0.14))
+        target_screen = QApplication.screenAt(host_rect.center()) or screen or QApplication.primaryScreen()
+        area = target_screen.availableGeometry() if target_screen else QRect(0, 0, 1920, 1080)
 
-        # Alternate left / right slots arranged in a gentle arc beside the main pet.
         count = len(self._entries)
-        side_order = (-1, 1, -1, 1)
-        tier_order = (0, 0, 1, 1)
+        space_left = host_rect.left() - area.left()
+        space_right = area.right() - host_rect.right()
+        min_slot_w = max((self._widgets[i].width() for i in range(count)), default=112) + 16
+        can_left = space_left >= min_slot_w
+        can_right = space_right >= min_slot_w
+
+        # Choose non-overlapping (side, tier) slots: alternate when both sides fit,
+        # otherwise stack neatly on whichever side has room so clones never overlap.
+        left_tier = 0
+        right_tier = 0
         for idx in range(count):
             widget = self._widgets[idx]
-            side = side_order[idx]
-            tier = tier_order[idx]
-            gap_x = 12 + tier * (widget.width() - 10)
-            if side < 0:
-                x = host_rect.left() - widget.width() - gap_x
-                if x < area.left():
-                    x = host_rect.right() + gap_x
+            if can_left and can_right:
+                side = -1 if idx % 2 == 0 else 1
+            elif can_left:
+                side = -1
+            elif can_right:
+                side = 1
             else:
+                side = -1 if space_left >= space_right else 1
+            if side < 0:
+                tier = left_tier
+                left_tier += 1
+                gap_x = 12 + (tier % 2) * (widget.width() - 10)
+                x = host_rect.left() - widget.width() - gap_x
+            else:
+                tier = right_tier
+                right_tier += 1
+                gap_x = 12 + (tier % 2) * (widget.width() - 10)
                 x = host_rect.right() + gap_x
-                if x + widget.width() > area.right():
-                    x = host_rect.left() - widget.width() - gap_x
-            base_y = host_rect.bottom() - widget.height() - (18 + tier * 42)
+            row = tier // 2 if (not can_left or not can_right) else tier
+            base_y = host_rect.bottom() - widget.height() - (18 + row * 48)
             sway_x = 0.0 if reduced_motion else math.sin(now * 1.9 + idx * 1.7) * 3.0
             bob_y = 0.0 if reduced_motion else math.sin(now * 3.1 + idx * 1.35) * 5.0
             clamped_x = max(area.left(), min(round(x + sway_x), area.right() - widget.width() + 1))
@@ -270,10 +294,15 @@ class SubagentCloneManager:
             if (clamped_x, clamped_y) != (widget.x(), widget.y()):
                 widget.move(clamped_x, clamped_y)
             widget.set_bob(bob_y, self._fade)
+            if not widget.isVisible():
+                widget.show()
 
     def close_all(self) -> None:
         for widget in self._widgets:
             widget.hide()
             widget.close()
+            widget.deleteLater()
         self._widgets.clear()
         self._entries.clear()
+        self._pixmap_cache.clear()
+        self._registries.clear()

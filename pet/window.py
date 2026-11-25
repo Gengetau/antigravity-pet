@@ -654,11 +654,15 @@ class PetWindow(QWidget):
             self.set_form(pending, announce=False)
         self._follow_hud()
         if self.subagent_clones.active_count > 0:
-            self.subagent_clones.position_around(
-                self._sprite_rect(),
-                now=now,
-                reduced_motion=self.renderer.reduced_motion,
-            )
+            if not self.isVisible() or self.isMinimized():
+                self._sync_subagent_clones()
+            else:
+                self.subagent_clones.position_around(
+                    self._sprite_rect(),
+                    now=now,
+                    reduced_motion=self.renderer.reduced_motion,
+                    screen=self.screen(),
+                )
         if now >= getattr(self, "_next_config_poll", 0.0):
             self._next_config_poll = now + 1.5
             self._sync_external_config()
@@ -2386,13 +2390,14 @@ class PetWindow(QWidget):
             subagents,
             default_form=self.form_id,
             enabled=bool(self._agy().get("subagent_clones", True)),
-            host_visible=self.isVisible(),
+            host_visible=self.isVisible() and not self.isMinimized(),
         )
         if self.subagent_clones.active_count > 0:
             self.subagent_clones.position_around(
                 self._sprite_rect(),
                 now=time.monotonic(),
                 reduced_motion=self.renderer.reduced_motion,
+                screen=self.screen(),
             )
 
     def _on_live_snapshot(self, snapshot) -> None:

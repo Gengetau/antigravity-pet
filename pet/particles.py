@@ -163,9 +163,10 @@ class ParticleSystem:
                 )
             self.emit("sparkles", origin_x=origin_x, origin_y=origin_y - 12.0, spread_w=spread_w * 0.8)
 
+        added = len(self.particles) - before
         if len(self.particles) > self.MAX_PARTICLES:
             self.particles = self.particles[-self.MAX_PARTICLES :]
-        return max(0, len(self.particles) - before)
+        return max(0, added)
 
     def update(self, dt: float) -> None:
         if not self.particles or dt <= 0:
@@ -189,6 +190,7 @@ class ParticleSystem:
             return
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        base_opacity = painter.opacity()
         for p in self.particles:
             if p.age < 0.0:
                 continue
@@ -197,7 +199,7 @@ class ParticleSystem:
             if alpha <= 0.01:
                 continue
             painter.save()
-            painter.setOpacity(alpha)
+            painter.setOpacity(base_opacity * alpha)
             painter.translate(p.x, p.y)
             if p.rotation:
                 painter.rotate(p.rotation)

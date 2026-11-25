@@ -412,7 +412,8 @@ def _normalize_workspace(value: str) -> str:
 
 def clean_title(text: str) -> str:
     match = re.search(r"<USER_REQUEST>([\s\S]*?)</USER_REQUEST>", text or "", re.I)
-    body = re.sub(r"<[^>]+>", " ", match.group(1) if match else (text or ""))
+    source = match.group(1) if match else re.sub(r"<SYSTEM_MESSAGE>[\s\S]*?</SYSTEM_MESSAGE>", " ", text or "", flags=re.I)
+    body = re.sub(r"<[^>]+>", " ", source)
     body = re.sub(r"\s+", " ", body).strip()
     return body[:48] + "…" if len(body) > 48 else body
 
@@ -1048,6 +1049,7 @@ class TelemetryCollector:
         candidates: list[_FocusCandidate],
         *,
         pinned_id: str,
+        subagent_parents: dict[str, str] | None = None,
     ) -> tuple[str, str, dict[str, Any] | None]:
         """Choose the active conversation by focus timestamps, hooks, and project switches."""
         if pinned_id and any(c.cid == pinned_id for c in candidates):
@@ -1056,6 +1058,22 @@ class TelemetryCollector:
         hook = self._read_active_session()
         hook_cid = hook["conversationId"] if hook else ""
         hook_ms = hook["updatedMs"] if hook else 0
+        if hook and hook_cid:
+            parent_cid = (subagent_parents or {}).get(hook_cid, "")
+            if parent_cid:
+                hook = {**hook, "conversationId": parent_cid, "lastUserInput": ""}
+                hook_cid = parent_cid
+            elif not any(c.cid == hook_cid for c in candidates):
+                transcript = self._transcript_path(hook_cid)
+                try:
+                    if transcript.is_file():
+                        head = transcript.read_text(encoding="utf-8", errors="replace").splitlines()[:20]
+                        if self._looks_like_system_subagent(head):
+                            hook = None
+                            hook_cid = ""
+                            hook_ms = 0
+                except OSError:
+                    pass
 
         def focus_for(c: _FocusCandidate) -> int:
             return max(c.view_ms, c.input_ms, hook_ms if c.cid == hook_cid else 0)
@@ -1238,7 +1256,16 @@ class TelemetryCollector:
             return None
         summary_map = dict(summaries)
         candidates = [self._ls_focus_candidate(cid, summary) for cid, summary in summaries]
-        kind, target, extra = self._select_focused_candidate(candidates, pinned_id=pinned_id)
+        subagent_parents = {
+            cid: str((s.get("trajectoryMetadata") or {}).get("parentConversationId") or "")
+            for cid, s in all_summaries
+            if (s.get("trajectoryMetadata") or {}).get("parentConversationId")
+        }
+        kind, target, extra = self._select_focused_candidate(
+            candidates,
+            pinned_id=pinned_id,
+            subagent_parents=subagent_parents,
+        )
         listing = [(cid, self._title_for(cid, summary_map.get(cid))) for cid, _ in summaries[:12]]
         active_summary: dict[str, Any] | None = None
         if kind == "empty_hook" and extra is not None:
@@ -1450,6 +1477,22 @@ class TelemetryCollector:
             user_tier_name=str(payload.get("userTierName") or active.get("userTierName") or ""),
             account_id=str(payload.get("accountId") or ""),
             available_update_version=str(payload.get("availableUpdateVersion") or ""),
+            available_update_sha=str(payload.get("availableUpdateSha") or ""),
+            active_subagents=[
+                SubagentInfo(
+                    conversation_id=str(item.get("conversationId") or ""),
+                    parent_conversation_id=str(item.get("parentConversationId") or ""),
+                    title=str(item.get("title") or ""),
+                    model_label=str(item.get("modelLabel") or ""),
+                    form_id=str(item.get("formId") or ""),
+                )
+                for item in (payload.get("activeSubagents") if isinstance(payload.get("activeSubagents"), list) else [])
+                if isinstance(item, dict) and item.get("conversationId")
+            ],
+            running_sessions_count=int(payload.get("runningSessionsCount") or 0),
+            ai_comment_id=str((payload.get("aiComment") or {}).get("id") or "") if isinstance(payload.get("aiComment"), dict) else "",
+            ai_comment_text=str((payload.get("aiComment") or {}).get("text") or "") if isinstance(payload.get("aiComment"), dict) else "",
+            ai_comment_trigger=str((payload.get("aiComment") or {}).get("trigger") or "") if isinstance(payload.get("aiComment"), dict) else "",
         )
 
     def _live_from_sidecar_file(self, path: Path, pinned_id: str, *, source: str) -> LiveSnapshot | None:
@@ -1525,7 +1568,16 @@ class TelemetryCollector:
                             )
                         )
 
-        kind, target_cid, extra = self._select_focused_candidate(candidates, pinned_id=pinned_id)
+        subagent_parents = {
+            str(item.get("conversationId")): str(item.get("parentConversationId") or "")
+            for item in (payload.get("activeSubagents") if isinstance(payload.get("activeSubagents"), list) else [])
+            if isinstance(item, dict) and item.get("conversationId")
+        }
+        kind, target_cid, extra = self._select_focused_candidate(
+            candidates,
+            pinned_id=pinned_id,
+            subagent_parents=subagent_parents,
+        )
         listing = [
             (str(c.get("conversationId")), str(c.get("title") or c.get("conversationId", "")[:8]))
             for c in raw_convs
