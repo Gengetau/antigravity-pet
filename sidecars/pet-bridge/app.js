@@ -120,9 +120,10 @@
     );
     updateBtn.hidden = !showUpdate;
     if (showUpdate && !updateBtn.disabled) {
-      const sameVer = upd.latestVersion && upd.latestVersion === (upd.localVersion || state.version);
-      updateBtn.textContent = sameVer && upd.latestSha ? `↑ 更新 (${upd.latestSha})` : `↑ 更新 v${upd.latestVersion}`;
-      updateBtn.title = sameVer && upd.latestSha
+      const sameVer = Boolean(upd.latestVersion && upd.latestVersion === (upd.localVersion || state.version));
+      const useSha = (!upd.latestVersion || sameVer) && Boolean(upd.latestSha);
+      updateBtn.textContent = useSha ? `↑ 更新 (${upd.latestSha})` : `↑ 更新 v${upd.latestVersion}`;
+      updateBtn.title = useSha
         ? `GitHub 主分支有新提交 ${upd.latestSha}（本地 ${upd.localSha || '未知'}），点击安全拉取`
         : `发现新版本 v${upd.latestVersion}（当前 v${upd.localVersion || state.version || '0.2.0'}），点击自动更新`;
     }
@@ -190,7 +191,8 @@
       const running = shown.status === 'CASCADE_RUN_STATUS_RUNNING';
       const activeModel = running && shown.lastStepModelLabel ? shown.lastStepModelLabel : shown.selectedModelLabel;
       const subCount = Array.isArray(live.activeSubagents) ? live.activeSubagents.length : 0;
-      const focusBase = pinned ? '已锁定会话' : FOCUS_LABELS[shown.focusSource || live.focusSource] || '实时追踪';
+      const isPinnedShown = Boolean(pinned && shown.conversationId === pinned);
+      const focusBase = isPinnedShown ? '已锁定会话' : FOCUS_LABELS[shown.focusSource || live.focusSource] || '实时追踪';
       $('focus-badge').textContent = shown.waitingForUser
         ? '等你确认'
         : subCount > 0
@@ -308,6 +310,7 @@
       setTimeout(loadState, 600);
     } catch {
       $('status-msg').textContent = '更新请求失败';
+      setTimeout(loadState, 600);
     } finally {
       btn.disabled = false;
     }
