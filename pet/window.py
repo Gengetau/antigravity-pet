@@ -1549,6 +1549,9 @@ class PetWindow(QWidget):
 
     def contextMenuEvent(self, event) -> None:
         self._interrupt_activity()
+        if self._dock_side is not None:
+            self._dock_peeking = True
+            self._dock_leave_at = 0.0
         self._refresh_control_panel()
         self._panel_open_pet_pos = QPoint(self.x(), self.y())
         self.control_panel.popup_near_pet(self.frameGeometry())
@@ -1854,7 +1857,13 @@ class PetWindow(QWidget):
     def _tick_edge_dock(self, now: float, *, delta_seconds: float | None = None) -> None:
         if self._dock_side is None:
             return
-        if not self._hovered and self._dock_peeking and self._dock_leave_at > 0 and now >= self._dock_leave_at:
+        panel_open = hasattr(self, "control_panel") and self.control_panel.isVisible()
+        if panel_open:
+            # Keep her peeking out while the user interacts with the control panel,
+            # so moving the cursor from the pet onto the panel never retracts & closes it.
+            self._dock_peeking = True
+            self._dock_leave_at = 0.0
+        elif not self._hovered and self._dock_peeking and self._dock_leave_at > 0 and now >= self._dock_leave_at:
             self._dock_peeking = False
             self._dock_leave_at = 0.0
             self._refresh_control_panel()
@@ -1867,6 +1876,8 @@ class PetWindow(QWidget):
             self._dock_peek_progress += (goal - self._dock_peek_progress) * alpha
         target_x = self._dock_target_x(self._dock_side, peek=self._dock_peek_progress)
         if target_x != self.x():
+            if panel_open:
+                self._panel_open_pet_pos = QPoint(target_x, self.y())
             self.move(target_x, self.y())
 
     def enterEvent(self, event) -> None:
@@ -2064,7 +2075,7 @@ class PetWindow(QWidget):
             self.renderer.speaker_name = speaker
             self.renderer.speaker_accent = QColor(ACCENTS.get(form_id, "#339ad5"))
         if hasattr(self, "control_panel"):
-            self.control_panel.title_label.setText(speaker)
+            self.control_panel.set_title(speaker)
         if hasattr(self, "dialogue"):
             self.dialogue.set_form_lines(voice.get("dialogue"))
         if hasattr(self, "food_panel"):
@@ -2534,6 +2545,9 @@ class PetWindow(QWidget):
 
     def _panel_climb(self, *, sit_after: bool) -> None:
         self._interrupt_activity()
+        if not self.surface_tracker.enabled:
+            self.say("先在「更多设置」打开「窗口落脚」就能爬窗啦", preserve_action=True)
+            return
         if sit_after and self.surface_tracker.attached:
             self._request_action(PetAction.PERCH, reason="panel_edge_sit", force=True, immediate=True)
             return

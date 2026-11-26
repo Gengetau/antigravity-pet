@@ -156,12 +156,24 @@ class CrashRecovery:
 
     def _write_marker(self, value: dict[str, object]) -> None:
         self.marker_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.marker_path.with_suffix(self.marker_path.suffix + ".tmp")
-        temporary.write_text(
-            json.dumps(value, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        temporary.replace(self.marker_path)
+        payload = json.dumps(value, ensure_ascii=False, indent=2)
+        temporary = self.marker_path.with_suffix(f"{self.marker_path.suffix}.{uuid.uuid4().hex[:6]}.tmp")
+        try:
+            temporary.write_text(payload, encoding="utf-8")
+            for attempt in range(5):
+                try:
+                    temporary.replace(self.marker_path)
+                    return
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.02 * (attempt + 1))
+        finally:
+            try:
+                if temporary.exists():
+                    temporary.unlink()
+            except OSError:
+                pass
 
     @staticmethod
     def _safe_int(value: object) -> int:

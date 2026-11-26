@@ -736,5 +736,121 @@ class DesktopFixesTests(unittest.TestCase):
         self.assertFalse(reader.is_point_occluded(100, 400.0, 200.0, ignore_handles=(105, 106)))
 
 
+class LiveQaRegressionFixesTests(unittest.TestCase):
+    """Regression tests for the 4 bugs caught during live v3.1 dual-monitor QA."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory(prefix="agy-live-qa-fixes-")
+        self.tmp_path = Path(self.tmp.name)
+        paths = AppPaths(app_dir=self.tmp_path, bundle_dir=ROOT)
+        config = ConfigManager(paths.config_path)
+        config.set("mode", "still", save=False)
+        config.set_nested("comfort", "reduced_motion", False, save=False)
+        config.set_nested("agy", "telemetry_enabled", False, save=False)
+        config.set_nested("agy", "follow_model", False, save=False)
+        config.set_nested("agy", "hud_enabled", False, save=False)
+        config.set_nested("awareness", "enabled", False, save=True)
+        self.pet = PetWindow(paths, config)
+        self.pet.telemetry.stop()
+        self.pet.timer.stop()
+        self.pet.persistence_timer.stop()
+        self.pet.awareness_timer.stop()
+        self.pet.surface_timer.stop()
+        self.pet.show()
+        self.app.processEvents()
+
+    def tearDown(self) -> None:
+        self.pet.control_panel.hide()
+        self.pet.food_panel.hide()
+        self.pet.tray.hide()
+        self.pet.hide()
+        self.pet.close()
+        self.app.processEvents()
+        self.tmp.cleanup()
+
+    def test_docked_control_panel_stays_open_across_peek_and_leave(self) -> None:
+        screen = _FakeScreen(QRect(0, 0, 2560, 1392))
+        with patch.object(QApplication, "screenAt", return_value=screen):
+            self.pet.move(2300, 700)
+            self.pet.dock_to_edge("right")
+            self.pet._dock_peek_progress = 0.0
+            self.pet._dock_peeking = False
+            self.pet._hovered = False
+
+            # Opening the panel while docked keeps her peeking out and does not auto-hide it
+            # even when _tick_edge_dock slides the window >24px outward or after leave timeout.
+            self.pet._dock_peeking = True
+            self.pet._panel_open_pet_pos = QPoint(self.pet.x(), self.pet.y())
+            self.pet.control_panel.popup_near_pet(self.pet.frameGeometry())
+            self.assertTrue(self.pet.control_panel.isVisible())
+
+            start_x = self.pet.x()
+            now = time.monotonic()
+            self.pet._dock_leave_at = now - 5.0  # Simulate cursor moved away onto panel >0.55s ago
+            for step in range(20):
+                self.pet._tick_edge_dock(now + step * 0.05, delta_seconds=0.05)
+            self.assertGreater(abs(self.pet.x() - start_x), 24)
+            self.assertTrue(self.pet._dock_peeking)
+            self.assertTrue(self.pet.control_panel.isVisible())
+
+    def test_safe_mode_runtime_override_cleared_only_for_explicit_user_edit(self) -> None:
+        cfg = ConfigManager(self.tmp_path / "safe_cfg.json")
+        cfg.apply_runtime_overrides(
+            {
+                "mode": "still",
+                "comfort": {"reduced_motion": True, "desktop_surfaces": False},
+            }
+        )
+        self.assertFalse(cfg.section("comfort")["desktop_surfaces"])
+        # Explicitly toggling desktop_surfaces back on clears that override immediately...
+        cfg.set_nested("comfort", "desktop_surfaces", True)
+        self.assertTrue(cfg.section("comfort")["desktop_surfaces"])
+        # ...without clearing unrelated overrides or leaking them to disk.
+        self.assertTrue(cfg.section("comfort")["reduced_motion"])
+        self.assertEqual(cfg.get("mode"), "still")
+        reloaded = ConfigManager(self.tmp_path / "safe_cfg.json")
+        self.assertFalse(reloaded.section("comfort")["reduced_motion"])
+        self.assertEqual(reloaded.get("mode"), "wander")
+
+    def test_recovery_write_marker_retries_transient_permission_error(self) -> None:
+        from app.recovery import CrashRecovery
+
+        marker = self.tmp_path / "session_recovery.json"
+        rec = CrashRecovery(marker, self.tmp_path / "crashes", version="3.1", clock=lambda: 100.0)
+        attempts = {"n": 0}
+        real_replace = Path.replace
+
+        def flaky_replace(self_path: Path, target: Path):
+            attempts["n"] += 1
+            if attempts["n"] <= 2 and self_path.suffix == ".tmp":
+                raise PermissionError(13, "WinError 5 transient lock")
+            return real_replace(self_path, target)
+
+        with patch.object(Path, "replace", flaky_replace):
+            rec._write_marker({"active": True, "session_id": "ok"})
+        self.assertEqual(attempts["n"], 3)
+        self.assertTrue(marker.is_file())
+
+    def test_panel_climb_guides_user_when_desktop_surfaces_disabled(self) -> None:
+        self.pet.surface_tracker.set_enabled(False)
+        spoken: list[str] = []
+        self.pet.say = lambda text, **_kw: spoken.append(text)  # type: ignore[assignment]
+        self.pet._panel_climb(sit_after=True)
+        self.assertEqual(len(spoken), 1)
+        self.assertIn("窗口落脚", spoken[0])
+
+    def test_panel_set_title_refreshes_header_cleanly(self) -> None:
+        panel = self.pet.control_panel
+        panel.popup_near_pet(self.pet.frameGeometry())
+        panel.set_title("Claude")
+        self.assertEqual(panel.title_label.text(), "Claude")
+        panel.set_title("Argon")
+        self.assertEqual(panel.title_label.text(), "Argon")
+
+
 if __name__ == "__main__":
     unittest.main()

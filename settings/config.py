@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -143,7 +144,14 @@ class ConfigManager:
             json.dumps(self.data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        temporary.replace(self.path)
+        for attempt in range(5):
+            try:
+                temporary.replace(self.path)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
         self._last_mtime_ns = self._stat_mtime_ns()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -163,17 +171,25 @@ class ConfigManager:
 
     def set(self, key: str, value: Any, *, save: bool = True) -> None:
         self.data[key] = value
+        # Explicit user edits take precedence over safe-mode runtime overrides.
+        self._runtime_overrides.pop(key, None)
         if save:
             self.save()
 
     def set_nested(self, section: str, key: str, value: Any, *, save: bool = True) -> None:
         # Persist only the user's real settings.  Runtime overrides are used by
         # recovery safe mode and must never leak into config.json merely because
-        # the user changed an unrelated option while safe mode was active.
+        # the user changed an unrelated option while safe mode was active; an
+        # explicit edit to a specific overridden key clears only that key's override.
         current = self.data.get(section)
         target = deepcopy(current) if isinstance(current, dict) else {}
         target[key] = value
         self.data[section] = target
+        override = self._runtime_overrides.get(section)
+        if isinstance(override, dict) and key in override:
+            override.pop(key, None)
+            if not override:
+                self._runtime_overrides.pop(section, None)
         if save:
             self.save()
 

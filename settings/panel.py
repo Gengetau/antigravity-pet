@@ -88,19 +88,23 @@ class PetControlPanel(QWidget):
         self._root_layout = root
         surface = QFrame()
         surface.setObjectName("controlSurface")
+        self._surface = surface
         shadow = QGraphicsDropShadowEffect(surface)
         shadow.setBlurRadius(22)
         shadow.setOffset(0, 6)
         shadow.setColor(QColor(3, 19, 37, 130))
+        self._shadow = shadow
         surface.setGraphicsEffect(shadow)
         root.addWidget(surface)
 
         layout = QVBoxLayout(surface)
+        self._surface_layout = layout
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(5)
 
         header = QHBoxLayout()
         header.setSpacing(6)
+        self._header_layout = header
         title = QLabel("小A")
         title.setObjectName("panelTitle")
         header.addWidget(title)
@@ -467,7 +471,27 @@ class PetControlPanel(QWidget):
         self.reduced_motion.setChecked(reduced_motion)
         self.hover_pause.setChecked(hover_pause)
         self.desktop_surfaces.setChecked(desktop_surfaces)
-        self.state_label.setText(state_name)
+        if self.state_label.text() != state_name:
+            self.state_label.setText(state_name)
+            self._refresh_header_paint()
+
+    def set_title(self, text: str) -> None:
+        if self.title_label.text() == text:
+            return
+        self.title_label.setText(text)
+        self._refresh_header_paint()
+
+    def _refresh_header_paint(self) -> None:
+        # Force full repaint of the QGraphicsDropShadowEffect backing pixmap on
+        # translucent top-level Tool windows so shrinking header text (e.g.
+        # "Claude" -> "Argon") never leaves stale alpha ghost pixels behind.
+        self.title_label.adjustSize()
+        self.state_label.adjustSize()
+        self._header_layout.invalidate()
+        self._surface_layout.activate()
+        self._shadow.update()
+        self._surface.update()
+        self.update()
 
     def popup_near_pet(self, pet_rect: QRect) -> None:
         self._pet_rect = QRect(pet_rect)
