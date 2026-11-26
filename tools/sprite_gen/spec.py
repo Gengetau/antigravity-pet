@@ -141,6 +141,11 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
             "same character, outfit, scale and centered framing as image 2, mid-air feather-flutter cycle frame 3: arms tucked lightly near shoulders, legs bicycling softly mid-air, hair and tail floating upward to the right with tiny air bubbles",
             "same character, outfit, scale and centered framing as image 2, mid-air feather-flutter cycle frame 4: arms opening back outward gracefully, hair and skirt drifting softly upward smoothly transitioning back to image 2",
         ],
+        "high_five": [
+            "standing horizontally centered, turned slightly three-quarter toward the right of the canvas ready for a joyful high-five: leaning lightly back on planted feet with viewer's-right arm (character's left arm) raised high and cocked back, bright excited eyes looking right, joyful anticipating smile, single character only, NO other hand, NO text",
+            "same character, outfit, scale and centered footing as image 2: leaning enthusiastically forward toward the right on tiptoes with viewer's-right arm extended high and forward, open palm facing right in an energetic high-five slap, beaming wide delighted smile, single character only, NO other hand, NO text",
+            "same character, outfit, scale and centered framing as image 2: cheerful bouncy recoil hop slightly on tiptoes right after the high-five slap; keep viewer's-RIGHT arm (character's left arm) raised and recoiling slightly back near her shoulder/head (strictly NO arm swap to viewer's-left side), viewer's-LEFT hand tucked cutely near her chest, happy closed '^ ^' smiling eyes with warm blush, playful knee recoil, NO disembodied hand, NO floating flame wisps, NO ground circle, NO text",
+        ],
     },
     "neon": {
         "happy": ["winking with a peace sign next to her eye, hip tilted, neon sparkles"],
@@ -250,6 +255,47 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
             "same, stretching and leaning to her right with the pillow overhead",
             "hugging the pillow again, relaxed satisfied sigh",
         ],
+        "high_five": [
+            "standing horizontally centered, body angled slightly three-quarter toward viewer's right in a joyful high-five wind-up pose: viewer's-LEFT arm (character's right arm) steadily hugging her lavender cat plushie against her left chest/side, viewer's-RIGHT arm (character's left arm) raised and pulled back ready to high-five toward viewer's right, fluffy lavender tail poised cleanly on viewer's left, strictly two arms only, NO extra arm or third sleeve, bright eager eyes looking right, NO text",
+            "same character, outfit, scale and centered footing as image 2: leaning forward toward viewer's right on tiptoes with viewer's-RIGHT arm extended forward in an energetic high-five slap while viewer's-LEFT arm keeps hugging her lavender cat plushie, fluffy lavender tail on viewer's left, strictly two arms only, NO extra arm or third sleeve, beaming smile, NO text",
+            "same character, outfit, scale and centered framing as image 2: follow-through cheerful recoil hop right after high-fiving toward viewer's right; keep viewer's-RIGHT arm (character's left arm) raised and recoiling happily (do NOT swap to viewer's-left arm), viewer's-LEFT arm steadily hugging her lavender cat plushie (matching image 2), happy closed '^ ^' smile with blush, fluffy lavender tail on viewer's left, strictly two arms only, NO extra arm or third sleeve, NO text",
+            "same character, outfit, scale and centered standing feet as image 2: landing smoothly back onto both slippers facing three-quarter right; STRICTLY TWO ARMS ONLY, NO extra arm, NO third sleeve; keep her right arm (on viewer's-LEFT side) cradling the sleepy purple cat plushie on the viewer's-LEFT side of her chest just like frames 1-3, and her left arm (on viewer's-RIGHT side) gently lowered/relaxed near her shoulder/chest in a happy settled grin after the high-five, fluffy lavender tail on viewer's left, strictly NO arm or plushie side swap, NO text",
+        ],
+        "play_dance": [
+            "standing horizontally centered doing an adorable rhythmic chibi dance sway clearly toward viewer's LEFT: STRICTLY NO purple cat plushie anywhere, both oversized-sleeve arms completely empty and free of any plushie; upper body tilted cheerfully left with sleeves swaying playfully left, lifting viewer's-LEFT slipper slightly outward on tiptoe (mirroring a rightward sway), cute playful wink with one eye closed and happy open smile, fluffy lavender tail swaying on viewer's right, full body with both slippers visible, NO music notes, NO text",
+        ],
+        "gift_toss": [
+            "standing horizontally centered facing slightly three-quarter toward viewer's right: STRICTLY NO purple cat plushie anywhere; holding one small cute glowing golden-pastel 5-pointed star orb cradled near her chest in both hands, fluffy lavender tail on viewer's left, eager sparkling eyes looking right with warm smile, both slippers planted, NO text, NO box or frame",
+            "same character, outfit, scale and centered footing as image 2: STRICTLY NO purple cat plushie anywhere; leaning playfully forward toward viewer's right with viewer's-LEFT hand resting naturally near chest/hip and viewer's-RIGHT arm extending cleanly toward viewer's right tossing the same crisp glowing golden 5-pointed star orb clearly past her fingertips completely inside canvas margin, fluffy lavender tail on viewer's left (matching image 2), delighted smile, NO text",
+            "same character, outfit, scale and centered standing feet as image 2: STRICTLY NO purple cat plushie anywhere; happy open-smile gaze watching toward viewer's right, small fingers of viewer's-RIGHT hand peeking cleanly out of her sleeve in an open graceful follow-through wave/send-off gesture (NOT an empty hollow cuff stub), viewer's-LEFT hand resting gently at chest, NO orb (already tossed), fluffy lavender tail on viewer's left (matching image 2), NO text",
+        ],
+        "summon_pop": [
+            "horizontally centered magical pop-in entrance frame 1: STRICTLY NO purple cat plushie anywhere, showing her normal grey-lavender inner top and open lavender hoodie front; compact energetic mid-air tuck-crouch pose just materializing with knees tucked playfully beneath her and both slippers floating clearly above the bottom edge, oversized sleeves folded near chest, eager sparkling eyes and excited smile, fluffy lavender tail on viewer's right, pure transparent background, NO magic circle floor, NO text",
+            "same character, outfit and scale as image 2, horizontally centered: STRICTLY NO purple cat plushie anywhere; joyful 'ta-da!' spring-open pop-out reveal with both arms flung wide open enthusiastically, legs extended down lightly in mid-air/tiptoe, huge sparkling happy eyes and delighted grin, pure transparent background, NO text",
+            "same character, outfit and scale as image 2, horizontally centered: STRICTLY NO purple cat plushie anywhere — expose her normal grey-lavender inner top and open lavender hoodie front cleanly (NO floating or stuck plushie on chest); soft knee-bent landing squash with both slippers planted softly on the invisible ground and arms naturally opened out to sides with small hands peeking softly from sleeves for balance, bright cheerful smile, completely clean transparent background around slippers, ZERO ground shockwave, ZERO landing ring, ZERO impact arcs, ZERO aura or dust, NO text",
+        ],
+        "depart_poof": [
+            "standing horizontally centered front-facing giving a cheerful goodbye wave: waving with viewer's-LEFT hand while hugging her lavender cat plushie with viewer's-RIGHT arm, fluffy lavender tail on viewer's right, cute wink and warm smile, both slippers planted, pure transparent background, NO text",
+            "same character, outfit, scale, front-facing orientation and purple cat plushie as image 2: front-facing light cheerful anticipation hop pose (both slippers slightly lifted off the ground / one slipper springing lightly up, NOT flat-footed on the bottom edge); keep waving joyfully with viewer's-LEFT hand (character's right hand) and steadily hugging her lavender cat plushie with viewer's-RIGHT arm, fluffy lavender tail strictly on viewer's right (matching image 2), bright cheerful winking smile, NO text",
+            "same character, outfit, scale, front-facing orientation and purple cat plushie as image 2: graceful mid-air joyful leap arcing upward — legs tucked playfully beneath her, waving goodbye with viewer's-LEFT hand while hugging her lavender cat plushie with viewer's-RIGHT arm, fluffy lavender tail on viewer's right, beaming smile, pure transparent background, NO text",
+            "same character, outfit, scale, front-facing orientation and purple cat plushie as image 2: compact buoyant mid-air vanishing tuck-hop pose — knees pulled up tightly underneath her, eyes happily squeezed shut in a curved '^ ^' smile with light blush, BOTH oversized sleeves hugging her sleepy purple cat plushie tightly against her chest so the purple cat plushie's round lavender head and two pointy cat ears clearly peek out right under her chin (matching image 2 and reference.png), fluffy lavender tail on viewer's right, strictly NO missing plushie, pure transparent background, NO solid white circle, NO box, NO text",
+        ],
+    },
+    "claude": {
+        "high_five": [
+            "standing horizontally centered, turned slightly three-quarter toward the right of the canvas ready for a joyful high-five: leaning lightly back on planted feet with viewer's-right arm raised high and cocked back, bright excited eyes looking right, joyful anticipating smile, single character only, NO other hand, NO text",
+            "same character, outfit, scale and centered footing as image 2: leaning enthusiastically forward toward the right on tiptoes with viewer's-right arm extended high and forward, open palm facing right in an energetic high-five slap, beaming wide delighted smile, single character only, NO other hand, NO text",
+            "same pure human girl, outfit, scale and centered framing as image 2 (NO cat ears, NO cat tail): cheerful bouncy recoil hop slightly on tiptoes right after the high-five, keeping viewer's-RIGHT arm raised and recoiling happily, eyes squeezed happily shut in a curved '^ ^' smile with warm blush; leave generous horizontal padding/margin on BOTH left and right canvas edges so ALL voluminous curly terracotta hair tips round off completely inside the frame with ZERO edge cropping, NO text",
+        ],
+        "summon_pop": [
+            "horizontally centered magical pop-in entrance frame 1: compact energetic mid-air tuck-crouch pose just materializing, pure transparent background, NO magic circle floor, NO text",
+            "same character, outfit and scale as image 2, horizontally centered: joyful 'ta-da!' spring-open pop-out reveal, pure transparent background, NO text",
+            "same character, outfit and scale as image 2, horizontally centered: lively bouncy landing squash, NO ground shockwave, NO landing ring, NO impact arcs, NO aura or dust around her feet, pure clean transparent background, NO text",
+            "same pure human girl, outfit and scale as image 2 (NO cat ears, NO cat tail), horizontally centered: proud upright arrival pose standing steadily on both planted cream-heeled shoes, viewer's-left hand on hip and viewer's-right hand making a clean cheerful V-sign peace gesture, confident sparkling smile; strictly clean empty transparent background around her fingers, hands and hair — ZERO floating comic marks, ZERO exclamation dots, ZERO teardrops, ZERO motion lines, ZERO sparkles, ZERO stray stickers anywhere, NO text",
+        ],
+        "depart_poof": [
+            "pure human girl (NO cat ears, NO cat tail), standing horizontally centered facing front/slightly three-quarter right giving a bright cheerful goodbye salute/wave: raise viewer's-RIGHT arm (character's left arm) waving goodbye clearly near her head/shoulder (matching a rightward farewell wave), viewer's-LEFT arm resting naturally down by her side, cute playful wink with one eye closed and warm bright smile, both cream-heeled feet planted, leave generous horizontal margins so all voluminous curly terracotta hair tips fit completely inside the canvas, pure transparent background, NO text",
+        ],
     },
 }
 
@@ -287,6 +333,11 @@ FORM_NOTES: dict[str, dict[str, str]] = {
         "perch_sleep": "She is a HUMAN girl: NO animal ears and NO tail. Sitting gracefully on the invisible ledge with her lace skirt and dangling cream-heeled shoes, hands folded on her lap",
         "dock_sleep": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, orange flower hair ornament, and white-and-black lace dress, resting her cheek peacefully against the invisible vertical left edge with eyes softly closed",
         "refuse_food": "She is a HUMAN girl: NO animal ears and NO tail. Politely yet firmly turning her face away with a flustered expression and waving both hands 'no thank you', NO food prop, NO text",
+        "high_five": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all voluminous curly terracotta hair tips stay completely inside the canvas with zero edge cropping",
+        "play_dance": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas",
+        "gift_toss": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas",
+        "summon_pop": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins and strictly NO floating comic marks, dots, teardrops, or sparkles",
+        "depart_poof": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas",
     },
 }
 
@@ -587,6 +638,35 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "standing centered, playfully refusing food: leaning upper body slightly back and turning her face away to her left with a cute flustered scrunched-up 'no thanks' expression (squinting eyes, cute wavy grimace/frown, light blush), raising BOTH open palms in front of her waving 'no no', both feet planted, NO food prop, NO text",
         "same character, outfit, scale and centered standing feet as image 2: shaking her head slightly the other way with eyes squeezed tightly shut and a cute flustered disgusted pout, waving both open hands briskly to the right in an emphatic 'no thanks!' gesture, hair swinging slightly, NO food prop, NO text",
         "same character, outfit, scale and centered standing feet as image 2: turning her face away again with cheeks puffed in a cute stubborn 'nope!' frown, waving both open hands back to the left defensively, NO food prop, NO text",
+    ]),
+    "high_five": (PORTRAIT, [
+        "standing horizontally centered, turned slightly three-quarter toward the right of the canvas ready for a joyful high-five: leaning lightly back on planted feet with her right open palm raised high and cocked back near her right shoulder, bright excited eyes looking right, joyful anticipating smile, single character only, NO other hand, NO text",
+        "same character, outfit, scale and centered footing as image 2: leaning enthusiastically forward toward the right on tiptoes with her right arm extended high and forward, open palm facing right in an energetic high-five slap, beaming wide delighted smile, hair and outfit swaying forward, single character only, NO other hand, NO text",
+        "same character, outfit, scale and centered framing as image 2: cheerful bouncy recoil hop slightly on tiptoes right after the high-five, eyes squeezed happily shut in a curved '^ ^' joyful smile with warm blush, raised right hand relaxing happily, hair and skirt bouncing upward, NO text",
+        "same character, outfit, scale and centered standing feet as image 2: landing smoothly back onto both planted feet facing three-quarter right with bright sparkling eyes, proud cheerful grin and playful relaxed hands, NO text",
+    ]),
+    "play_dance": (PORTRAIT, [
+        "standing horizontally centered doing an adorable rhythmic chibi dance sway to the left: upper body tilted cheerfully left, both hands raised playfully to the left side, cute playful wink with one eye closed and happy open smile, left foot tapped playfully outward on tiptoe, full body with both shoes visible, NO music notes, NO text",
+        "same character, outfit, scale and centered framing as image 2: bouncy rhythmic center clap — knees softly bent in a cute dip, both hands clapping cheerfully together in front of her chest, head upright with big sparkling happy eyes and beaming smile, both feet planted, NO music notes, NO text",
+        "same character, outfit, scale and centered framing as image 2: adorable rhythmic dance sway to the right — upper body tilted cheerfully right, both hands raised playfully to the right side, sparkling joyful eyes and bright smile, right foot tapped playfully outward on tiptoe, both shoes visible, NO music notes, NO text",
+        "same character, outfit, scale and centered framing as image 2: cheerful little upbeat dance hop rising lightly onto tiptoes centered, both hands raised cheerfully in cute peace/cheer poses, hair and skirt fluttering upward joyfully, bright happy smile, NO music notes, NO text",
+    ]),
+    "gift_toss": (PORTRAIT, [
+        "standing horizontally centered facing slightly three-quarter toward the right, holding one small cute glowing golden-pastel star orb cradled near her chest in both hands, eager sparkling eyes looking right with a playful warm smile, both feet planted, NO text, NO box or frame",
+        "same character, outfit, scale and centered footing as image 2: leaning playfully forward toward the right with her right arm extended forward mid-toss releasing the same small glowing golden-pastel star orb just past her fingertips toward the right, hair and outfit swinging forward with a delighted smile, NO text",
+        "same character, outfit, scale and centered standing feet as image 2: cheerful follow-through pose watching toward the right with right hand still lightly raised forward and proud happy smiling eyes, NO orb in her hands (already tossed), NO text",
+    ]),
+    "summon_pop": (PORTRAIT, [
+        "horizontally centered magical pop-in entrance frame 1: compact energetic mid-air tuck-crouch pose just materializing — knees tucked playfully beneath her, arms gathered close in front of chest, eager sparkling eyes and excited smile, hair and outfit puffed slightly inward, pure transparent background, NO magic circle floor, NO text",
+        "same character, outfit and scale as image 2, horizontally centered: joyful 'ta-da!' spring-open pop-out reveal — both arms flung wide open enthusiastically, legs extended down lightly in mid-air/tiptoe, huge sparkling happy eyes and wide delighted grin, hair and outfit fluttering dynamically outward, pure transparent background, NO text",
+        "same character, outfit and scale as image 2, horizontally centered: lively bouncy landing squash — both feet landing softly on the invisible ground with knees bent slightly, arms out playfully for balance, hair and skirt bouncing downward, bright cheerful smile, NO ground shockwave, NO landing ring, NO impact arcs, NO aura or dust around her feet, pure clean transparent background, NO text",
+        "same character, outfit and scale as image 2, horizontally centered: proud upright arrival pose standing steadily on both planted feet, one hand on hip and the other giving a cute cheerful peace sign / wave, confident sparkling smile ready for action, NO text",
+    ]),
+    "depart_poof": (PORTRAIT, [
+        "standing horizontally centered giving a bright cheerful goodbye salute/wave: right hand raised near her forehead/cheek waving goodbye, cute playful wink with one eye closed and warm bright smile, left hand relaxed, both feet planted, pure transparent background, NO text",
+        "same character, outfit, scale and centered framing as image 2: playful anticipation crouch turning three-quarter right preparing to hop away, knees bent lightly, glancing cheerfully back over her shoulder with a cute waving hand and happy grin, NO text",
+        "same character, outfit, scale and centered framing as image 2: graceful mid-air joyful leap arcing upward and right — legs tucked playfully beneath her, one hand raised waving goodbye, hair and outfit trailing dynamically behind with a big beaming smile, pure transparent background, NO text",
+        "same character, outfit, scale and centered framing as image 2: compact buoyant mid-air tuck-hop dissolving cheerfully away — arms and knees tucked in a cute floating leap, eyes happily squeezed shut in a curved '^ ^' smile with light blush, fluttering hair and ribbons, pure transparent background, NO solid white circle, NO text",
     ]),
 }
 

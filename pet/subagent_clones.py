@@ -35,8 +35,8 @@ MAX_VISIBLE_CLONES = 4
 MAX_ANIMATION_FRAMES = 4
 FRAME_INTERVAL_SECONDS = 0.18
 CLONE_PHASE_STEP_SECONDS = 0.45
-SUMMON_SLIDE_SECONDS = 0.38
-HANDOFF_DURATION_SECONDS = 1.15
+SUMMON_SLIDE_SECONDS = 0.68
+HANDOFF_DURATION_SECONDS = 1.25
 HIGH_FIVE_RADIUS_PX = 140.0
 GLIDE_RETURN_SECONDS = 0.36
 RELAY_INTERVAL_MIN_SECONDS = 14.0
@@ -138,6 +138,7 @@ _PLAY_GROUP_CHEER_LINES: tuple[str, ...] = (
 )
 
 _PLAY_IDLE_POSES: tuple[PetAction, ...] = (
+    PetAction.PLAY_DANCE,
     PetAction.HAPPY,
     PetAction.WAVE,
     PetAction.IDLE,
@@ -257,6 +258,7 @@ class _DepartingClone:
     started_at: float
     duration: float
     widget: "SubagentCloneWidget"
+    poof_emitted: bool = False
 
 
 def _compact_text(text: str, max_chars: int = 16) -> str:
@@ -286,6 +288,7 @@ class SubagentCloneWidget(QWidget):
         self._accent = QColor("#8b5cf6")
         self._opacity = 1.0
         self._bob_y = 0.0
+        self._render_scale = 1.0
         self._mirrored = False
         self._frame_index = 0
         self._action = PetAction.WORKING
@@ -341,6 +344,10 @@ class SubagentCloneWidget(QWidget):
     @property
     def dragging(self) -> bool:
         return self._dragging
+
+    @property
+    def render_scale(self) -> float:
+        return self._render_scale
 
     def bind_handlers(
         self,
@@ -458,13 +465,19 @@ class SubagentCloneWidget(QWidget):
         if dirty:
             self.update()
 
-    def set_bob(self, offset_y: float, opacity: float) -> None:
+    def set_bob(self, offset_y: float, opacity: float, *, scale: float = 1.0) -> None:
         new_bob = float(offset_y)
         new_op = max(0.0, min(1.0, float(opacity)))
-        if abs(new_bob - self._bob_y) < 0.05 and abs(new_op - self._opacity) < 0.005:
+        new_scale = max(0.20, min(1.35, float(scale)))
+        if (
+            abs(new_bob - self._bob_y) < 0.05
+            and abs(new_op - self._opacity) < 0.005
+            and abs(new_scale - self._render_scale) < 0.005
+        ):
             return
         self._bob_y = new_bob
         self._opacity = new_op
+        self._render_scale = new_scale
         self.update()
 
     def set_topmost(self, topmost: bool) -> None:
@@ -568,20 +581,31 @@ class SubagentCloneWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setOpacity(self._opacity)
 
-        # Soft halo shadow under the floating mini clone (brighter on hover/drag)
+        # Soft halo shadow under the floating mini clone (brighter on hover/drag, scales on pop-in/poof-out)
         cx = self.width() / 2.0
         shadow_y = self.height() - 24.0
+        s = self._render_scale
         painter.setPen(Qt.PenStyle.NoPen)
         halo_alpha = 88 if (self._hovered or self._dragging) else 42
-        halo_w = 56.0 if (self._hovered or self._dragging) else 48.0
+        halo_w = (56.0 if (self._hovered or self._dragging) else 48.0) * max(0.35, s)
         painter.setBrush(QColor(self._accent.red(), self._accent.green(), self._accent.blue(), halo_alpha))
-        painter.drawEllipse(QRectF(cx - halo_w / 2.0, shadow_y - 4.5, halo_w, 10.0))
+        painter.drawEllipse(QRectF(cx - halo_w / 2.0, shadow_y - 4.5, halo_w, 10.0 * max(0.4, s)))
 
         if not self._pixmap.isNull():
             hover_lift = -3.0 if self._hovered and not self._dragging else 0.0
-            px = (self.width() - self._pixmap.width()) / 2.0
-            py = max(float(self.BUBBLE_TOP_PAD) - 2.0, shadow_y - self._pixmap.height() + self._bob_y + hover_lift)
-            painter.drawPixmap(round(px), round(py), self._pixmap)
+            fw = float(self._pixmap.width())
+            fh = float(self._pixmap.height())
+            foot_y = max(float(self.BUBBLE_TOP_PAD) - 2.0 + fh, shadow_y + self._bob_y + hover_lift)
+            if abs(s - 1.0) > 0.005:
+                painter.save()
+                painter.translate(cx, foot_y)
+                painter.scale(s, s)
+                painter.drawPixmap(round(-fw / 2.0), round(-fh), self._pixmap)
+                painter.restore()
+            else:
+                px = (self.width() - fw) / 2.0
+                py = foot_y - fh
+                painter.drawPixmap(round(px), round(py), self._pixmap)
 
         if self._particles.active:
             self._particles.paint(painter)
@@ -869,8 +893,8 @@ class SubagentCloneManager:
         widget = self._widgets[index]
         playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
-        rt.pose_action = PetAction.WAVE
-        rt.pose_until = ts + 2.1
+        rt.pose_action = PetAction.GIFT_TOSS
+        rt.pose_until = ts + 1.5
         rt.nudge_until = ts + 0.95
         rt.nudge_strength = 24.0
         short_title = _compact_text(info.title or ("晒太阳发呆" if playmate else "处理任务中"), 10)
@@ -899,14 +923,14 @@ class SubagentCloneManager:
         widget = self._widgets[index]
         playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
-        rt.pose_action = PetAction.CELEBRATE
-        rt.pose_until = ts + 2.2
+        rt.pose_action = PetAction.HIGH_FIVE
+        rt.pose_until = ts + 2.0
         rt.nudge_until = ts + 0.85
         rt.nudge_strength = 22.0
         line = self._rng.choice(_PLAY_HIGH_FIVE_LINES if playmate else _HIGH_FIVE_LINES)
         widget.say(line, now=ts, duration=2.6)
         widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
-        widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+        widget.emit_particles("summon", reduced_motion=self._last_reduced_motion)
         event = CloneEvent(
             kind="high_five",
             conversation_id=info.conversation_id,
@@ -921,7 +945,7 @@ class SubagentCloneManager:
         return event
 
     def trigger_group_cheer(self, *, source_index: int = 0, now: float | None = None) -> CloneEvent | None:
-        """All active clones + host pet celebrate together."""
+        """All active clones + host pet dance and celebrate together."""
         if not self._entries:
             return None
         ts = time.monotonic() if now is None else float(now)
@@ -933,13 +957,13 @@ class SubagentCloneManager:
             if idx >= len(self._widgets):
                 break
             rt = self._runtime.setdefault(entry_info.conversation_id, _CloneRuntime(spawned_at=ts))
-            rt.pose_action = PetAction.CELEBRATE
-            rt.pose_until = ts + 2.0
+            rt.pose_action = PetAction.PLAY_DANCE
+            rt.pose_until = ts + 2.55
             rt.nudge_until = ts + 0.65
             rt.nudge_strength = 12.0
             self._widgets[idx].emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
             if idx == lead_idx:
-                self._widgets[idx].say(lead_line, now=ts, duration=2.4)
+                self._widgets[idx].say(lead_line, now=ts, duration=2.5)
         rt_lead = self._runtime[info.conversation_id]
         event = CloneEvent(
             kind="group_cheer",
@@ -955,7 +979,7 @@ class SubagentCloneManager:
         return event
 
     def trigger_relay(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
-        """Clone sends a collaborative clue / playful energy pulse to the host pet."""
+        """Clone tosses a glowing star-orb / clue relay pulse to the host pet."""
         if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
             return None
         ts = time.monotonic() if now is None else float(now)
@@ -965,6 +989,8 @@ class SubagentCloneManager:
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
         if rt.dragging:
             return None
+        rt.pose_action = PetAction.GIFT_TOSS
+        rt.pose_until = ts + 1.35
         rt.nudge_until = ts + 0.72
         rt.nudge_strength = 16.0
         line = self._rng.choice(_PLAY_RELAY_LINES if playmate else _RELAY_LINES)
@@ -1074,8 +1100,7 @@ class SubagentCloneManager:
                 start_pos, side, form_id, badge, title = prev_positions[cid]
                 playmate = is_playmate_id(cid)
                 dep_widget = SubagentCloneWidget(topmost=self._topmost, rng=self._rng)
-                dep_action = PetAction.WAVE if playmate else PetAction.CELEBRATE
-                frames = self._mini_frames(form_id, mirrored=(side > 0), action=dep_action)
+                frames = self._mini_frames(form_id, mirrored=(side > 0), action=PetAction.DEPART_POOF)
                 pix = frames[0] if frames else self._mini_pixmap(form_id, mirrored=(side > 0))
                 max_fw = max((p.width() for p in frames), default=64)
                 max_fh = max((p.height() for p in frames), default=84)
@@ -1085,7 +1110,7 @@ class SubagentCloneManager:
                     badge=badge,
                     accent=_ACCENTS.get(form_id, "#8b5cf6"),
                     tooltip=f"{'闲时玩伴道别' if playmate else '子代理交卷'} · {title or badge}",
-                    opacity=max(0.75, self._fade),
+                    opacity=max(0.85, self._fade),
                     min_frame_size=(max_fw, max_fh),
                     frame_index=0,
                     mirrored=(side > 0),
@@ -1217,7 +1242,7 @@ class SubagentCloneManager:
                     newly_announced = True
                     line = self._rng.choice(_PLAY_SUMMON_LINES if playmate else _SUMMON_LINES)
                     widget.say(line, now=ts, duration=2.4)
-                    widget.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
+                    widget.emit_particles("summon", reduced_motion=self._last_reduced_motion)
                     self._emit_event(
                         CloneEvent(
                             kind="summoned",
@@ -1352,26 +1377,57 @@ class SubagentCloneManager:
                 dep.widget.hide()
                 dep.widget.close()
                 dep.widget.deleteLater()
+                self._emit_event(
+                    CloneEvent(
+                        kind="depart_complete",
+                        conversation_id=dep.conversation_id,
+                        form_id=dep.form_id,
+                        badge=dep.badge,
+                        title=dep.title,
+                        side=dep.side,
+                        is_playmate=is_playmate_id(dep.conversation_id),
+                    )
+                )
                 continue
             t = min(1.0, elapsed / max(0.05, dep.duration))
-            ease = 1.0 - (1.0 - t) ** 2
             target_x = (
-                host_rect.left() - dep.widget.width() + 12
+                host_rect.left() - dep.widget.width() // 2 + 12
                 if dep.side < 0
-                else host_rect.right() - 12
+                else host_rect.right() - dep.widget.width() // 2 - 12
             )
             target_y = host_rect.center().y() - dep.widget.height() // 2
-            if not reduced_motion:
+            # 2-stage cinematic exit:
+            # Stage 1 (0..0.36): salute/goodbye wave + upbeat anticipation hop
+            # Stage 2 (0.36..1.0): parabolic leap back into host + starlight shrink poof
+            if reduced_motion:
+                scale = 1.0
+                opacity = 1.0 if t < 0.55 else max(0.0, (1.0 - t) / 0.45)
+                bob = 0.0
+            elif t < 0.36:
+                t1 = t / 0.36
+                hop = math.sin(t1 * math.pi)
+                dep.widget.move(dep.start_pos.x(), round(dep.start_pos.y() - hop * 14.0))
+                scale = 1.0 + 0.08 * hop
+                opacity = 1.0
+                bob = -hop * 3.0
+            else:
+                t2 = (t - 0.36) / 0.64
+                if not dep.poof_emitted:
+                    dep.poof_emitted = True
+                    dep.widget.emit_particles("summon", reduced_motion=False)
+                ease = t2 * t2 * (3.0 - 2.0 * t2)
                 nx = round(dep.start_pos.x() + (target_x - dep.start_pos.x()) * ease)
-                ny = round(dep.start_pos.y() + (target_y - dep.start_pos.y()) * ease - math.sin(t * math.pi) * 18.0)
+                ny = round(dep.start_pos.y() + (target_y - dep.start_pos.y()) * ease - math.sin(t2 * math.pi) * 44.0)
                 dep.widget.move(nx, ny)
-            opacity = 1.0 if t < 0.65 else max(0.0, (1.0 - t) / 0.35)
-            dep_action = PetAction.WAVE if is_playmate_id(dep.conversation_id) else PetAction.CELEBRATE
-            frames = self._mini_frames(dep.form_id, mirrored=(dep.side > 0), action=dep_action)
+                scale = max(0.30, 1.06 - 0.76 * (t2 ** 1.35))
+                opacity = 1.0 if t2 < 0.45 else max(0.0, (1.0 - t2) / 0.55)
+                bob = -math.sin(t2 * math.pi) * 4.0
+
+            frames = self._mini_frames(dep.form_id, mirrored=(dep.side > 0), action=PetAction.DEPART_POOF)
             if frames:
-                frame_idx = 0 if (reduced_motion or len(frames) <= 1) else (int(elapsed / 0.16) % len(frames))
-                dep.widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=(dep.side > 0), action=dep_action)
-            dep.widget.set_bob(0.0 if reduced_motion else -abs(math.sin(elapsed * 8.0)) * 5.0, opacity)
+                frame_idx = 0 if (reduced_motion or len(frames) <= 1) else min(len(frames) - 1, int(t * len(frames)))
+                dep.widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=(dep.side > 0), action=PetAction.DEPART_POOF)
+            dep.widget.set_bob(bob, opacity, scale=scale)
             dep.widget.tick_fx(dt, now=now, reduced_motion=reduced_motion)
             if not dep.widget.isVisible():
                 dep.widget.show()
@@ -1474,9 +1530,18 @@ class SubagentCloneManager:
             rt.last_side = final_side
             placed_rects.append(QRect(clamped_x, clamped_y, widget.width(), widget.height()))
 
-            # Resolve active pose: playmates alternate playful poses when idle,
-            # while real subagents type diligently unless emoting.
-            if is_playmate_id(info.conversation_id):
+            # Resolve active pose: fresh entrance plays SUMMON_POP arc;
+            # otherwise playmates cycle playful dance/poses and real subagents type.
+            spawn_age = now - rt.spawned_at
+            in_summon = (
+                not reduced_motion
+                and not rt.dragging
+                and 0.0 <= spawn_age < SUMMON_SLIDE_SECONDS
+                and rt.pose_action is None
+            )
+            if in_summon:
+                active_action = PetAction.SUMMON_POP
+            elif is_playmate_id(info.conversation_id):
                 active_action = (
                     PetAction.HAPPY
                     if reduced_motion
@@ -1495,13 +1560,19 @@ class SubagentCloneManager:
             mirrored = final_side > 0
             frames = self._mini_frames(form_id, mirrored=mirrored, action=active_action)
             if frames:
-                frame_idx = (
-                    0
-                    if (reduced_motion or len(frames) <= 1)
-                    else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / FRAME_INTERVAL_SECONDS) % len(frames))
-                )
+                if in_summon:
+                    st_f = max(0.0, min(0.999, spawn_age / SUMMON_SLIDE_SECONDS))
+                    frame_idx = min(len(frames) - 1, int(st_f * len(frames)))
+                else:
+                    frame_idx = (
+                        0
+                        if (reduced_motion or len(frames) <= 1)
+                        else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / FRAME_INTERVAL_SECONDS) % len(frames))
+                    )
                 widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=mirrored, action=active_action)
 
+            render_scale = 1.0
+            render_opacity = self._fade
             if not rt.dragging:
                 target_x, target_y = clamped_x, clamped_y
                 # Smooth inward nudge during report / high-five / relay (never crosses host edge!)
@@ -1512,16 +1583,20 @@ class SubagentCloneManager:
                         target_x = min(host_rect.left() - widget.width() - 2, round(target_x + nudge_px))
                     else:
                         target_x = max(host_rect.right() + 2, round(target_x - nudge_px))
-                # Gentle pop-out slide on fresh summon (stays strictly on clone's own side of host)
-                elif not reduced_motion and (now - rt.spawned_at) < SUMMON_SLIDE_SECONDS:
-                    st = max(0.0, min(1.0, (now - rt.spawned_at) / SUMMON_SLIDE_SECONDS))
+                # Cinematic parabolic pop-out entrance with elastic scale overshoot
+                elif in_summon:
+                    st = max(0.0, min(1.0, spawn_age / SUMMON_SLIDE_SECONDS))
                     ease = 1.0 - (1.0 - st) ** 3
+                    arc = math.sin(st * math.pi)
                     origin_x = (
                         host_rect.left() - widget.width() - 2
                         if final_side < 0
                         else host_rect.right() + 2
                     )
                     target_x = round(origin_x + (clamped_x - origin_x) * ease)
+                    target_y = round(clamped_y - arc * 34.0)
+                    render_scale = 0.42 + 0.58 * ease + 0.11 * arc
+                    render_opacity = min(1.0, max(self._fade, 0.28 + st * 1.15))
                 # Smooth glide back to orbit after user drops a dragged clone
                 if rt.glide_from is not None:
                     gt = max(0.0, min(1.0, (now - rt.glide_started_at) / GLIDE_RETURN_SECONDS))
@@ -1535,7 +1610,7 @@ class SubagentCloneManager:
                 target_y = max(area.top(), min(target_y, area.bottom() - widget.height() + 1))
                 if (target_x, target_y) != (widget.x(), widget.y()):
                     widget.move(target_x, target_y)
-            widget.set_bob(bob_y, self._fade)
+            widget.set_bob(bob_y, render_opacity, scale=render_scale)
             widget.tick_fx(dt, now=now, reduced_motion=reduced_motion)
             if not widget.isVisible():
                 widget.show()

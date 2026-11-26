@@ -404,6 +404,74 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             scale_y=1.0 + abs(shake) * 0.02,
             shadow_opacity=0.20,
         )
+    if effect == "high_five":
+        # Snappy sideways lean-in slap + happy elastic bounce.
+        slap = math.sin(min(1.0, time / 0.38) * math.pi)
+        bounce = math.sin(time * 9.5) * math.exp(-time * 2.0)
+        return EffectPose(
+            offset_x=slap * 4.5,
+            offset_y=-slap * 5.5 + bounce * 2.0,
+            rotation_degrees=slap * 4.5,
+            scale_x=1.0 - slap * 0.03 + abs(bounce) * 0.02,
+            scale_y=1.0 + slap * 0.045 - abs(bounce) * 0.02,
+            shadow_scale=1.0 - slap * 0.10,
+            shadow_opacity=0.20,
+            decoration="sparkle",
+        )
+    if effect == "play_dance":
+        # Cheerful rhythmic side-to-side groove matching the 210ms dance beat.
+        beat = time * (math.pi / 0.42)
+        sway = math.sin(beat)
+        hop = abs(math.sin(beat * 2.0))
+        return EffectPose(
+            offset_x=sway * 4.2,
+            offset_y=-hop * 4.5 + (1.0 - hop) * 1.4,
+            rotation_degrees=sway * 4.8,
+            scale_x=1.0 + (1.0 - hop) * 0.03 - hop * 0.02,
+            scale_y=1.0 - (1.0 - hop) * 0.035 + hop * 0.03,
+            shadow_scale=1.0 - hop * 0.08,
+            shadow_opacity=0.20,
+            decoration="sparkle",
+        )
+    if effect == "gift_toss":
+        # Crisp wind-up & playful forward toss arc.
+        toss = math.sin(min(1.0, time / 0.50) * math.pi)
+        return EffectPose(
+            offset_x=toss * 4.0,
+            offset_y=-toss * 3.0,
+            rotation_degrees=toss * 4.2,
+            scale_x=1.0 - toss * 0.025,
+            scale_y=1.0 + toss * 0.03,
+            shadow_opacity=0.20,
+            decoration="sparkle",
+        )
+    if effect == "summon_pop":
+        # Elastic pop-out squash & stretch on entrance landing.
+        p = min(1.0, time / 0.55)
+        pop = math.sin(p * math.pi)
+        settle = math.sin(p * math.pi * 2.0) * (1.0 - p)
+        return EffectPose(
+            offset_y=-pop * 6.0 + settle * 2.2,
+            rotation_degrees=settle * 3.0,
+            scale_x=1.0 - pop * 0.04 + settle * 0.04,
+            scale_y=1.0 + pop * 0.06 - settle * 0.04,
+            shadow_scale=1.0 - pop * 0.14,
+            shadow_opacity=0.18,
+            decoration="sparkle",
+        )
+    if effect == "depart_poof":
+        # Buoyant farewell hop-off wave.
+        p = min(1.0, time / 0.85)
+        lift = math.sin(p * math.pi)
+        return EffectPose(
+            offset_y=-lift * 7.5,
+            rotation_degrees=math.sin(time * 8.0) * 3.5,
+            scale_x=1.0 - lift * 0.04,
+            scale_y=1.0 + lift * 0.05,
+            shadow_scale=max(0.4, 1.0 - lift * 0.35),
+            shadow_opacity=0.14,
+            decoration="sparkle",
+        )
     return EffectPose()
 
 

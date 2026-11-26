@@ -1399,6 +1399,106 @@
       },
       "quality": "agy_fallback_until_art",
       "requires_real_frames": false
+    },
+    "HIGH_FIVE": {
+      "id": "HIGH_FIVE",
+      "asset": "high_five",
+      "loop": false,
+      "duration_ms": 1520,
+      "priority": 65,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 190,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "high_five"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "PLAY_DANCE": {
+      "id": "PLAY_DANCE",
+      "asset": "play_dance",
+      "loop": false,
+      "duration_ms": 2520,
+      "priority": 63,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 210,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "play_dance"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "GIFT_TOSS": {
+      "id": "GIFT_TOSS",
+      "asset": "gift_toss",
+      "loop": false,
+      "duration_ms": 1260,
+      "priority": 61,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 210,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "gift_toss"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "SUMMON_POP": {
+      "id": "SUMMON_POP",
+      "asset": "summon_pop",
+      "loop": false,
+      "duration_ms": 680,
+      "priority": 64,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 170,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "summon_pop"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "DEPART_POOF": {
+      "id": "DEPART_POOF",
+      "asset": "depart_poof",
+      "loop": false,
+      "duration_ms": 960,
+      "priority": 64,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 240,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "depart_poof"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
     }
   },
   "fallbacks": {
@@ -1440,7 +1540,12 @@
     "perch_sleep": "perch_sit",
     "dock_sleep": "dock_peek",
     "dock_sleep_right": "dock_peek_right",
-    "refuse_food": "poke_react"
+    "refuse_food": "poke_react",
+    "high_five": "celebrate",
+    "play_dance": "happy",
+    "gift_toss": "wave",
+    "summon_pop": "happy",
+    "depart_poof": "wave"
   },
   "notes": [
     "所有运行时动作均来自同一套统一角色母版；运行时不生成图片。",

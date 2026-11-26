@@ -484,6 +484,11 @@ class PetWindow(QWidget):
         PetAction.HAPPY: "happy",
         PetAction.CELEBRATE: "happy",
         PetAction.PET_PURR: "happy",
+        PetAction.HIGH_FIVE: "happy",
+        PetAction.PLAY_DANCE: "happy",
+        PetAction.GIFT_TOSS: "happy",
+        PetAction.SUMMON_POP: "happy",
+        PetAction.DEPART_POOF: "happy",
         PetAction.ANGRY: "pout",
         PetAction.SULK: "pout",
         PetAction.DIZZY: "worried",
@@ -3179,7 +3184,10 @@ class PetWindow(QWidget):
         self._handling_clone_interaction = True
         try:
             if event.kind == "summoned":
+                self.emit_particles("summon")
                 self.emit_relay_particles(from_side=event.side, accent=accent)
+            elif event.kind == "depart_complete":
+                self.emit_particles("summon")
             elif event.kind == "handoff":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 self.emit_particles("hearts" if playmate else "sparkles")
@@ -3210,7 +3218,7 @@ class PetWindow(QWidget):
                 self.emit_particles("confetti")
                 self.emit_particles("hearts")
                 if can_emote:
-                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_high_five", force=True)
+                    self._request_action(PetAction.HIGH_FIVE, now=now, reason="subagent_high_five", force=True)
                     key = "playmate_high_five" if playmate else "subagent_high_five"
                     fb = "和 {name} 击掌贴贴！摸鱼搭子满分～" if playmate else "和 {name} 击掌成功！合作无间～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
@@ -3218,7 +3226,7 @@ class PetWindow(QWidget):
                 self.emit_particles("confetti")
                 self.emit_particles("sparkles")
                 if can_emote:
-                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_group_cheer", force=True)
+                    self._request_action(PetAction.PLAY_DANCE, now=now, reason="subagent_group_cheer", force=True)
                     key = "playmate_group_cheer" if playmate else "subagent_group_cheer"
                     fb = "闲时小派对！大家一起蹦起来～" if playmate else "全员干劲拉满，一起冲鸭！"
                     self.say(pick_line(key, fb), preserve_action=True)
@@ -3227,6 +3235,8 @@ class PetWindow(QWidget):
                 min_gap = 6.0 if playmate else 10.0
                 if can_emote and now - self._last_clone_banter_at >= min_gap:
                     self._last_clone_banter_at = now
+                    if playmate and not self.surface_tracker.attached:
+                        self._request_action(PetAction.GIFT_TOSS, now=now, reason="playmate_toss_back", force=True)
                     key = "playmate_relay" if playmate else "subagent_relay"
                     fb = "接住啦 {name}！我也回你一颗星星～" if playmate else "收到 {name} 传来的线索啦～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)

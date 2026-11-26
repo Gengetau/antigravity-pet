@@ -508,6 +508,38 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
         self.assertEqual(left_clip.asset_id, "dock_peek")
         self.assertEqual(right_clip.asset_id, "dock_peek_right")
 
+    def test_v32_interplay_and_summon_actions_have_real_frames_across_all_5_forms(self) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.instance() or QApplication([])
+        v32_cases = [
+            (PetAction.HIGH_FIVE, "high_five", 4, 190, 1520, "celebrate"),
+            (PetAction.PLAY_DANCE, "play_dance", 4, 210, 2520, "happy"),
+            (PetAction.GIFT_TOSS, "gift_toss", 3, 210, 1260, "wave"),
+            (PetAction.SUMMON_POP, "summon_pop", 4, 170, 680, "happy"),
+            (PetAction.DEPART_POOF, "depart_poof", 4, 240, 960, "wave"),
+        ]
+        for form in ALL_FORMS:
+            registry = AssetRegistry(ROOT / form, base_manifest=BASE_MANIFEST)
+            for action, asset_name, expected_frames, frame_ms, duration_ms, _fallback in v32_cases:
+                spec = registry.specs[action]
+                self.assertEqual(spec.frame_ms, frame_ms, (form, action))
+                self.assertEqual(spec.duration_ms, duration_ms, (form, action))
+                self.assertEqual(duration_ms % (expected_frames * frame_ms), 0, (form, action))
+                clip = registry.clip_for(action, height=238, direction="down")
+                self.assertEqual(clip.asset_id, asset_name, (form, action))
+                self.assertEqual(len(clip.frames), expected_frames, (form, asset_name))
+                self.assertTrue(all(not f.pixmap.isNull() for f in clip.frames), (form, asset_name))
+                self.assertTrue(all(f.pixmap.hasAlphaChannel() for f in clip.frames), (form, asset_name))
+
+        # Verify graceful fallback when a v3.2 asset is missing.
+        registry = AssetRegistry(ROOT / "neon", base_manifest=BASE_MANIFEST)
+        for action, asset_name, _n, _fms, _dms, fallback_asset in v32_cases:
+            registry._assets.pop(asset_name, None)
+            registry._frame_cache.clear()
+            clip = registry.clip_for(action, height=238, direction="down")
+            self.assertEqual(clip.asset_id, fallback_asset, (action, fallback_asset))
+
 
 class ProceduralEffectsFluidityTests(unittest.TestCase):
     @staticmethod
@@ -575,6 +607,36 @@ class ProceduralEffectsFluidityTests(unittest.TestCase):
             for pose in self._sample(name, 3.0):
                 self.assertLessEqual(abs(pose.offset_x), 8.0, name)
                 self.assertGreaterEqual(pose.offset_y, -24.0, name)
+                self.assertLessEqual(pose.offset_y, 6.0, name)
+                self.assertTrue(0.85 <= pose.scale_x <= 1.15 and 0.85 <= pose.scale_y <= 1.15, name)
+                self.assertLessEqual(abs(pose.rotation_degrees), 13.0, name)
+                self.assertTrue(all(math.isfinite(v) for v in (pose.offset_x, pose.offset_y, pose.scale_x, pose.scale_y)))
+
+    def test_v32_new_effects_have_distinct_safe_motion(self) -> None:
+        # play_dance: symmetrical left-right rhythmic sway
+        dance = self._sample("play_dance", 2.0)
+        self.assertGreater(max(p.offset_x for p in dance), 3.5)
+        self.assertLess(min(p.offset_x for p in dance), -3.5)
+        self.assertLess(min(p.offset_y for p in dance), -3.5)
+
+        # high_five & gift_toss: crisp forward lean + bounce
+        for name in ("high_five", "gift_toss"):
+            poses = self._sample(name, 1.5)
+            self.assertGreater(max(p.offset_x for p in poses), 3.0, name)
+            self.assertLess(min(p.offset_y for p in poses), -2.5, name)
+
+        # summon_pop & depart_poof: vertical buoyant pop / lift
+        for name in ("summon_pop", "depart_poof"):
+            poses = self._sample(name, 1.5)
+            self.assertLess(min(p.offset_y for p in poses), -5.0, name)
+            self.assertGreater(max(p.scale_y for p in poses), 1.04, name)
+
+        for name in ("high_five", "play_dance", "gift_toss", "summon_pop", "depart_poof"):
+            poses = self._sample(name, 2.0)
+            self.assertTrue(all(p.decoration == "sparkle" for p in poses), name)
+            for pose in poses:
+                self.assertLessEqual(abs(pose.offset_x), 8.0, name)
+                self.assertGreaterEqual(pose.offset_y, -12.0, name)
                 self.assertLessEqual(pose.offset_y, 6.0, name)
                 self.assertTrue(0.85 <= pose.scale_x <= 1.15 and 0.85 <= pose.scale_y <= 1.15, name)
                 self.assertLessEqual(abs(pose.rotation_degrees), 13.0, name)

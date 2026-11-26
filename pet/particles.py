@@ -162,6 +162,40 @@ class ParticleSystem:
                     )
                 )
             self.emit("sparkles", origin_x=origin_x, origin_y=origin_y - 12.0, spread_w=spread_w * 0.8)
+        elif kind == "summon":
+            self.particles.append(
+                Particle(
+                    kind="ring",
+                    x=origin_x,
+                    y=origin_y,
+                    vx=0.0,
+                    vy=0.0,
+                    size=12.0,
+                    age=0.0,
+                    lifetime=0.58,
+                    color=QColor("#a855f7"),
+                )
+            )
+            palette = (QColor("#c084fc"), QColor("#38bdf8"), QColor("#fbbf24"), QColor("#f472b6"))
+            for idx in range(8):
+                angle = (idx / 8.0) * math.tau + r.uniform(-0.18, 0.18)
+                speed = r.uniform(42.0, 82.0)
+                self.particles.append(
+                    Particle(
+                        kind="orb" if idx % 2 == 0 else "sparkle",
+                        x=origin_x,
+                        y=origin_y,
+                        vx=math.cos(angle) * speed,
+                        vy=math.sin(angle) * speed - 18.0,
+                        size=r.uniform(5.5, 9.5),
+                        age=0.0,
+                        lifetime=r.uniform(0.55, 0.90),
+                        color=palette[idx % len(palette)],
+                        rotation=r.uniform(0.0, 90.0),
+                        vrot=r.uniform(-160.0, 160.0),
+                        gravity=40.0,
+                    )
+                )
 
         added = len(self.particles) - before
         if len(self.particles) > self.MAX_PARTICLES:

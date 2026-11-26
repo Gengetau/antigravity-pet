@@ -46,6 +46,12 @@ class PetAction(str, Enum):
     PERCH_SLEEP = "PERCH_SLEEP"
     DOCK_SLEEP = "DOCK_SLEEP"
     REFUSE_FOOD = "REFUSE_FOOD"
+    # Companion v3.2 host-subagent interplay & entrance/exit actions.
+    HIGH_FIVE = "HIGH_FIVE"
+    PLAY_DANCE = "PLAY_DANCE"
+    GIFT_TOSS = "GIFT_TOSS"
+    SUMMON_POP = "SUMMON_POP"
+    DEPART_POOF = "DEPART_POOF"
 
     @classmethod
     def coerce(cls, value: "PetAction | str") -> "PetAction":

@@ -74,10 +74,10 @@ class RehearsalStage(QWidget):
         for label, fn in (
             ("🎲 闲时随机玩伴", self._sim_idle_playmates),
             ("💖 摸摸分身", lambda: self._sim_clone_action("click")),
-            ("📋 分身汇报", lambda: self._sim_clone_action("report")),
-            ("🤝 击掌贴贴", lambda: self._sim_clone_action("high_five")),
-            ("📡 传讯脉冲", lambda: self._sim_clone_action("relay")),
-            ("🎉 全员欢呼", lambda: self._sim_clone_action("group_cheer")),
+            ("📋 抛球汇报", lambda: self._sim_clone_action("report")),
+            ("🤝 双向击掌", lambda: self._sim_clone_action("high_five")),
+            ("🌟 抛星光球", lambda: self._sim_clone_action("relay")),
+            ("💃 共舞派对", lambda: self._sim_clone_action("group_cheer")),
         ):
             btn = QPushButton(label)
             btn.clicked.connect(lambda _c=False, cb=fn: cb())

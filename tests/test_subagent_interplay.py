@@ -164,13 +164,13 @@ class SubagentInterplayManagerTests(unittest.TestCase):
             self.assertEqual(events, [])
             w0.show()
 
-            # 3. Right click -> group cheer across all clones
+            # 3. Right click -> group dance cheer across all clones
             events.clear()
             w1.contextMenuEvent(QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(20, 20), QPoint(20, 20)))
             self.assertEqual([e.kind for e in events], ["group_cheer"])
             mgr.position_around(host, now=time.monotonic(), screen=screen)
-            self.assertEqual(w0.current_action, PetAction.CELEBRATE)
-            self.assertEqual(w1.current_action, PetAction.CELEBRATE)
+            self.assertEqual(w0.current_action, PetAction.PLAY_DANCE)
+            self.assertEqual(w1.current_action, PetAction.PLAY_DANCE)
 
             # 4. Drag clone close to host and drop -> mutual high_five!
             events.clear()
@@ -337,10 +337,10 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.assertTrue(self.pet.particles.active)
         self.assertIn("Neon", self.pet.bubble.text)
 
-        # 2. High-five -> host celebrates with confetti + hearts + relay orbs
+        # 2. High-five -> host plays HIGH_FIVE with confetti + hearts + relay orbs
         self.pet.particles.clear()
         self.pet.subagent_clones.trigger_high_five(1)
-        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        self.assertEqual(self.pet.action_machine.current, PetAction.HIGH_FIVE)
         self.assertIn("Claude", self.pet.bubble.text)
         self.assertTrue(any(p.kind == "orb" for p in self.pet.particles.particles))
 
@@ -348,6 +348,10 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.pet.subagent_clones.trigger_report(0)
         self.assertEqual(self.pet.action_machine.current, PetAction.WAVE)
         self.assertIn("检索接口调用", self.pet.bubble.text)
+
+        # 3b. Group cheer -> host & clones sync PLAY_DANCE!
+        self.pet.subagent_clones.trigger_group_cheer()
+        self.assertEqual(self.pet.action_machine.current, PetAction.PLAY_DANCE)
 
         # 4. State safety: while host is sulking, clone interactions do NOT override SULK
         self.pet._sulk_until = time.monotonic() + 25.0
@@ -387,17 +391,17 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             seen_forms.update(m.form_id for m in mates)
         self.assertGreaterEqual(len(seen_forms), 4)
 
-        # Playmates use playful poses (HAPPY/WAVE/IDLE, NOT WORKING typing!) and playful host replies
+        # Playmates use playful poses (PLAY_DANCE/HAPPY/WAVE/IDLE, NOT WORKING typing!)
         mates = self.pet.summon_idle_playmates(count=2, now=200.0, duration=15.0, announce=True)
         self.assertEqual(self.pet.subagent_clones.active_count, 2)
         self.pet.subagent_clones.position_around(
             self.pet._sprite_rect(),
-            now=200.5,
+            now=201.2,
             reduced_motion=False,
             screen=self.pet._screen_for_pet(),
         )
         for w in self.pet.subagent_clones.visible_widgets:
-            self.assertIn(w.current_action, {PetAction.HAPPY, PetAction.WAVE, PetAction.IDLE})
+            self.assertIn(w.current_action, {PetAction.PLAY_DANCE, PetAction.HAPPY, PetAction.WAVE, PetAction.IDLE})
 
         # Clicking a playmate extends playtime and emits is_playmate=True
         ev = self.pet.subagent_clones.trigger_click(0, now=210.0)
@@ -457,6 +461,67 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         for line in all_lines:
             elided = fm.elidedText(line, Qt.TextElideMode.ElideRight, max_w)
             self.assertEqual(elided, line, f"Mini bubble truncated ({widget.width()}px): {line!r} -> {elided!r}")
+
+    def test_cinematic_summon_pop_and_two_stage_depart_poof_animation(self) -> None:
+        events: list[CloneEvent] = []
+        mgr = SubagentCloneManager(
+            characters_root=ROOT,
+            base_manifest=ROOT / "assets" / "manifests" / "actions_base.json",
+            topmost=True,
+            on_interaction=events.append,
+            rng=random.Random(99),
+        )
+        try:
+            screen = _FakeScreen(QRect(0, 0, 1920, 1080))
+            host = QRect(860, 500, 180, 220)
+            subs = [SubagentInfo("sub-pop", "main", "查文档", "Gemini 4 Neon", "neon")]
+            mgr.sync(subs, default_form="carbon", enabled=True, host_visible=True, now=50.0)
+
+            # Early entrance (t=0.08s): SUMMON_POP pose + elastic scale < 1.0 + upward arc
+            mgr.position_around(host, now=50.08, reduced_motion=False, screen=screen)
+            w = mgr.visible_widgets[0]
+            self.assertEqual(w.current_action, PetAction.SUMMON_POP)
+            self.assertLess(w.render_scale, 0.90)
+            early_y = w.y()
+
+            # Mid-entrance (t=0.34s): elastic overshoot scale > 1.0
+            mgr.position_around(host, now=50.34, reduced_motion=False, screen=screen)
+            self.assertGreater(w.render_scale, 1.0)
+
+            # Settled (t=0.80s): scale returns to 1.0, switches cleanly to WORKING typing
+            mgr.position_around(host, now=50.80, reduced_motion=False, screen=screen)
+            self.assertAlmostEqual(w.render_scale, 1.0, places=2)
+            self.assertEqual(w.current_action, PetAction.WORKING)
+            self.assertGreaterEqual(w.y(), early_y)
+
+            # Exit: 2-stage DEPART_POOF (Stage 1 wave hop -> Stage 2 shrinking arc -> depart_complete)
+            events.clear()
+            mgr.sync([], default_form="carbon", enabled=True, host_visible=True, now=52.0)
+            self.assertEqual([e.kind for e in events], ["handoff"])
+            dep_w = mgr.departing_widgets[0]
+
+            # Stage 1 (t=0.18s): upbeat anticipation scale >= 1.0, DEPART_POOF pose
+            mgr.position_around(host, now=52.18, reduced_motion=False, screen=screen)
+            self.assertEqual(dep_w.current_action, PetAction.DEPART_POOF)
+            self.assertGreaterEqual(dep_w.render_scale, 1.0)
+
+            # Stage 2 (t=0.95s): shrinking back toward host + summon poof emitted
+            mgr.position_around(host, now=52.95, reduced_motion=False, screen=screen)
+            self.assertLess(dep_w.render_scale, 0.75)
+
+            # Complete (t=1.35s): cleaned up + depart_complete emitted to trigger host catch ring!
+            mgr.position_around(host, now=53.35, reduced_motion=False, screen=screen)
+            self.assertFalse(mgr.has_departing)
+            self.assertIn("depart_complete", [e.kind for e in events])
+
+            # Also verify ParticleSystem "summon" burst emits ring + orbs/sparkles
+            ps = ParticleSystem(random.Random(5))
+            added = ps.emit("summon", origin_x=100.0, origin_y=100.0)
+            self.assertEqual(added, 9)
+            self.assertTrue(any(p.kind == "ring" for p in ps.particles))
+            self.assertTrue(any(p.kind == "orb" for p in ps.particles))
+        finally:
+            mgr.close_all()
 
 
 if __name__ == "__main__":
