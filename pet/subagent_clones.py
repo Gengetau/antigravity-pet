@@ -245,6 +245,7 @@ class _CloneRuntime:
     dragging: bool = False
     glide_from: QPoint | None = None
     glide_started_at: float = 0.0
+    glide_hold_until: float = 0.0
 
 
 @dataclass(slots=True)
@@ -288,6 +289,7 @@ class SubagentCloneWidget(QWidget):
         self._accent = QColor("#8b5cf6")
         self._opacity = 1.0
         self._bob_y = 0.0
+        self._tilt_deg = 0.0
         self._render_scale = 1.0
         self._mirrored = False
         self._frame_index = 0
@@ -465,19 +467,22 @@ class SubagentCloneWidget(QWidget):
         if dirty:
             self.update()
 
-    def set_bob(self, offset_y: float, opacity: float, *, scale: float = 1.0) -> None:
+    def set_bob(self, offset_y: float, opacity: float, *, scale: float = 1.0, tilt_deg: float = 0.0) -> None:
         new_bob = float(offset_y)
         new_op = max(0.0, min(1.0, float(opacity)))
         new_scale = max(0.20, min(1.35, float(scale)))
+        new_tilt = max(-12.0, min(12.0, float(tilt_deg)))
         if (
             abs(new_bob - self._bob_y) < 0.05
             and abs(new_op - self._opacity) < 0.005
             and abs(new_scale - self._render_scale) < 0.005
+            and abs(new_tilt - self._tilt_deg) < 0.12
         ):
             return
         self._bob_y = new_bob
         self._opacity = new_op
         self._render_scale = new_scale
+        self._tilt_deg = new_tilt
         self.update()
 
     def set_topmost(self, topmost: bool) -> None:
@@ -591,15 +596,21 @@ class SubagentCloneWidget(QWidget):
         painter.setBrush(QColor(self._accent.red(), self._accent.green(), self._accent.blue(), halo_alpha))
         painter.drawEllipse(QRectF(cx - halo_w / 2.0, shadow_y - 4.5, halo_w, 10.0 * max(0.4, s)))
 
+        if self._particles.active:
+            self._particles.paint(painter, layer="back")
+
         if not self._pixmap.isNull():
             hover_lift = -3.0 if self._hovered and not self._dragging else 0.0
             fw = float(self._pixmap.width())
             fh = float(self._pixmap.height())
             foot_y = max(float(self.BUBBLE_TOP_PAD) - 2.0 + fh, shadow_y + self._bob_y + hover_lift)
-            if abs(s - 1.0) > 0.005:
+            if abs(s - 1.0) > 0.005 or abs(self._tilt_deg) > 0.1:
                 painter.save()
                 painter.translate(cx, foot_y)
-                painter.scale(s, s)
+                if abs(self._tilt_deg) > 0.1:
+                    painter.rotate(self._tilt_deg)
+                if abs(s - 1.0) > 0.005:
+                    painter.scale(s, s)
                 painter.drawPixmap(round(-fw / 2.0), round(-fh), self._pixmap)
                 painter.restore()
             else:
@@ -608,29 +619,43 @@ class SubagentCloneWidget(QWidget):
                 painter.drawPixmap(round(px), round(py), self._pixmap)
 
         if self._particles.active:
-            self._particles.paint(painter)
+            self._particles.paint(painter, layer="front")
 
-        # Top mini speech bubble (active dialogue takes precedence over hover task label)
+        # Top mini comic bubble (warm cream + theme accent border, matching host bubble!)
         shown_bubble = self._bubble_text or (self._hover_label if self._hovered else "")
         if shown_bubble:
             is_speech = bool(self._bubble_text)
             painter.setFont(self._bubble_font)
             fm = QFontMetrics(self._bubble_font)
             text = fm.elidedText(shown_bubble, Qt.TextElideMode.ElideRight, max(44, self.width() - 14))
-            bw = min(self.width() - 4, max(42, fm.horizontalAdvance(text) + 12))
-            bh = min(self.BUBBLE_TOP_PAD - 2, fm.height() + 6)
+            bw = min(self.width() - 4, max(44, fm.horizontalAdvance(text) + 14))
+            bh = min(self.BUBBLE_TOP_PAD - 5, fm.height() + 6)
             bx = (self.width() - bw) / 2.0
-            by = 2.0
+            by = 1.5
             rect = QRectF(bx, by, bw, bh)
-            bg = QColor(15, 23, 42, 224 if is_speech else 188)
-            border = QColor(self._accent.red(), self._accent.green(), self._accent.blue(), 220 if is_speech else 145)
+            border_c = QColor(self._accent)
+            if not border_c.isValid() or border_c.lightness() > 215 or border_c.saturation() < 35:
+                border_c = QColor("#a78bfa")
+            if is_speech:
+                bg = QColor(255, 253, 251, 250)
+                fg = QColor("#2a1b3d")
+                pen_w = 1.6
+            else:
+                bg = QColor(245, 243, 255, 236)
+                fg = QColor("#4c3b73")
+                pen_w = 1.2
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(46, 24, 104, 34))
+            painter.drawRoundedRect(rect.translated(0.0, 1.5), 9.0, 9.0)
             painter.setBrush(bg)
-            painter.setPen(QPen(border, 1.1))
-            painter.drawRoundedRect(rect, bh / 2.0, bh / 2.0)
-            painter.setPen(QColor(248, 250, 252))
+            painter.setPen(QPen(border_c, pen_w))
+            painter.drawRoundedRect(rect, 9.0, 9.0)
+            painter.setPen(fg)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-        if self._badge:
+        # Keep bottom clean by default; show light pill badge on hover, drag, or overflow (+N)
+        show_badge = bool(self._badge) and (self._hovered or self._dragging or "+" in self._badge)
+        if show_badge:
             painter.setFont(self._badge_font)
             fm = QFontMetrics(self._badge_font)
             bw = min(self.width() - 8, max(34, fm.horizontalAdvance(self._badge) + 14))
@@ -638,10 +663,10 @@ class SubagentCloneWidget(QWidget):
             bx = (self.width() - bw) / 2.0
             by = self.height() - bh - 2.0
             pill = QRectF(bx, by, bw, bh)
-            painter.setBrush(QColor(18, 26, 38, 205))
-            painter.setPen(QColor(self._accent.red(), self._accent.green(), self._accent.blue(), 190))
+            painter.setBrush(QColor(255, 253, 251, 238))
+            painter.setPen(QPen(QColor(self._accent.red(), self._accent.green(), self._accent.blue(), 195), 1.3))
             painter.drawRoundedRect(pill, bh / 2.0, bh / 2.0)
-            painter.setPen(QColor(248, 250, 252))
+            painter.setPen(QColor("#2a1b3d"))
             painter.drawText(pill, Qt.AlignmentFlag.AlignCenter, self._badge)
 
 
@@ -845,9 +870,14 @@ class SubagentCloneManager:
             dist = math.hypot(drop_center.x() - host_center.x(), drop_center.y() - host_center.y())
             near_host = dist <= HIGH_FIVE_RADIUS_PX
         if near_host:
+            if rt is not None:
+                # Hold briefly beside the host so hands visibly clap before gliding back.
+                rt.glide_hold_until = now + 0.48
+                rt.glide_started_at = rt.glide_hold_until
             self.trigger_high_five(idx, now=now)
         else:
             if rt is not None:
+                rt.glide_hold_until = 0.0
                 rt.pose_action = PetAction.WAVE
                 rt.pose_until = now + 1.0
             back_line = "跑回来继续玩啦～" if is_playmate_id(info.conversation_id) else "回来继续干活啦～"
@@ -1583,34 +1613,36 @@ class SubagentCloneManager:
                         target_x = min(host_rect.left() - widget.width() - 2, round(target_x + nudge_px))
                     else:
                         target_x = max(host_rect.right() + 2, round(target_x - nudge_px))
-                # Cinematic parabolic pop-out entrance with elastic scale overshoot
+                # Cinematic parabolic pop-out entrance bursting from host center with elastic scale
                 elif in_summon:
                     st = max(0.0, min(1.0, spawn_age / SUMMON_SLIDE_SECONDS))
                     ease = 1.0 - (1.0 - st) ** 3
                     arc = math.sin(st * math.pi)
-                    origin_x = (
-                        host_rect.left() - widget.width() - 2
-                        if final_side < 0
-                        else host_rect.right() + 2
-                    )
+                    origin_x = host_rect.center().x() - widget.width() // 2
                     target_x = round(origin_x + (clamped_x - origin_x) * ease)
-                    target_y = round(clamped_y - arc * 34.0)
-                    render_scale = 0.42 + 0.58 * ease + 0.11 * arc
-                    render_opacity = min(1.0, max(self._fade, 0.28 + st * 1.15))
-                # Smooth glide back to orbit after user drops a dragged clone
+                    target_y = round(clamped_y - arc * 42.0)
+                    render_scale = 0.36 + 0.64 * ease + 0.12 * arc
+                    render_opacity = min(1.0, max(self._fade, 0.25 + st * 1.25))
+                # Smooth glide back to orbit after user drops a dragged clone (with optional high-five hold)
                 if rt.glide_from is not None:
-                    gt = max(0.0, min(1.0, (now - rt.glide_started_at) / GLIDE_RETURN_SECONDS))
-                    if reduced_motion or gt >= 1.0:
-                        rt.glide_from = None
+                    if not reduced_motion and now < rt.glide_hold_until:
+                        target_x = rt.glide_from.x()
+                        target_y = rt.glide_from.y()
                     else:
-                        ge = 1.0 - (1.0 - gt) ** 3
-                        target_x = round(rt.glide_from.x() + (target_x - rt.glide_from.x()) * ge)
-                        target_y = round(rt.glide_from.y() + (target_y - rt.glide_from.y()) * ge)
+                        gt = max(0.0, min(1.0, (now - rt.glide_started_at) / GLIDE_RETURN_SECONDS))
+                        if reduced_motion or gt >= 1.0:
+                            rt.glide_from = None
+                            rt.glide_hold_until = 0.0
+                        else:
+                            ge = 1.0 - (1.0 - gt) ** 3
+                            target_x = round(rt.glide_from.x() + (target_x - rt.glide_from.x()) * ge)
+                            target_y = round(rt.glide_from.y() + (target_y - rt.glide_from.y()) * ge)
                 target_x = max(area.left(), min(target_x, area.right() - widget.width() + 1))
                 target_y = max(area.top(), min(target_y, area.bottom() - widget.height() + 1))
                 if (target_x, target_y) != (widget.x(), widget.y()):
                     widget.move(target_x, target_y)
-            widget.set_bob(bob_y, render_opacity, scale=render_scale)
+            tilt_deg = 0.0 if (reduced_motion or rt.dragging) else math.sin(now * 2.1 + idx * 1.6) * 3.2
+            widget.set_bob(bob_y, render_opacity, scale=render_scale, tilt_deg=tilt_deg)
             widget.tick_fx(dt, now=now, reduced_motion=reduced_motion)
             if not widget.isVisible():
                 widget.show()

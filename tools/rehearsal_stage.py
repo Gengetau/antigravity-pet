@@ -156,6 +156,7 @@ class RehearsalStage(QWidget):
             active_subagents=[],
         )
         self.pet.telemetry.last_snapshot = idle_snap
+        self.pet._on_live_snapshot(idle_snap)
         self.pet.summon_idle_playmates(count=2)
 
     def _sim_clone_action(self, kind: str) -> None:

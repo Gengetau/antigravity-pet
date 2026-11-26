@@ -55,6 +55,8 @@ class PetControlPanel(QWidget):
         on_follow_model: Callable[[bool], None] | None = None,
         on_open_meter: Callable[[], None] | None = None,
         on_hud: Callable[[bool], None] | None = None,
+        on_hud_hover_only: Callable[[bool], None] | None = None,
+        on_playmates: Callable[[], None] | None = None,
         on_autonomy: Callable[[bool], None] | None = None,
         on_dock: Callable[[], None] | None = None,
         on_perch: Callable[[], None] | None = None,
@@ -92,7 +94,7 @@ class PetControlPanel(QWidget):
         shadow = QGraphicsDropShadowEffect(surface)
         shadow.setBlurRadius(22)
         shadow.setOffset(0, 6)
-        shadow.setColor(QColor(3, 19, 37, 130))
+        shadow.setColor(QColor(46, 24, 104, 72))
         self._shadow = shadow
         surface.setGraphicsEffect(shadow)
         root.addWidget(surface)
@@ -124,10 +126,11 @@ class PetControlPanel(QWidget):
 
         quick_row = QHBoxLayout()
         quick_row.setSpacing(4)
+        playmate_cb = on_playmates if on_playmates is not None else (lambda: on_action("HAPPY"))
         for label, callback in (
             ("投喂", on_feed),
             ("说话", on_say),
-            ("开心", lambda: on_action("HAPPY")),
+            ("唤玩伴", playmate_cb),
             ("休息", lambda: on_action("SLEEPING")),
         ):
             button = self._quick_button(label)
@@ -207,9 +210,12 @@ class PetControlPanel(QWidget):
         self.hud.setToolTip("显示 tok/s · 限额 · 缓存 · 上下文 迷你悬浮条")
         self.autonomy = self._toggle("自主行为", on_autonomy or (lambda _enabled: None))
         self.autonomy.setToolTip("模型干活时陪着干活、跳上 Antigravity 窗口、闲久了打盹、限额低会犯困、久坐提醒")
+        self.hud_hover_only = self._toggle("悬停HUD", on_hud_hover_only or (lambda _enabled: None))
+        self.hud_hover_only.setToolTip("平时隐藏 HUD 卡片还桌面清爽，鼠标悬停在桌宠身上时再弹出")
         agy_row.addWidget(self.follow_model, 0, 0)
         agy_row.addWidget(self.hud, 0, 1)
         agy_row.addWidget(self.autonomy, 1, 0)
+        agy_row.addWidget(self.hud_hover_only, 1, 1)
         layout.addLayout(agy_row)
         meter = self._quick_button("Token Meter 面板")
         meter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -343,30 +349,30 @@ class PetControlPanel(QWidget):
         layout.addWidget(self._advanced)
 
         self.setStyleSheet(
-            "#controlSurface{background:#141327;border-radius:14px;}"
-            "#panelTitle{color:#f6fbff;font-size:15px;font-weight:700;}"
-            "#stateLabel{padding:1px 7px;background:#2a2550;border-radius:8px;color:#d9d2ff;font-size:10px;font-weight:600;}"
-            "QLabel#compactLabel,QLabel#inlineLabel{color:#b8b0e8;font-size:10px;font-weight:600;}"
-            "QFrame#divider{background:rgba(200,190,255,38);min-height:1px;max-height:1px;}"
-            "QToolButton#quickButton{min-height:23px;padding:0 4px;background:#25214a;border:none;border-radius:8px;"
-            "color:#ece8ff;font-size:11px;font-weight:600;}"
-            "QToolButton#quickButton:hover{background:#36306b;color:#ffffff;}"
-            "QToolButton#choiceButton{min-height:21px;padding:0 5px;background:#1d1a3a;border:none;border-radius:7px;"
-            "color:#ddd8ff;font-size:11px;font-weight:600;}"
-            "QToolButton#choiceButton:hover{background:#2e2860;}"
-            "QToolButton#choiceButton:checked{background:#8b7cf6;color:#0f0c24;}"
+            "#controlSurface{background:#fffdfb;border:1.5px solid #c4b5fd;border-radius:14px;}"
+            "#panelTitle{color:#2a1b3d;font-size:15px;font-weight:700;}"
+            "#stateLabel{padding:1px 7px;background:#ede9fe;border-radius:8px;color:#6d28d9;font-size:10px;font-weight:600;}"
+            "QLabel#compactLabel,QLabel#inlineLabel{color:#7c5cd6;font-size:10px;font-weight:700;}"
+            "QFrame#divider{background:#e9e3fb;min-height:1px;max-height:1px;}"
+            "QToolButton#quickButton{min-height:23px;padding:0 4px;background:#f5f3ff;border:1px solid #dfd6fe;border-radius:8px;"
+            "color:#3b2761;font-size:11px;font-weight:600;}"
+            "QToolButton#quickButton:hover{background:#ede9fe;border-color:#c4b5fd;color:#2a1b3d;}"
+            "QToolButton#choiceButton{min-height:21px;padding:0 5px;background:#faf8ff;border:1px solid #e5ddfe;border-radius:7px;"
+            "color:#4c3b73;font-size:11px;font-weight:600;}"
+            "QToolButton#choiceButton:hover{background:#ede9fe;}"
+            "QToolButton#choiceButton:checked{background:#8b5cf6;border-color:#7c3aed;color:#ffffff;}"
             "QToolButton#moreButton,QToolButton#closeButton{min-height:22px;padding:0 8px;background:transparent;border:none;"
-            "border-radius:7px;color:#bdb5ee;font-size:11px;font-weight:600;}"
-            "QToolButton#moreButton:hover,QToolButton#closeButton:hover{background:#2a2550;color:#f7fcff;}"
-            "QCheckBox{min-height:16px;padding:0px;color:#e4e0ff;font-size:11px;spacing:5px;}"
-            "QCheckBox::indicator{width:24px;height:13px;border-radius:6px;background:#2e2a55;}"
-            "QCheckBox::indicator:checked{background:#8b7cf6;}"
+            "border-radius:7px;color:#6b5b95;font-size:11px;font-weight:600;}"
+            "QToolButton#moreButton:hover,QToolButton#closeButton:hover{background:#ede9fe;color:#2a1b3d;}"
+            "QCheckBox{min-height:16px;padding:0px;color:#3b2761;font-size:11px;spacing:5px;}"
+            "QCheckBox::indicator{width:24px;height:13px;border-radius:6px;background:#e5ddfe;}"
+            "QCheckBox::indicator:checked{background:#8b5cf6;}"
             "QPushButton#utilityButton,QPushButton#dangerButton{min-height:23px;padding:0 7px;border:none;border-radius:7px;"
             "font-size:11px;font-weight:600;}"
-            "QPushButton#utilityButton{background:#e9e5ff;color:#1d1a3a;}"
-            "QPushButton#utilityButton:hover{background:#ffffff;}"
-            "QPushButton#dangerButton{background:#874457;color:#fff5f6;}"
-            "QPushButton#dangerButton:hover{background:#aa566c;}"
+            "QPushButton#utilityButton{background:#ede9fe;color:#4c1d95;}"
+            "QPushButton#utilityButton:hover{background:#ddd6fe;}"
+            "QPushButton#dangerButton{background:#ffe4e6;color:#be123c;}"
+            "QPushButton#dangerButton:hover{background:#fecdd3;}"
         )
 
     @staticmethod
@@ -443,6 +449,7 @@ class PetControlPanel(QWidget):
         form: str | None = None,
         follow_model: bool | None = None,
         hud_enabled: bool | None = None,
+        hud_hover_only: bool | None = None,
         autonomy: bool | None = None,
     ) -> None:
         if autonomy is not None:
@@ -453,6 +460,8 @@ class PetControlPanel(QWidget):
             self.follow_model.setChecked(follow_model)
         if hud_enabled is not None:
             self.hud.setChecked(hud_enabled)
+        if hud_hover_only is not None:
+            self.hud_hover_only.setChecked(hud_hover_only)
         if mode in self._mode_buttons:
             self._mode_buttons[mode].setChecked(True)
         closest_size = min(self._size_buttons, key=lambda value: abs(value - size))
@@ -544,6 +553,13 @@ class PetControlPanel(QWidget):
 
         self.move(min(candidates, key=overlap))
         self.move(self._clamp(self.pos(), area))
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key.Key_Escape:
+            self.hide()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def _clamp(self, point: QPoint, area: QRect) -> QPoint:
         return QPoint(

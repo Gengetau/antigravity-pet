@@ -189,7 +189,11 @@ class AssetRegistry:
     @staticmethod
     def _should_mirror(asset_id: str, direction: str) -> bool:
         # Directional walking art is authored separately so asymmetric hair,
-        # bow and apron details never jump sides.
+        # bow and apron details never jump sides. Interplay poses (high_five /
+        # gift_toss) are drawn facing three-quarter right, so mirror when
+        # facing a clone on the host's left side.
+        if asset_id in {"high_five", "gift_toss"} and direction == "left":
+            return True
         return False
 
     @staticmethod

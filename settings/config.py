@@ -38,6 +38,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "expressions": True,
         "hover_pause": True,
         "desktop_surfaces": True,
+        "follow_cursor": True,
     },
     "updates": {
         "enabled": False,
@@ -56,6 +57,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "particles": True,
         "edge_dock": True,
         "hud_enabled": True,
+        "hud_hover_only": False,
         "hud_mode": "attached",
         "hud_appearance": "dialog",
         "hud_locked": False,

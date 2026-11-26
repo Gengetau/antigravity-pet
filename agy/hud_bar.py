@@ -29,10 +29,10 @@ from .telemetry import LiveSnapshot, format_reset_countdown, format_tokens
 
 TAIL = 9  # height of the dialog tail that points at the pet
 APPEARANCES = {
-    "dialog": ("对话框（指向桌宠的气泡卡片）", ""),
-    "capsule": ("暗色胶囊", "background:rgba(21,23,28,240);border:1px solid rgba(255,255,255,44);"),
+    "dialog": ("对话框（指向桌宠的漫画卡片）", ""),
+    "capsule": ("暗紫星夜胶囊", "background:rgba(32,24,58,238);border:1px solid rgba(167,139,250,145);"),
     "seamless": ("无边框融合（透明底）", "background:rgba(15,23,42,136);border:1px solid rgba(255,255,255,28);"),
-    "glass": ("轻透毛玻璃", "background:rgba(20,22,27,184);border:1px solid rgba(255,255,255,56);"),
+    "glass": ("轻透紫雾毛玻璃", "background:rgba(32,24,58,192);border:1px solid rgba(196,181,253,115);"),
 }
 SOURCE_NAMES = {
     "ls": "语言服务实时",
@@ -81,6 +81,7 @@ class QuotaBar(QWidget):
 
 class HudBar(QWidget):
     settings_changed = Signal()
+    hover_changed = Signal(bool)
 
     def __init__(
         self,
@@ -106,6 +107,7 @@ class HudBar(QWidget):
         self._drag_from: QPoint | None = None
         self._conversations: list[tuple[str, str]] = []
         self._pet_rect: QRect | None = None
+        self.hovered: bool = False
 
         self._tail_dir: str | None = None  # "down" (HUD above pet), "up" (below) or None
         self._outer = QVBoxLayout(self)
@@ -252,8 +254,8 @@ class HudBar(QWidget):
             tail = QPainterPath()
             tail.addPolygon(QPolygonF([QPointF(tip_x - 8, base_y), QPointF(tip_x + 8, base_y), QPointF(tip_x, tip_y)]))
             path = path.united(tail)
-        painter.setPen(QPen(QColor(18, 57, 91, 60), 1))
-        painter.setBrush(QColor(250, 253, 255, 248))
+        painter.setPen(QPen(QColor("#a78bfa"), 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setBrush(QColor(255, 253, 251, 252))
         painter.drawPath(path)
 
     def apply_appearance(self) -> None:
@@ -413,9 +415,10 @@ class HudBar(QWidget):
         else:
             top = sprite_top if sprite_top is not None else pet_rect.top()
             y = top - self.height() - 2
-            if y < area.top():
-                side_left = pet_rect.left() - self.width() - 6
-                side_right = pet_rect.right() + 6
+            would_overlap = QRect(x, y, self.width(), self.height()).intersects(pet_rect)
+            if y < area.top() or would_overlap:
+                side_left = pet_rect.left() - self.width() - 8
+                side_right = pet_rect.right() + 8
                 if side_left >= area.left() or side_right + self.width() - 1 <= area.right():
                     self._tail_dir = None
                     self._sync_tail_margins()
@@ -454,6 +457,20 @@ class HudBar(QWidget):
             self.settings["hud_x"], self.settings["hud_y"] = self.x(), self.y()
             self.settings_changed.emit()
 
+    def enterEvent(self, event) -> None:
+        self.hovered = True
+        self.hover_changed.emit(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.hovered = False
+        self.hover_changed.emit(False)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event) -> None:
+        self.hovered = False
+        super().hideEvent(event)
+
     def mouseDoubleClickEvent(self, _event: QMouseEvent) -> None:
         self._on_open_meter()
 
@@ -469,6 +486,8 @@ class HudBar(QWidget):
 
         toggle("跟随桌宠", self.attached, lambda: self._set_mode("attached"))
         toggle("独立悬浮（可拖到输入框旁）", not self.attached, lambda: self._set_mode("floating"))
+        if self.attached:
+            toggle("悬停桌宠时显示（平时隐藏）", bool(self.settings.get("hud_hover_only", False)), self._toggle_hover_only)
         menu.addSeparator()
         pinned = self.settings.get("pinned_conversation", "")
         toggle("自动跟随最新活跃对话", not pinned, lambda: self._on_pin(""))
@@ -515,4 +534,9 @@ class HudBar(QWidget):
     def _toggle_lock(self) -> None:
         self.settings["hud_locked"] = not bool(self.settings.get("hud_locked"))
         self.apply_appearance()
+        self.settings_changed.emit()
+
+    def _toggle_hover_only(self) -> None:
+        self.settings["hud_hover_only"] = not bool(self.settings.get("hud_hover_only", False))
+        self.settings_changed.emit()
         self.settings_changed.emit()

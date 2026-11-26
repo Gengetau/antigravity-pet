@@ -148,6 +148,7 @@ class PetWindow(QWidget):
         self.rng = random.Random()
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowTitle("AGY 桌宠")
+        self.setMouseTracking(True)
 
         self.current_height = self._height_for_size(
             self._normalized_size(config.get("size", 0.7))
@@ -224,6 +225,16 @@ class PetWindow(QWidget):
         self._caught_throw = False
         self._pending_click_region = "body"
         self._hovered = False
+        self._hovered_since = 0.0
+        self._stash_flash_until = 0.0
+        self._next_sleep_z_at = 0.0
+        self._rub_distance = 0.0
+        self._rub_last_pos: QPoint | None = None
+        self._rub_last_at = 0.0
+        self._rub_cooldown_until = 0.0
+        self._shake_flips = 0
+        self._shake_sign = 0
+        self._shake_clock = 0.0
         self._recent_pokes: deque[float] = deque(maxlen=8)
         self._recent_feedings: deque[float] = deque(maxlen=6)
 
@@ -273,6 +284,8 @@ class PetWindow(QWidget):
             on_follow_model=self.set_follow_model,
             on_open_meter=self.open_token_meter,
             on_hud=self.set_hud_enabled,
+            on_hud_hover_only=self.set_hud_hover_only,
+            on_playmates=lambda: self.summon_idle_playmates(count=2),
             on_autonomy=self.set_autonomy,
             on_dock=self._toggle_edge_dock,
             on_perch=lambda: self._preview_action("EDGE_SIT"),
@@ -647,6 +660,7 @@ class PetWindow(QWidget):
             form=self.form_id,
             follow_model=bool(self._agy().get("follow_model", False)),
             hud_enabled=bool(self._agy().get("hud_enabled", True)),
+            hud_hover_only=bool(self._agy().get("hud_hover_only", False)),
             autonomy=bool(self._agy().get("autonomy", True)),
         )
 
@@ -731,6 +745,15 @@ class PetWindow(QWidget):
             frame_rate_scale = max(0.55, min(1.8, actual_speed / BASELINE_WALK_SPEED))
         self.player.tick(delta_seconds, frame_rate_scale=frame_rate_scale)
         self.particles.update(delta_seconds)
+        self.renderer.tick_visuals(delta_seconds)
+        self._sync_fish_stash(now)
+        if (
+            self.action_machine.current in _SLEEP_ACTIONS
+            and not self.renderer.reduced_motion
+            and now >= self._next_sleep_z_at
+        ):
+            self.emit_particles("sleep_z")
+            self._next_sleep_z_at = now + 1.45
         change = self.action_machine.update(
             now=now,
             hold_duration=self.player.in_exit_transition,
@@ -895,6 +918,10 @@ class PetWindow(QWidget):
             bounds=self._physics_bounds(delta_seconds),
         )
         self.move(round(step.x), round(step.y))
+        if step.wall_bounce_speed >= 320.0:
+            self.emit_particles("dust")
+            if step.wall_bounce_speed >= 520.0:
+                self.emit_particles("sweat")
         if not step.settled:
             if (
                 self._intentional_jump
@@ -1095,6 +1122,7 @@ class PetWindow(QWidget):
             appeared_at=now,
             inner=inner,
             state_name=STATE_NAMES.get(self.action_machine.current, ""),
+            is_ai=(not inner and text.lstrip().startswith("✦")),
         )
         self.update()
         return True
@@ -1209,6 +1237,9 @@ class PetWindow(QWidget):
         self._drag_offset = None
         self._long_press_handled = False
         self._purring = False
+        self._shake_flips = 0
+        self._shake_sign = 0
+        self._shake_clock = 0.0
         body_left, body_top, body_width, body_height = self._local_sprite_bounds()
         self.interaction.press(
             position,
@@ -1222,10 +1253,66 @@ class PetWindow(QWidget):
         if self.interaction.body_region in {"head", "face"}:
             self._hold_timer.start(620)
 
-    def mouseMoveEvent(self, event) -> None:
-        if not event.buttons() & Qt.MouseButton.LeftButton:
+    def _on_head_rub(self, now: float) -> None:
+        """Gentle mouse back-and-forth rub over the head triggers purring and forgives sulking."""
+        if (
+            self.physics.active
+            or self.climb.active
+            or self._dock_side is not None
+            or self.action_machine.current in {PetAction.DRAGGING, PetAction.FALLING, PetAction.DIZZY}
+        ):
             return
+        self._rub_cooldown_until = now + 2.2
+        was_sulking = now < self._sulk_until or self.action_machine.current == PetAction.SULK
+        if was_sulking:
+            self._sulk_until = 0.0
+            self._recent_pokes.clear()
+        self.pet_state.pet_head()
+        self.pet_state.annoyance = max(0.0, self.pet_state.annoyance - 0.22)
+        if hasattr(self, "expressions"):
+            self.expressions.cue("happy", now)
+        self.emit_particles("hearts")
+        self._request_action(
+            PetAction.PET_PURR,
+            now=now,
+            reason="head_rub_forgive" if was_sulking else "head_rub",
+            force=True,
+            immediate=True,
+        )
+        if was_sulking:
+            self.say("哼……摸头就算原谅你啦～", preserve_action=True)
+        elif not self.bubble.visible:
+            line = self.dialogue.pick_interaction("head_pat", personality=self._personality())
+            if line:
+                self.say(line, preserve_action=True)
+
+    def mouseMoveEvent(self, event) -> None:
         position = event.globalPosition().toPoint()
+        if not event.buttons() & Qt.MouseButton.LeftButton:
+            # Mouse-rub petting over head/face without needing to hold click.
+            body_left, body_top, body_width, body_height = self._local_sprite_bounds()
+            lx, ly = float(event.position().x()), float(event.position().y())
+            in_head = (
+                body_left <= lx <= body_left + body_width
+                and body_top <= ly <= body_top + body_height * 0.46
+            )
+            now = time.monotonic()
+            if in_head and not self.interaction.active:
+                if self._rub_last_pos is None or now - self._rub_last_at > 0.45:
+                    self._rub_distance = 0.0
+                else:
+                    dx = float(position.x() - self._rub_last_pos.x())
+                    dy = float(position.y() - self._rub_last_pos.y())
+                    self._rub_distance += math.hypot(dx, dy)
+                self._rub_last_pos = position
+                self._rub_last_at = now
+                if self._rub_distance >= 220.0 and now >= self._rub_cooldown_until:
+                    self._rub_distance = 0.0
+                    self._on_head_rub(now)
+            else:
+                self._rub_distance = 0.0
+                self._rub_last_pos = None
+            return
         if not self.interaction.move(position):
             return
         if self._drag_offset is None:
@@ -1253,8 +1340,19 @@ class PetWindow(QWidget):
         self.move(position - self._drag_offset)
         if self._drag_last_pos is not None:
             delta = position - self._drag_last_pos
+            now = time.monotonic()
             if abs(delta.x()) > 10:
                 self._set_direction("left" if delta.x() < 0 else "right")
+            if abs(delta.x()) >= 14:
+                sign = -1 if delta.x() < 0 else 1
+                if now - self._shake_clock > 0.55:
+                    self._shake_flips = 0
+                if self._shake_sign and sign != self._shake_sign:
+                    self._shake_flips += 1
+                    self._shake_clock = now
+                elif not self._shake_sign:
+                    self._shake_clock = now
+                self._shake_sign = sign
         self._drag_last_pos = position
         self.update()
 
@@ -1272,10 +1370,19 @@ class PetWindow(QWidget):
         if outcome is None:
             return
         if outcome.kind == "drag":
+            shaken = self._shake_flips >= 4
+            self._shake_flips = 0
+            self._shake_sign = 0
             self.pet_state.drag()
             throw_speed = (
                 outcome.velocity_x * outcome.velocity_x + outcome.velocity_y * outcome.velocity_y
             ) ** 0.5
+            if shaken:
+                self._launch_throw(outcome.velocity_x * 0.25, outcome.velocity_y * 0.25, reason="shaken_release")
+                self._request_action(PetAction.DIZZY, reason="shaken_dizzy", force=True, immediate=True)
+                self.emit_particles("sweat")
+                self.say("呜哇别晃了，转圈圈头好晕……", preserve_action=True)
+                return
             if bool(self._agy().get("edge_dock", True)):
                 edge = self._near_screen_edge(threshold=12)
                 if edge is not None and throw_speed < 650.0:
@@ -1923,18 +2030,24 @@ class PetWindow(QWidget):
 
     def enterEvent(self, event) -> None:
         self._hovered = True
+        self._hovered_since = time.monotonic()
         if self._dock_side is not None:
             self._dock_peeking = True
             self._dock_leave_at = 0.0
             self._refresh_control_panel()
         elif bool(self.config.section("comfort").get("hover_pause", True)):
             self._interrupt_activity(delay_seconds=5.0)
+        self._sync_hud_visibility()
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
         self._hovered = False
+        self._hovered_since = 0.0
+        self._rub_distance = 0.0
+        self._rub_last_pos = None
         if self._dock_side is not None:
             self._dock_leave_at = time.monotonic() + 0.55
+        self._sync_hud_visibility()
         super().leaveEvent(event)
 
     def set_passthrough(self, enabled: bool) -> None:
@@ -2166,7 +2279,8 @@ class PetWindow(QWidget):
             on_pin=self._pin_conversation,
             on_hide=lambda: self.set_hud_enabled(False),
         )
-        self.hud_bar.settings_changed.connect(self.config.save)
+        self.hud_bar.settings_changed.connect(self._on_hud_settings_changed)
+        self.hud_bar.hover_changed.connect(lambda _h: self._sync_hud_visibility())
         self.token_meter = TokenMeterWindow(
             on_request_report=self.telemetry.request_report,
             on_toggle_subagents=self._set_include_subagents,
@@ -2238,16 +2352,50 @@ class PetWindow(QWidget):
         self.token_meter.raise_()
         self.token_meter.activateWindow()
 
+    def _on_hud_settings_changed(self) -> None:
+        self.config.save()
+        self._sync_hud_visibility()
+        self._refresh_control_panel()
+
     def set_hud_enabled(self, enabled: bool) -> None:
         self._agy_set("hud_enabled", bool(enabled))
         self._sync_hud_visibility()
         self._refresh_control_panel()
 
-    def _sync_hud_visibility(self) -> None:
+    def set_hud_hover_only(self, enabled: bool) -> None:
+        if enabled and hasattr(self, "hud_bar"):
+            self.hud_bar.hovered = False
+        self._agy_set("hud_hover_only", bool(enabled))
+        self._sync_hud_visibility()
+        self._refresh_control_panel()
+
+    def _want_hud_visible(self) -> bool:
         settings = self._agy()
-        want = bool(settings.get("hud_enabled", True)) and (
-            settings.get("hud_mode") == "floating" or self.isVisible()
+        if not bool(settings.get("hud_enabled", True)):
+            return False
+        if settings.get("hud_mode") == "floating":
+            return True
+        if not self.isVisible():
+            return False
+        if bool(settings.get("hud_hover_only", False)):
+            return bool(self._hovered or getattr(self.hud_bar, "hovered", False))
+        return True
+
+    def _sync_fish_stash(self, now: float) -> None:
+        snap = self.telemetry.last_snapshot if hasattr(self, "telemetry") else None
+        pct = getattr(snap, "quota_remaining_pct", None) if snap is not None else None
+        if pct is None or self._dock_side is not None:
+            self.renderer.set_fish_stash(level=None, show=False)
+            return
+        show = bool(self._hovered or float(pct) <= 25.0 or now < self._stash_flash_until)
+        self.renderer.set_fish_stash(
+            level=max(0.0, min(1.0, float(pct) / 100.0)),
+            label=f"{int(round(float(pct)))}%",
+            show=show,
         )
+
+    def _sync_hud_visibility(self) -> None:
+        want = self._want_hud_visible()
         if want and not self.hud_bar.isVisible():
             self.hud_bar.show()
             self._hud_anchor = None
@@ -2932,10 +3080,7 @@ class PetWindow(QWidget):
     def _follow_hud(self) -> None:
         if not hasattr(self, "hud_bar"):
             return
-        if self.hud_bar.isVisible() != (
-            bool(self._agy().get("hud_enabled", True))
-            and (self._agy().get("hud_mode") == "floating" or self.isVisible())
-        ):
+        if self.hud_bar.isVisible() != self._want_hud_visible():
             self._sync_hud_visibility()
         if not self.hud_bar.isVisible() or not self.hud_bar.attached:
             return
@@ -3218,6 +3363,7 @@ class PetWindow(QWidget):
                 self.emit_particles("confetti")
                 self.emit_particles("hearts")
                 if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
                     self._request_action(PetAction.HIGH_FIVE, now=now, reason="subagent_high_five", force=True)
                     key = "playmate_high_five" if playmate else "subagent_high_five"
                     fb = "和 {name} 击掌贴贴！摸鱼搭子满分～" if playmate else "和 {name} 击掌成功！合作无间～"
@@ -3236,6 +3382,7 @@ class PetWindow(QWidget):
                 if can_emote and now - self._last_clone_banter_at >= min_gap:
                     self._last_clone_banter_at = now
                     if playmate and not self.surface_tracker.attached:
+                        self._set_direction("left" if event.side < 0 else "right")
                         self._request_action(PetAction.GIFT_TOSS, now=now, reason="playmate_toss_back", force=True)
                     key = "playmate_relay" if playmate else "subagent_relay"
                     fb = "接住啦 {name}！我也回你一颗星星～" if playmate else "收到 {name} 传来的线索啦～"
@@ -3289,6 +3436,9 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.coerce(action_name), reason=f"agy_{reaction.kind}")
                 except ValueError:
                     pass
+            if reaction.kind in {"quota_refilled", "quota_reset_soon", "quota_low", "quota_critical"}:
+                self._stash_flash_until = time.monotonic() + 5.5
+                self._sync_fish_stash(time.monotonic())
             particle = getattr(reaction, "particle", None)
             if particle:
                 self.emit_particles(particle)

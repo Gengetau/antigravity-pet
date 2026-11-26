@@ -49,6 +49,7 @@ class PhysicsStep:
     hard_landing: bool = False
     impact_speed: float = 0.0
     landed_surface_id: str | None = None
+    wall_bounce_speed: float = 0.0
 
 
 class ThrowPhysics:
@@ -149,6 +150,7 @@ class ThrowPhysics:
         min_x, max_x, min_y, max_y = bounds.position_limits(width, height)
         first_impact = False
         settled = False
+        wall_bounce_speed = 0.0
 
         # Small substeps prevent a fast throw from tunnelling through a monitor
         # edge when the timer is briefly delayed by other desktop work.
@@ -164,15 +166,18 @@ class ThrowPhysics:
             if self.x < min_x:
                 self.x = min_x
                 if self.velocity_x < 0.0:
+                    wall_bounce_speed = max(wall_bounce_speed, abs(self.velocity_x))
                     self.velocity_x = -self.velocity_x * self.wall_restitution
             elif self.x > max_x:
                 self.x = max_x
                 if self.velocity_x > 0.0:
+                    wall_bounce_speed = max(wall_bounce_speed, abs(self.velocity_x))
                     self.velocity_x = -self.velocity_x * self.wall_restitution
 
             if self.y < min_y:
                 self.y = min_y
                 if self.velocity_y < 0.0:
+                    wall_bounce_speed = max(wall_bounce_speed, abs(self.velocity_y))
                     self.velocity_y = -self.velocity_y * self.ceiling_restitution
 
             platform = self._crossed_platform(
@@ -231,6 +236,7 @@ class ThrowPhysics:
             hard_landing=self._hard_landing,
             impact_speed=self._largest_impact,
             landed_surface_id=self._landing_surface_id,
+            wall_bounce_speed=wall_bounce_speed,
         )
 
     @staticmethod
