@@ -57,6 +57,7 @@ class PetControlPanel(QWidget):
         on_hud: Callable[[bool], None] | None = None,
         on_hud_hover_only: Callable[[bool], None] | None = None,
         on_playmates: Callable[[], None] | None = None,
+        on_follow_cursor: Callable[[bool], None] | None = None,
         on_autonomy: Callable[[bool], None] | None = None,
         on_dock: Callable[[], None] | None = None,
         on_perch: Callable[[], None] | None = None,
@@ -311,6 +312,7 @@ class PetControlPanel(QWidget):
         self.passthrough = self._toggle("鼠标穿透", on_passthrough)
         self.autostart = self._toggle("开机自启", on_autostart)
         self.reduced_motion = self._toggle("减少动态", on_reduced_motion)
+        self.follow_cursor = self._toggle("目光跟随", on_follow_cursor or (lambda _enabled: None))
         self.hover_pause = self._toggle("悬停暂停", on_hover_pause)
         self.desktop_surfaces = self._toggle("窗口落脚", on_desktop_surfaces)
         toggle_grid = QGridLayout()
@@ -326,6 +328,7 @@ class PetControlPanel(QWidget):
                 self.passthrough,
                 self.autostart,
                 self.reduced_motion,
+                self.follow_cursor,
                 self.hover_pause,
                 self.desktop_surfaces,
             )
@@ -450,6 +453,7 @@ class PetControlPanel(QWidget):
         follow_model: bool | None = None,
         hud_enabled: bool | None = None,
         hud_hover_only: bool | None = None,
+        follow_cursor: bool | None = None,
         autonomy: bool | None = None,
     ) -> None:
         if autonomy is not None:
@@ -462,6 +466,8 @@ class PetControlPanel(QWidget):
             self.hud.setChecked(hud_enabled)
         if hud_hover_only is not None:
             self.hud_hover_only.setChecked(hud_hover_only)
+        if follow_cursor is not None:
+            self.follow_cursor.setChecked(follow_cursor)
         if mode in self._mode_buttons:
             self._mode_buttons[mode].setChecked(True)
         closest_size = min(self._size_buttons, key=lambda value: abs(value - size))

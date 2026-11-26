@@ -13,7 +13,7 @@ from collections import deque
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QRect, QTimer, Qt
-from PySide6.QtGui import QColor, QIcon, QImage
+from PySide6.QtGui import QColor, QCursor, QIcon, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QMenu,
@@ -38,6 +38,7 @@ from animation.asset_registry import BESPOKE_DOCK_ASSETS, DOCK_LEFT_ASSETS, EDGE
 from animation.expressions import CALM, ExpressionDirector, ExpressionInput
 from animation.clip import PetAction
 from animation.player import AnimationPlayer
+from animation.soft_rig import SoftRigController
 from animation.state_machine import ActionStateMachine, StateChange
 from behavior.activity_director import (
     ActivityCommand,
@@ -184,6 +185,9 @@ class PetWindow(QWidget):
         self.renderer = PetRenderer(BUBBLE_HEIGHT, MARGIN)
         self.renderer.set_reduced_motion(bool(comfort.get("reduced_motion", False)))
         self.renderer.set_motion_scale(float(comfort.get("motion_scale", 0.4)))
+        self.soft_rig = SoftRigController(rng=self.rng)
+        self.soft_rig.follow_cursor = bool(comfort.get("follow_cursor", True))
+        self._rig_last_pos: tuple[float, float] | None = None
         self.particles = ParticleSystem(self.rng)
         self.particles.enabled = bool(self._agy().get("particles", True))
         self.particles.reduced_motion = bool(comfort.get("reduced_motion", False))
@@ -286,6 +290,7 @@ class PetWindow(QWidget):
             on_hud=self.set_hud_enabled,
             on_hud_hover_only=self.set_hud_hover_only,
             on_playmates=lambda: self.summon_idle_playmates(count=2),
+            on_follow_cursor=self.set_follow_cursor,
             on_autonomy=self.set_autonomy,
             on_dock=self._toggle_edge_dock,
             on_perch=lambda: self._preview_action("EDGE_SIT"),
@@ -491,6 +496,8 @@ class PetWindow(QWidget):
             dock_pose=dock_pose,
             visible_x_range=vis_x,
             clip_rect=clip_rect,
+            rig_params=self.soft_rig.params if hasattr(self, "soft_rig") else None,
+            form_id=self.form_id,
         )
 
     _EXPRESSION_CUES = {
@@ -588,6 +595,8 @@ class PetWindow(QWidget):
             direction=direction,
         )
         self.player.play(program, crossfade=crossfade, immediate=immediate)
+        if hasattr(self, "soft_rig") and not immediate:
+            self.soft_rig.trigger("pop")
         if self._dock_side is not None:
             target_x = self._dock_target_x(self._dock_side, peek=self._dock_peek_progress)
             if target_x != self.x():
@@ -661,6 +670,7 @@ class PetWindow(QWidget):
             follow_model=bool(self._agy().get("follow_model", False)),
             hud_enabled=bool(self._agy().get("hud_enabled", True)),
             hud_hover_only=bool(self._agy().get("hud_hover_only", False)),
+            follow_cursor=bool(comfort.get("follow_cursor", True)),
             autonomy=bool(self._agy().get("autonomy", True)),
         )
 
@@ -746,6 +756,7 @@ class PetWindow(QWidget):
         self.player.tick(delta_seconds, frame_rate_scale=frame_rate_scale)
         self.particles.update(delta_seconds)
         self.renderer.tick_visuals(delta_seconds)
+        self._tick_soft_rig(delta_seconds)
         self._sync_fish_stash(now)
         if (
             self.action_machine.current in _SLEEP_ACTIONS
@@ -920,6 +931,8 @@ class PetWindow(QWidget):
         self.move(round(step.x), round(step.y))
         if step.wall_bounce_speed >= 320.0:
             self.emit_particles("dust")
+            if hasattr(self, "soft_rig"):
+                self.soft_rig.trigger("squish")
             if step.wall_bounce_speed >= 520.0:
                 self.emit_particles("sweat")
         if not step.settled:
@@ -972,6 +985,8 @@ class PetWindow(QWidget):
             immediate=True,
         ) and hard:
             self.action_machine.queue_after_current(PetAction.DIZZY)
+        if hasattr(self, "soft_rig"):
+            self.soft_rig.trigger("squish")
         if surface_id and self._perch_after_landing:
             self.action_machine.queue_after_current(PetAction.PERCH)
         self._perch_after_landing = False
@@ -1124,6 +1139,8 @@ class PetWindow(QWidget):
             state_name=STATE_NAMES.get(self.action_machine.current, ""),
             is_ai=(not inner and text.lstrip().startswith("✦")),
         )
+        if hasattr(self, "soft_rig"):
+            self.soft_rig.trigger("nod")
         self.update()
         return True
 
@@ -1783,6 +1800,43 @@ class PetWindow(QWidget):
     def set_hover_pause(self, enabled: bool) -> None:
         self.config.set_nested("comfort", "hover_pause", bool(enabled))
         self._refresh_control_panel()
+
+    def set_follow_cursor(self, enabled: bool) -> None:
+        flag = bool(enabled)
+        self.config.set_nested("comfort", "follow_cursor", flag)
+        if hasattr(self, "soft_rig"):
+            self.soft_rig.follow_cursor = flag
+        self._refresh_control_panel()
+
+    def _tick_soft_rig(self, delta_seconds: float) -> None:
+        if not hasattr(self, "soft_rig"):
+            return
+        cur_x, cur_y = float(self.x()), float(self.y())
+        if self._rig_last_pos is None:
+            vx, vy = 0.0, 0.0
+        else:
+            vx = (cur_x - self._rig_last_pos[0]) / max(0.004, delta_seconds)
+            vy = (cur_y - self._rig_last_pos[1]) / max(0.004, delta_seconds)
+        self._rig_last_pos = (cur_x, cur_y)
+
+        head_x = cur_x + self.width() * 0.5
+        head_y = cur_y + BUBBLE_HEIGHT + MARGIN + self.current_height * 0.28
+        cursor = QCursor.pos()
+        snap = self.telemetry.last_snapshot if hasattr(self, "telemetry") else None
+        pct = getattr(snap, "quota_remaining_pct", None) if snap is not None else None
+        self.soft_rig.step(
+            delta_seconds,
+            vx=vx,
+            vy=vy,
+            cursor_dx=float(cursor.x()) - head_x,
+            cursor_dy=float(cursor.y()) - head_y,
+            cursor_active=True,
+            action_name=self.action_machine.current.value,
+            quota_pct=pct,
+            is_working=self._is_agy_actively_working(),
+            docked=self._dock_side is not None,
+            reduced_motion=self.renderer.reduced_motion,
+        )
 
     def set_desktop_surfaces(self, enabled: bool) -> None:
         dropped = self.surface_tracker.set_enabled(bool(enabled))

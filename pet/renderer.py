@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, Q
 
 from animation.effects import EffectPose, pose_for, scaled
 from animation.player import PlayerSnapshot, RenderLayer
+from animation.soft_rig import RigParams, SoftRigDeformer
 from pet.particles import draw_fish_stash
 
 # Poses that hang off a wall or a window edge rather than stand on a floor.
@@ -99,6 +100,8 @@ class PetRenderer:
         self._stash_level = 1.0
         self._stash_label = ""
         self._visual_clock = 0.0
+        self.soft_rig_enabled = True
+        self._deformer = SoftRigDeformer()
 
     def set_motion_scale(self, amount: float) -> None:
         self.motion_scale = max(0.0, min(1.5, float(amount)))
@@ -137,6 +140,8 @@ class PetRenderer:
         dock_pose: tuple[str, float] | None = None,
         visible_x_range: tuple[float, float] | None = None,
         clip_rect: QRect | None = None,
+        rig_params: RigParams | None = None,
+        form_id: str = "carbon",
     ) -> None:
         painter = QPainter(widget)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -228,6 +233,8 @@ class PetRenderer:
                 pose,
                 snapshot.previous_opacity,
                 docked=dock_pose is not None,
+                rig_params=rig_params,
+                form_id=form_id,
             )
         self._draw_layer(
             painter,
@@ -236,6 +243,8 @@ class PetRenderer:
             pose,
             snapshot.current_opacity,
             docked=dock_pose is not None,
+            rig_params=rig_params,
+            form_id=form_id,
         )
 
         # Floating ceramic bowl of dried fish (小鱼干碗) beside her shoulder
@@ -293,6 +302,8 @@ class PetRenderer:
         opacity: float,
         *,
         docked: bool = False,
+        rig_params: RigParams | None = None,
+        form_id: str = "carbon",
     ) -> None:
         pixmap = layer.frame.pixmap
         if pixmap.isNull() or opacity <= 0:
@@ -308,6 +319,7 @@ class PetRenderer:
                 under = None
         anchor_x = pixmap.width() * layer.anchor.x
         anchor_y = pixmap.height() * layer.anchor.y
+        use_rig = self.soft_rig_enabled and not self.reduced_motion and rig_params is not None
         painter.save()
         painter.setOpacity(max(0.0, min(1.0, opacity)))
         offset_y = pose.offset_y
@@ -325,9 +337,21 @@ class PetRenderer:
         if under is not None:
             # Same pose, different face: lay the old face fully, the new one
             # over it, so the body never turns see-through mid-fade.
-            painter.drawPixmap(0, 0, under)
+            if use_rig:
+                u_img, u_px, u_py = self._deformer.deform(
+                    under, rig_params, form_id=form_id, asset_id=layer.asset_id, mirrored=layer.mirrored
+                )
+                painter.drawImage(QPointF(-u_px, -u_py), u_img)
+            else:
+                painter.drawPixmap(0, 0, under)
             painter.setOpacity(max(0.0, min(1.0, opacity)) * self.expression[3])
-        painter.drawPixmap(0, 0, pixmap)
+        if use_rig:
+            img, pad_x, pad_top = self._deformer.deform(
+                pixmap, rig_params, form_id=form_id, asset_id=layer.asset_id, mirrored=layer.mirrored
+            )
+            painter.drawImage(QPointF(-pad_x, -pad_top), img)
+        else:
+            painter.drawPixmap(0, 0, pixmap)
         painter.restore()
 
     def _draw_shadow(
