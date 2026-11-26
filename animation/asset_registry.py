@@ -139,6 +139,7 @@ class AssetRegistry:
         frames, selected_size = self._frames_for(asset_id, height)
         resolved_asset = self.resolve_asset_id(asset_id)
         frame_duration = self._frame_duration_ms(spec, len(frames), resolved_asset)
+        effect = resolved_asset if resolved_asset in TOOL_WORK_ASSETS.values() else spec.effect
         return AnimationClip(
             action=action,
             asset_id=resolved_asset,
@@ -147,7 +148,7 @@ class AssetRegistry:
             duration_ms=spec.duration_ms,
             frame_duration_ms=frame_duration,
             anchor=spec.anchor,
-            effect=spec.effect,
+            effect=effect,
             quality=spec.quality,
             requires_real_frames=spec.requires_real_frames,
             # Left and right locomotion art is authored independently.
@@ -313,13 +314,21 @@ class AssetRegistry:
     @staticmethod
     def _frame_duration_ms(spec: ActionSpec, frame_count: int, asset_id: str = "") -> int:
         if frame_count <= 0:
-            return 120
+            return 145
         if asset_id in {"dock_peek", "dock_peek_right"}:
-            return 200
+            return 270
         if asset_id in {"dock_work", "dock_work_right"}:
-            return 220
+            return 300
+        if asset_id == "work_reading":
+            return 640
+        if asset_id == "work_searching":
+            return 580
+        if asset_id == "work_drawing":
+            return 480
+        if asset_id == "work_compacting":
+            return 380
         if spec.frame_ms is not None and frame_count > 1:
             return max(60, spec.frame_ms)
         if spec.duration_ms is not None:
             return max(70, spec.duration_ms // frame_count)
-        return 120 if spec.action == PetAction.WALKING else 180
+        return 145 if spec.action == PetAction.WALKING else 240

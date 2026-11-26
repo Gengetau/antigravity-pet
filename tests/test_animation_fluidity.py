@@ -155,8 +155,8 @@ class ExitTransitionHoldTests(unittest.TestCase):
                 PetAction.HAPPY,
                 "happy",
                 frame_count=6,
-                frame_duration_ms=175,
-                duration_ms=1050,
+                frame_duration_ms=215,
+                duration_ms=1290,
                 loop=False,
                 cycle=True,
             ),
@@ -179,9 +179,9 @@ class ExitTransitionHoldTests(unittest.TestCase):
         self.assertFalse(player.in_exit_transition)
         self.assertIsNone(self.machine.update(now=now, hold_duration=False))
 
-        # Still HAPPY at +0.95s after exit finished, then transitions to queued WORKING.
-        self.assertIsNone(self.machine.update(now=now + 0.95, hold_duration=False))
-        change = self.machine.update(now=now + 1.08, hold_duration=False)
+        # Still HAPPY at +1.20s after exit finished, then transitions to queued WORKING.
+        self.assertIsNone(self.machine.update(now=now + 1.20, hold_duration=False))
+        change = self.machine.update(now=now + 1.32, hold_duration=False)
         self.assertIsNotNone(change)
         self.assertEqual(change.current, PetAction.WORKING)
 
@@ -448,11 +448,11 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
 
         # Batch 2/3 target frame counts also align cleanly.
         actions = self.manifest["actions"]
-        self.assertEqual(actions["EATING"]["frame_ms"], 240)
-        self.assertEqual(actions["EATING"]["duration_ms"], 2400)  # 2 * 5f * 240ms
-        self.assertEqual(actions["REFUSE_FOOD"]["frame_ms"], 210)
-        self.assertEqual(actions["REFUSE_FOOD"]["duration_ms"], 1260)  # 2 * 3f * 210ms
-        self.assertEqual(actions["DRAGGING"]["frame_ms"], 200)
+        self.assertEqual(actions["EATING"]["frame_ms"], 290)
+        self.assertEqual(actions["EATING"]["duration_ms"], 2900)  # 2 * 5f * 290ms
+        self.assertEqual(actions["REFUSE_FOOD"]["frame_ms"], 270)
+        self.assertEqual(actions["REFUSE_FOOD"]["duration_ms"], 1620)  # 2 * 3f * 270ms
+        self.assertEqual(actions["DRAGGING"]["frame_ms"], 300)
 
         # Dock pacing & frame_pick contract (perch_sit unlocked to full 4-frame leg swing!).
         frame_pick = self.manifest["frame_pick"]
@@ -461,10 +461,10 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
         self.assertEqual(frame_pick["dock_peek_right"], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
 
         registry = AssetRegistry(ROOT / "neon", base_manifest=BASE_MANIFEST)
-        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.IDLE], 10, "dock_peek"), 200)
-        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.IDLE], 10, "dock_peek_right"), 200)
-        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.WORKING], 7, "dock_work"), 220)
-        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.WORKING], 7, "dock_work_right"), 220)
+        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.IDLE], 10, "dock_peek"), 270)
+        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.IDLE], 10, "dock_peek_right"), 270)
+        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.WORKING], 7, "dock_work"), 300)
+        self.assertEqual(registry._frame_duration_ms(registry.specs[PetAction.WORKING], 7, "dock_work_right"), 300)
 
     def test_dock_sleep_directional_resolution_and_v31_fallback_to_real_frames(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -513,11 +513,11 @@ class ManifestTimingAndPriorityTests(unittest.TestCase):
 
         QApplication.instance() or QApplication([])
         v32_cases = [
-            (PetAction.HIGH_FIVE, "high_five", 4, 190, 1520, "celebrate"),
-            (PetAction.PLAY_DANCE, "play_dance", 4, 210, 2520, "happy"),
-            (PetAction.GIFT_TOSS, "gift_toss", 3, 210, 1260, "wave"),
-            (PetAction.SUMMON_POP, "summon_pop", 4, 170, 680, "happy"),
-            (PetAction.DEPART_POOF, "depart_poof", 4, 240, 960, "wave"),
+            (PetAction.HIGH_FIVE, "high_five", 4, 250, 2000, "celebrate"),
+            (PetAction.PLAY_DANCE, "play_dance", 4, 290, 2320, "happy"),
+            (PetAction.GIFT_TOSS, "gift_toss", 3, 280, 1680, "wave"),
+            (PetAction.SUMMON_POP, "summon_pop", 4, 190, 760, "happy"),
+            (PetAction.DEPART_POOF, "depart_poof", 4, 260, 1040, "wave"),
         ]
         for form in ALL_FORMS:
             registry = AssetRegistry(ROOT / form, base_manifest=BASE_MANIFEST)

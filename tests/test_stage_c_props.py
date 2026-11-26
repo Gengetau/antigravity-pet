@@ -36,11 +36,11 @@ class StageCStrongPropActionsTests(unittest.TestCase):
 
     def test_all_five_forms_ship_real_frames_for_stage_c_strong_prop_poses(self) -> None:
         cases = (
-            (PetAction.WORK_READING, "work_reading", 2, 420, None, "work_typing"),
-            (PetAction.WORK_SEARCHING, "work_searching", 2, 380, None, "idle_think"),
-            (PetAction.WORK_DRAWING, "work_drawing", 2, 320, None, "work_typing"),
-            (PetAction.WORK_COMPACTING, "work_compacting", 2, 260, 2080, "work_typing"),
-            (PetAction.QUOTA_GIFT, "quota_gift", 2, 300, 2400, "celebrate"),
+            (PetAction.WORK_READING, "work_reading", 2, 640, None, "work_typing"),
+            (PetAction.WORK_SEARCHING, "work_searching", 2, 580, None, "idle_think"),
+            (PetAction.WORK_DRAWING, "work_drawing", 2, 480, None, "work_typing"),
+            (PetAction.WORK_COMPACTING, "work_compacting", 2, 380, 2280, "work_typing"),
+            (PetAction.QUOTA_GIFT, "quota_gift", 2, 440, 2640, "celebrate"),
         )
         for form in ALL_FORMS:
             reg = AssetRegistry(ROOT / form, base_manifest=BASE_MANIFEST)
@@ -74,10 +74,18 @@ class StageCStrongPropActionsTests(unittest.TestCase):
                 self.assertIn(required_key, manifest_assets, (form, required_key))
                 self.assertTrue(manifest_assets[required_key]["frames"]["238"], (form, required_key))
 
-            # Verify dynamic tool_category resolution under PetAction.WORKING
+            # Verify dynamic tool_category resolution under PetAction.WORKING keeps natural pace & matching effect
+            expected_tool_ms = {
+                "work_reading": 640,
+                "work_searching": 580,
+                "work_drawing": 480,
+                "work_compacting": 380,
+            }
             for direction, expected_asset in TOOL_WORK_ASSETS.items():
                 clip = reg.clip_for(PetAction.WORKING, height=238, direction=direction)
                 self.assertEqual(clip.asset_id, expected_asset, (form, direction))
+                self.assertEqual(clip.frame_duration_ms, expected_tool_ms[expected_asset], (form, direction))
+                self.assertEqual(clip.effect, expected_asset, (form, direction))
                 self.assertEqual(len(clip.frames), 2, (form, direction))
 
         # Verify graceful fallback if an asset is removed

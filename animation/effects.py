@@ -62,36 +62,36 @@ def _settle(time: float, decay: float, frequency: float) -> float:
 
 def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
     time = max(0.0, elapsed_seconds)
-    breath = math.sin(time * 2.35)
+    breath = math.sin(time * 1.75)
     if effect == "breath":
-        # Idle: visible, lively breathing plus a slow weight shift from foot to foot.
-        shift = math.sin(time * 0.52)
+        # Idle: calm, organic breathing plus a slow weight shift from foot to foot.
+        shift = math.sin(time * 0.45)
         return EffectPose(
             offset_x=shift * 1.1,
             offset_y=-breath * 0.6,
-            rotation_degrees=math.sin(time * 0.52 + 0.7) * 0.9,
+            rotation_degrees=math.sin(time * 0.45 + 0.7) * 0.9,
             scale_x=1.0 - breath * 0.014,
             scale_y=1.0 + breath * 0.028,
         )
     if effect == "micro_idle":
         return EffectPose(
             offset_y=breath * 0.5,
-            rotation_degrees=math.sin(time * 3.1) * 1.4,
+            rotation_degrees=math.sin(time * 2.2) * 1.2,
             scale_x=1.0 - breath * 0.006,
             scale_y=1.0 + breath * 0.012,
             shadow_opacity=0.20,
         )
     if effect == "think":
-        tilt = math.sin(time * 1.6)
+        tilt = math.sin(time * 1.25)
         return EffectPose(
             offset_x=tilt * 1.2,
-            offset_y=-2.0 + breath * 1.4,
-            rotation_degrees=tilt * 3.6,
+            offset_y=-2.0 + breath * 1.3,
+            rotation_degrees=tilt * 3.2,
             scale_y=1.0 + breath * 0.014,
             decoration="thought",
         )
     if effect == "walk_placeholder":
-        phase = math.sin(time * 12.0)
+        phase = math.sin(time * 9.0)
         return EffectPose(
             offset_y=-abs(phase) * 3.5,
             rotation_degrees=phase * 0.7,
@@ -101,13 +101,13 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.18,
         )
     if effect == "walk_frames":
-        # Two steps per four-frame cycle: rise mid-stride, squash on contact,
+        # Two steps per six-frame cycle (870ms): rise mid-stride, squash on contact,
         # and a gentle side-to-side sway of the hips.
-        stride = abs(math.sin(time * math.pi * 2.78))
+        stride = abs(math.sin(time * math.pi * 2.30))
         contact = 1.0 - stride
         return EffectPose(
-            offset_y=-stride * 3.0,
-            rotation_degrees=math.sin(time * math.pi * 2.78) * 1.6,
+            offset_y=-stride * 2.8,
+            rotation_degrees=math.sin(time * math.pi * 2.30) * 1.5,
             scale_x=1.0 + contact * 0.014,
             scale_y=1.0 - contact * 0.022,
             shadow_scale=1.0 - stride * 0.10,
@@ -139,11 +139,11 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
     if effect == "bounce":
         # HAPPY: drawn frames already animate a joyful hop; add only a light
         # elastic squash/stretch and cheerful tilt accent without double-hopping.
-        pulse = math.sin(time * 6.0)
-        sway = math.sin(time * 3.0)
+        pulse = math.sin(time * 4.4)
+        sway = math.sin(time * 2.4)
         return EffectPose(
             offset_x=sway * 0.8,
-            offset_y=-abs(pulse) * 1.4,
+            offset_y=-abs(pulse) * 1.3,
             rotation_degrees=sway * 2.2,
             scale_x=1.0 - pulse * 0.018,
             scale_y=1.0 + pulse * 0.026,
@@ -152,32 +152,32 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
         )
     if effect == "head_pat":
         # Soft grounded squish under the petting hand, then a happy wobble.
-        engage = 1.0 - math.exp(-time * 18.0)
-        press = engage * math.exp(-time * 2.4) * (0.55 + 0.45 * math.cos(time * 7.5))
+        engage = 1.0 - math.exp(-time * 16.0)
+        press = engage * math.exp(-time * 2.2) * (0.55 + 0.45 * math.cos(time * 5.8))
         return EffectPose(
             offset_y=press * 3.6,
-            rotation_degrees=math.sin(time * 5.0) * 2.4 * math.exp(-time * 1.2),
+            rotation_degrees=math.sin(time * 3.8) * 2.4 * math.exp(-time * 1.1),
             scale_x=1.0 + press * 0.055,
             scale_y=1.0 - press * 0.075,
             shadow_scale=1.0 + press * 0.06,
             shadow_opacity=0.20,
         )
     if effect == "talk":
-        phase = math.sin(time * 7.6)
-        nod = math.sin(time * 1.9)
+        phase = math.sin(time * 4.6)
+        nod = math.sin(time * 1.6)
         return EffectPose(
-            offset_y=-abs(phase) * 2.6,
-            rotation_degrees=phase * 0.8 + nod * 1.0,
-            scale_x=1.0 - abs(phase) * 0.008,
-            scale_y=1.0 + abs(phase) * 0.016,
+            offset_y=-abs(phase) * 2.0,
+            rotation_degrees=phase * 0.7 + nod * 1.0,
+            scale_x=1.0 - abs(phase) * 0.007,
+            scale_y=1.0 + abs(phase) * 0.014,
             decoration="voice",
         )
     if effect == "angry":
-        # Stomping in place with a shake.
-        hop = _hop(time / 0.36, 5.0, squash=1.4)
-        shake = math.sin(time * 26.0)
+        # Stomping in place with a crisp, readable shake.
+        hop = _hop(time / 0.54, 5.0, squash=1.3)
+        shake = math.sin(time * 15.0)
         return EffectPose(
-            offset_x=shake * 1.6,
+            offset_x=shake * 1.5,
             offset_y=hop.y,
             rotation_degrees=shake * 1.0,
             scale_x=hop.scale_x,
@@ -212,27 +212,27 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.20,
         )
     if effect == "eat":
-        chew = max(0.0, math.sin(time * 11.0))
+        chew = max(0.0, math.sin(time * 6.5))
         return EffectPose(
-            offset_y=-chew * 3.0,
-            rotation_degrees=math.sin(time * 3.0) * 1.5,
-            scale_x=1.0 + chew * 0.02,
-            scale_y=1.0 - chew * 0.025,
+            offset_y=-chew * 2.4,
+            rotation_degrees=math.sin(time * 2.2) * 1.4,
+            scale_x=1.0 + chew * 0.018,
+            scale_y=1.0 - chew * 0.022,
             decoration="crumb",
         )
     if effect == "sweep":
-        phase = math.sin(time * 4.2)
+        phase = math.sin(time * 3.0)
         return EffectPose(
-            offset_x=phase * 2.5,
-            offset_y=-abs(math.cos(time * 4.2)) * 1.2,
-            rotation_degrees=phase * 2.0,
+            offset_x=phase * 2.4,
+            offset_y=-abs(math.cos(time * 3.0)) * 1.1,
+            rotation_degrees=phase * 1.8,
             decoration="sweep",
         )
     if effect == "sleep":
-        slow = math.sin(time * 1.5)
+        slow = math.sin(time * 1.2)
         return EffectPose(
-            offset_y=slow * 1.8,
-            rotation_degrees=math.sin(time * 0.6) * 1.2,
+            offset_y=slow * 1.6,
+            rotation_degrees=math.sin(time * 0.5) * 1.1,
             scale_x=1.0 - slow * 0.012,
             scale_y=1.0 + slow * 0.022,
             decoration="sleep",
@@ -246,20 +246,20 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
         stretch = math.sin(progress * math.pi)
         return EffectPose(offset_y=-stretch * 2.0, scale_x=1.0 - stretch * 0.02, scale_y=1.0 + stretch * 0.04, shadow_opacity=0.20)
     if effect == "float":
-        # Dangling while dragged: a pendulum swing with a slight stretch.
-        swing = math.sin(time * 3.4)
+        # Dangling while dragged: calm pendulum swing with a slight stretch.
+        swing = math.sin(time * 2.5)
         return EffectPose(
-            offset_y=math.sin(time * 6.8) * 1.6,
-            rotation_degrees=swing * 6.0,
+            offset_y=math.sin(time * 5.0) * 1.3,
+            rotation_degrees=swing * 5.5,
             scale_x=0.985,
             scale_y=1.03,
             shadow_opacity=0.0,
         )
     if effect == "fall":
         progress = min(1.0, time / 0.42)
-        flail = math.sin(time * 15.0)
+        flail = math.sin(time * 9.5)
         return EffectPose(
-            rotation_degrees=progress * 10.0 + flail * 3.0,
+            rotation_degrees=progress * 10.0 + flail * 2.6,
             scale_x=1.0 - progress * 0.03,
             scale_y=1.0 + progress * 0.05,
             shadow_opacity=0.0,
@@ -279,35 +279,35 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.25,
         )
     if effect == "dizzy":
-        angle = time * 7.0
+        angle = time * 4.4
         return EffectPose(
-            offset_x=math.cos(angle) * 3.0,
-            offset_y=math.sin(angle) * 1.2,
-            rotation_degrees=math.sin(angle) * 5.0,
+            offset_x=math.cos(angle) * 2.8,
+            offset_y=math.sin(angle) * 1.1,
+            rotation_degrees=math.sin(angle) * 4.6,
             decoration="dizzy",
         )
     # ----- Antigravity companion actions ------------------------------------
     if effect == "work":
-        tap = abs(math.sin(time * 15.0))
-        lean = math.sin(time * 0.8)
+        tap = abs(math.sin(time * 6.2))
+        lean = math.sin(time * 0.7)
         return EffectPose(
-            offset_x=lean * 1.0,
-            offset_y=-tap * 1.6 + breath * 0.5,
-            rotation_degrees=lean * 1.5,
-            scale_y=1.0 - tap * 0.008,
+            offset_x=lean * 0.9,
+            offset_y=-tap * 1.2 + breath * 0.5,
+            rotation_degrees=lean * 1.4,
+            scale_y=1.0 - tap * 0.007,
             decoration="code",
         )
     if effect == "celebrate":
         # CELEBRATE: drawn frames already animate the jump; accent with subtle
         # elastic squash/stretch and buoyant twist without out-of-phase lifting.
-        pulse = math.sin(time * 7.2)
-        sway = math.sin(time * 5.2)
+        pulse = math.sin(time * 4.8)
+        sway = math.sin(time * 3.2)
         return EffectPose(
             offset_x=sway * 1.2,
-            offset_y=-abs(pulse) * 2.2,
-            scale_x=1.0 - pulse * 0.026,
-            scale_y=1.0 + pulse * 0.036,
-            rotation_degrees=sway * 3.4,
+            offset_y=-abs(pulse) * 2.0,
+            scale_x=1.0 - pulse * 0.025,
+            scale_y=1.0 + pulse * 0.034,
+            rotation_degrees=sway * 3.2,
             shadow_scale=1.0 - abs(pulse) * 0.06,
             decoration="confetti",
         )
@@ -342,75 +342,74 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             decoration="glow",
         )
     if effect == "wave":
-        phase = math.sin(time * 9.0)
+        phase = math.sin(time * 4.8)
         return EffectPose(
-            offset_x=math.sin(time * 4.5) * 1.5,
-            rotation_degrees=phase * 3.2,
-            offset_y=-abs(phase) * 2.2,
+            offset_x=math.sin(time * 2.4) * 1.4,
+            rotation_degrees=phase * 2.8,
+            offset_y=-abs(phase) * 1.6,
             decoration="wave",
         )
     if effect == "perch":
-        swing = math.sin(time * 2.4)
-        return EffectPose(offset_y=breath * 0.7, rotation_degrees=swing * 1.6, shadow_opacity=0.12)
+        swing = math.sin(time * 1.5)
+        return EffectPose(offset_y=breath * 0.7, rotation_degrees=swing * 1.5, shadow_opacity=0.12)
     # ----- Companion v3.1 high-charm actions --------------------------------
     if effect == "sulk":
         # Gentle pouty sway with an occasional annoyed little huff.
-        sway = math.sin(time * 1.35)
-        huff = max(0.0, math.sin(time * 1.8)) ** 4
+        sway = math.sin(time * 1.1)
+        huff = max(0.0, math.sin(time * 1.45)) ** 4
         return EffectPose(
-            offset_x=sway * 1.4,
-            offset_y=huff * 1.6 + breath * 0.4,
-            rotation_degrees=sway * 2.2 - huff * 1.4,
-            scale_x=1.0 + huff * 0.024 - breath * 0.008,
-            scale_y=1.0 - huff * 0.028 + breath * 0.015,
+            offset_x=sway * 1.3,
+            offset_y=huff * 1.5 + breath * 0.4,
+            rotation_degrees=sway * 2.0 - huff * 1.3,
+            scale_x=1.0 + huff * 0.022 - breath * 0.008,
+            scale_y=1.0 - huff * 0.026 + breath * 0.015,
             shadow_scale=1.0 + huff * 0.03,
             shadow_opacity=0.20,
         )
     if effect == "jump_up":
         # Eager upward stretch & buoyant tilt while ascending.
         rise = 1.0 - math.exp(-time * 9.0)
-        flutter = math.sin(time * 11.0)
+        flutter = math.sin(time * 8.5)
         return EffectPose(
-            offset_y=-rise * 4.5 + flutter * 0.9,
-            rotation_degrees=-rise * 4.5 + flutter * 1.4,
+            offset_y=-rise * 4.5 + flutter * 0.8,
+            rotation_degrees=-rise * 4.5 + flutter * 1.2,
             scale_x=1.0 - rise * 0.055,
             scale_y=1.0 + rise * 0.085,
             shadow_opacity=0.0,
         )
     if effect == "pet_purr":
-        # Cozy continuous nuzzle swaying gently side-to-side into the hand.
-        nuzzle = math.sin(time * 2.6)
-        purr = math.sin(time * 16.0)
-        lean_down = 0.5 + 0.5 * math.cos(time * 5.2)
+        # Cozy unhurried nuzzle swaying gently side-to-side into the hand.
+        nuzzle = math.sin(time * 1.95)
+        lean_down = 0.5 + 0.5 * math.cos(time * 3.2)
         return EffectPose(
             offset_x=nuzzle * 2.2,
-            offset_y=1.4 + lean_down * 1.4 + purr * 0.25,
-            rotation_degrees=nuzzle * 3.8,
-            scale_x=1.0 + lean_down * 0.026 + purr * 0.004,
-            scale_y=1.0 - lean_down * 0.032 - purr * 0.004,
+            offset_y=1.4 + lean_down * 1.4,
+            rotation_degrees=nuzzle * 3.6,
+            scale_x=1.0 + lean_down * 0.026,
+            scale_y=1.0 - lean_down * 0.032,
             shadow_scale=1.0 + lean_down * 0.03,
             shadow_opacity=0.20,
         )
     if effect == "refuse_food":
-        # Quick playful head-shake oscillation ("no thanks!") that settles cleanly.
-        decay = math.exp(-time * 2.4)
-        shake = math.sin(time * 22.0) * decay
+        # Crisp playful head-shake oscillation ("no thanks!") that settles cleanly.
+        decay = math.exp(-time * 2.2)
+        shake = math.sin(time * 16.5) * decay
         recoil = math.sin(min(1.0, time / 0.35) * math.pi)
         return EffectPose(
             offset_x=shake * 4.8,
-            offset_y=-abs(shake) * 1.2 + recoil * 0.8,
-            rotation_degrees=shake * 5.5,
-            scale_x=1.0 - abs(shake) * 0.025,
+            offset_y=-abs(shake) * 1.1 + recoil * 0.8,
+            rotation_degrees=shake * 5.2,
+            scale_x=1.0 - abs(shake) * 0.024,
             scale_y=1.0 + abs(shake) * 0.02,
             shadow_opacity=0.20,
         )
     if effect == "high_five":
-        # Snappy sideways lean-in slap + happy elastic bounce.
-        slap = math.sin(min(1.0, time / 0.38) * math.pi)
-        bounce = math.sin(time * 9.5) * math.exp(-time * 2.0)
+        # Snappy sideways lean-in slap + soft elastic settle.
+        slap = math.sin(min(1.0, time / 0.45) * math.pi)
+        bounce = math.sin(time * 6.8) * math.exp(-time * 2.0)
         return EffectPose(
             offset_x=slap * 4.5,
-            offset_y=-slap * 5.5 + bounce * 2.0,
+            offset_y=-slap * 5.2 + bounce * 1.8,
             rotation_degrees=slap * 4.5,
             scale_x=1.0 - slap * 0.03 + abs(bounce) * 0.02,
             scale_y=1.0 + slap * 0.045 - abs(bounce) * 0.02,
@@ -419,53 +418,53 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             decoration="sparkle",
         )
     if effect == "play_dance":
-        # Cheerful rhythmic side-to-side groove matching the 210ms dance beat.
-        beat = time * (math.pi / 0.42)
+        # Cheerful rhythmic side-to-side groove synced to the 290ms dance beat.
+        beat = time * (math.pi / 0.58)
         sway = math.sin(beat)
         hop = abs(math.sin(beat * 2.0))
         return EffectPose(
-            offset_x=sway * 4.2,
-            offset_y=-hop * 4.5 + (1.0 - hop) * 1.4,
-            rotation_degrees=sway * 4.8,
-            scale_x=1.0 + (1.0 - hop) * 0.03 - hop * 0.02,
-            scale_y=1.0 - (1.0 - hop) * 0.035 + hop * 0.03,
+            offset_x=sway * 4.0,
+            offset_y=-hop * 4.2 + (1.0 - hop) * 1.3,
+            rotation_degrees=sway * 4.4,
+            scale_x=1.0 + (1.0 - hop) * 0.028 - hop * 0.018,
+            scale_y=1.0 - (1.0 - hop) * 0.032 + hop * 0.028,
             shadow_scale=1.0 - hop * 0.08,
             shadow_opacity=0.20,
             decoration="sparkle",
         )
     if effect == "gift_toss":
         # Crisp wind-up & playful forward toss arc.
-        toss = math.sin(min(1.0, time / 0.50) * math.pi)
+        toss = math.sin(min(1.0, time / 0.58) * math.pi)
         return EffectPose(
             offset_x=toss * 4.0,
             offset_y=-toss * 3.0,
-            rotation_degrees=toss * 4.2,
-            scale_x=1.0 - toss * 0.025,
-            scale_y=1.0 + toss * 0.03,
+            rotation_degrees=toss * 4.0,
+            scale_x=1.0 - toss * 0.024,
+            scale_y=1.0 + toss * 0.028,
             shadow_opacity=0.20,
             decoration="sparkle",
         )
     if effect == "summon_pop":
         # Elastic pop-out squash & stretch on entrance landing.
-        p = min(1.0, time / 0.55)
+        p = min(1.0, time / 0.62)
         pop = math.sin(p * math.pi)
         settle = math.sin(p * math.pi * 2.0) * (1.0 - p)
         return EffectPose(
-            offset_y=-pop * 6.0 + settle * 2.2,
-            rotation_degrees=settle * 3.0,
-            scale_x=1.0 - pop * 0.04 + settle * 0.04,
-            scale_y=1.0 + pop * 0.06 - settle * 0.04,
+            offset_y=-pop * 6.0 + settle * 2.0,
+            rotation_degrees=settle * 2.8,
+            scale_x=1.0 - pop * 0.04 + settle * 0.038,
+            scale_y=1.0 + pop * 0.06 - settle * 0.038,
             shadow_scale=1.0 - pop * 0.14,
             shadow_opacity=0.18,
             decoration="sparkle",
         )
     if effect == "depart_poof":
         # Buoyant farewell hop-off wave.
-        p = min(1.0, time / 0.85)
+        p = min(1.0, time / 0.92)
         lift = math.sin(p * math.pi)
         return EffectPose(
-            offset_y=-lift * 7.5,
-            rotation_degrees=math.sin(time * 8.0) * 3.5,
+            offset_y=-lift * 7.2,
+            rotation_degrees=math.sin(time * 5.6) * 3.2,
             scale_x=1.0 - lift * 0.04,
             scale_y=1.0 + lift * 0.05,
             shadow_scale=max(0.4, 1.0 - lift * 0.35),
@@ -474,55 +473,55 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
         )
     if effect == "work_reading":
         # Focused gentle page-reading nod & calm breathing.
-        nod = math.sin(time * 2.2)
+        nod = math.sin(time * 1.5)
         return EffectPose(
-            offset_y=nod * 1.4,
-            rotation_degrees=math.sin(time * 0.9) * 1.6,
-            scale_y=1.0 - nod * 0.012,
+            offset_y=nod * 1.2,
+            rotation_degrees=math.sin(time * 0.75) * 1.4,
+            scale_y=1.0 - nod * 0.010,
             shadow_opacity=0.20,
         )
     if effect == "work_searching":
-        # Curious detective lean sweeping left and right with magnifying glass.
-        sweep = math.sin(time * 2.0)
+        # Curious detective lean sweeping calmly left and right with magnifying glass.
+        sweep = math.sin(time * 1.45)
         return EffectPose(
-            offset_x=sweep * 3.0,
-            offset_y=-abs(sweep) * 1.4,
-            rotation_degrees=sweep * 3.4,
-            scale_x=1.0 - abs(sweep) * 0.015,
-            scale_y=1.0 + abs(sweep) * 0.018,
+            offset_x=sweep * 2.8,
+            offset_y=-abs(sweep) * 1.2,
+            rotation_degrees=sweep * 3.0,
+            scale_x=1.0 - abs(sweep) * 0.014,
+            scale_y=1.0 + abs(sweep) * 0.016,
             shadow_opacity=0.20,
         )
     if effect == "work_drawing":
-        # Upbeat artistic brush-sway rhythm.
-        sway = math.sin(time * 3.2)
-        bob = abs(math.sin(time * 6.4))
+        # Smooth artistic brush-sway rhythm.
+        sway = math.sin(time * 2.3)
+        bob = abs(math.sin(time * 4.6))
         return EffectPose(
-            offset_x=sway * 2.4,
-            offset_y=-bob * 2.2,
-            rotation_degrees=sway * 2.8,
-            scale_y=1.0 + bob * 0.02,
+            offset_x=sway * 2.2,
+            offset_y=-bob * 1.8,
+            rotation_degrees=sway * 2.4,
+            scale_y=1.0 + bob * 0.018,
             shadow_opacity=0.20,
             decoration="sparkle",
         )
     if effect == "work_compacting":
-        # Rhythmic downward squishing bounce on the bursting suitcase.
-        press = max(0.0, math.sin(time * 7.5))
+        # Rhythmic downward squishing press on the bursting suitcase.
+        press = max(0.0, math.sin(time * 4.8))
         return EffectPose(
-            offset_y=press * 3.6 - (1.0 - press) * 1.2,
-            rotation_degrees=math.sin(time * 3.75) * 2.5,
-            scale_x=1.0 + press * 0.045,
-            scale_y=1.0 - press * 0.055,
+            offset_y=press * 3.4 - (1.0 - press) * 1.0,
+            rotation_degrees=math.sin(time * 2.4) * 2.2,
+            scale_x=1.0 + press * 0.042,
+            scale_y=1.0 - press * 0.052,
             shadow_scale=1.0 + press * 0.08,
             shadow_opacity=0.22,
         )
     if effect == "quota_gift":
         # Joyful buoyant gift-box lift celebration.
-        hop = abs(math.sin(time * 5.2))
+        hop = abs(math.sin(time * 3.6))
         return EffectPose(
-            offset_y=-hop * 4.5,
-            rotation_degrees=math.sin(time * 2.6) * 2.8,
-            scale_x=1.0 - hop * 0.024,
-            scale_y=1.0 + hop * 0.035,
+            offset_y=-hop * 4.0,
+            rotation_degrees=math.sin(time * 1.8) * 2.5,
+            scale_x=1.0 - hop * 0.022,
+            scale_y=1.0 + hop * 0.032,
             shadow_scale=1.0 - hop * 0.08,
             shadow_opacity=0.20,
             decoration="sparkle",

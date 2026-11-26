@@ -781,7 +781,7 @@
       "id": "THINKING",
       "asset": "idle_think",
       "loop": false,
-      "duration_ms": 2400,
+      "duration_ms": 3040,
       "priority": 20,
       "interruptible": true,
       "return_state": "IDLE",
@@ -795,7 +795,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 300
+      "frame_ms": 380
     },
     "WALKING": {
       "id": "WALKING",
@@ -832,7 +832,7 @@
       "id": "HAPPY",
       "asset": "happy",
       "loop": false,
-      "duration_ms": 1050,
+      "duration_ms": 1290,
       "priority": 60,
       "interruptible": true,
       "return_state": "IDLE",
@@ -846,13 +846,13 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 175
+      "frame_ms": 215
     },
     "HEAD_PAT": {
       "id": "HEAD_PAT",
       "asset": "head_pat",
       "loop": false,
-      "duration_ms": 1200,
+      "duration_ms": 1320,
       "priority": 68,
       "interruptible": false,
       "return_state": "IDLE",
@@ -871,7 +871,7 @@
       "id": "TALKING",
       "asset": "talk",
       "loop": false,
-      "duration_ms": 1680,
+      "duration_ms": 2240,
       "priority": 45,
       "interruptible": true,
       "return_state": "IDLE",
@@ -885,13 +885,13 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 210
+      "frame_ms": 280
     },
     "ANGRY": {
       "id": "ANGRY",
       "asset": "angry",
       "loop": false,
-      "duration_ms": 1600,
+      "duration_ms": 2160,
       "priority": 70,
       "interruptible": false,
       "return_state": "IDLE",
@@ -905,7 +905,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 200
+      "frame_ms": 270
     },
     "POKE_REACT": {
       "id": "POKE_REACT",
@@ -949,7 +949,7 @@
       "id": "EATING",
       "asset": "eat",
       "loop": false,
-      "duration_ms": 2400,
+      "duration_ms": 2900,
       "priority": 65,
       "interruptible": false,
       "return_state": "IDLE",
@@ -963,13 +963,13 @@
       },
       "quality": "formal_unified_generated_daily_frames",
       "requires_real_frames": false,
-      "frame_ms": 240
+      "frame_ms": 290
     },
     "SWEEPING": {
       "id": "SWEEPING",
       "asset": "sweep",
       "loop": false,
-      "duration_ms": 2560,
+      "duration_ms": 3040,
       "priority": 25,
       "interruptible": true,
       "return_state": "IDLE",
@@ -983,7 +983,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 320
+      "frame_ms": 380
     },
     "SLEEPING": {
       "id": "SLEEPING",
@@ -1035,7 +1035,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 200
+      "frame_ms": 300
     },
     "FALLING": {
       "id": "FALLING",
@@ -1062,7 +1062,7 @@
           "effect": "fall"
         }
       },
-      "frame_ms": 200
+      "frame_ms": 240
     },
     "LANDING": {
       "id": "LANDING",
@@ -1087,7 +1087,7 @@
       "id": "DIZZY",
       "asset": "dizzy",
       "loop": false,
-      "duration_ms": 2080,
+      "duration_ms": 2720,
       "priority": 75,
       "interruptible": false,
       "return_state": "IDLE",
@@ -1101,7 +1101,7 @@
       },
       "quality": "formal_unified_generated_action",
       "requires_real_frames": false,
-      "frame_ms": 260
+      "frame_ms": 340
     },
     "WORKING": {
       "id": "WORKING",
@@ -1111,6 +1111,7 @@
       "priority": 31,
       "interruptible": true,
       "return_state": "IDLE",
+      "frame_ms": 270,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1204,7 +1205,7 @@
       "id": "WAVE",
       "asset": "wave",
       "loop": false,
-      "duration_ms": 1400,
+      "duration_ms": 2080,
       "priority": 40,
       "interruptible": true,
       "return_state": "IDLE",
@@ -1218,7 +1219,7 @@
       },
       "quality": "agy_fallback_until_art",
       "requires_real_frames": false,
-      "frame_ms": 175
+      "frame_ms": 260
     },
     "PERCH": {
       "id": "PERCH",
@@ -1238,7 +1239,7 @@
       },
       "quality": "agy_fallback_until_art",
       "requires_real_frames": false,
-      "frame_ms": 380
+      "frame_ms": 500
     },
     "CLIMBING": {
       "id": "CLIMBING",
@@ -1248,7 +1249,7 @@
       "priority": 95,
       "interruptible": false,
       "return_state": "IDLE",
-      "frame_ms": 220,
+      "frame_ms": 260,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1268,7 +1269,7 @@
       "priority": 33,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 280,
+      "frame_ms": 420,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1288,7 +1289,7 @@
       "priority": 34,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 210,
+      "frame_ms": 360,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1308,7 +1309,7 @@
       "priority": 92,
       "interruptible": false,
       "return_state": "IDLE",
-      "frame_ms": 160,
+      "frame_ms": 200,
       "anchor": {
         "type": "drag",
         "x": 0.5,
@@ -1328,7 +1329,7 @@
       "priority": 72,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 220,
+      "frame_ms": 360,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1348,7 +1349,7 @@
       "priority": 35,
       "interruptible": true,
       "return_state": "PERCH",
-      "frame_ms": 520,
+      "frame_ms": 720,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1368,7 +1369,7 @@
       "priority": 35,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 520,
+      "frame_ms": 720,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1384,11 +1385,11 @@
       "id": "REFUSE_FOOD",
       "asset": "refuse_food",
       "loop": false,
-      "duration_ms": 1260,
+      "duration_ms": 1620,
       "priority": 66,
       "interruptible": false,
       "return_state": "IDLE",
-      "frame_ms": 210,
+      "frame_ms": 270,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1404,11 +1405,11 @@
       "id": "HIGH_FIVE",
       "asset": "high_five",
       "loop": false,
-      "duration_ms": 1520,
+      "duration_ms": 2000,
       "priority": 65,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 190,
+      "frame_ms": 250,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1424,11 +1425,11 @@
       "id": "PLAY_DANCE",
       "asset": "play_dance",
       "loop": false,
-      "duration_ms": 2520,
+      "duration_ms": 2320,
       "priority": 63,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 210,
+      "frame_ms": 290,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1444,11 +1445,11 @@
       "id": "GIFT_TOSS",
       "asset": "gift_toss",
       "loop": false,
-      "duration_ms": 1260,
+      "duration_ms": 1680,
       "priority": 61,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 210,
+      "frame_ms": 280,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1464,11 +1465,11 @@
       "id": "SUMMON_POP",
       "asset": "summon_pop",
       "loop": false,
-      "duration_ms": 680,
+      "duration_ms": 760,
       "priority": 64,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 170,
+      "frame_ms": 190,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1484,11 +1485,11 @@
       "id": "DEPART_POOF",
       "asset": "depart_poof",
       "loop": false,
-      "duration_ms": 960,
+      "duration_ms": 1040,
       "priority": 64,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 240,
+      "frame_ms": 260,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1508,7 +1509,7 @@
       "priority": 31,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 420,
+      "frame_ms": 640,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1528,7 +1529,7 @@
       "priority": 31,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 380,
+      "frame_ms": 580,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1548,7 +1549,7 @@
       "priority": 31,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 320,
+      "frame_ms": 480,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1564,11 +1565,11 @@
       "id": "WORK_COMPACTING",
       "asset": "work_compacting",
       "loop": false,
-      "duration_ms": 2080,
+      "duration_ms": 2280,
       "priority": 52,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 260,
+      "frame_ms": 380,
       "anchor": {
         "type": "ground",
         "x": 0.5,
@@ -1584,11 +1585,11 @@
       "id": "QUOTA_GIFT",
       "asset": "quota_gift",
       "loop": false,
-      "duration_ms": 2400,
+      "duration_ms": 2640,
       "priority": 62,
       "interruptible": true,
       "return_state": "IDLE",
-      "frame_ms": 300,
+      "frame_ms": 440,
       "anchor": {
         "type": "ground",
         "x": 0.5,

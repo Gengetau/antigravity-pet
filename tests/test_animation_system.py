@@ -165,9 +165,9 @@ class FrameCycleTests(unittest.TestCase):
         base = root / "assets" / "manifests" / "actions_base.json"
         registry = AssetRegistry(root / "carbon", base_manifest=base)
         spec = registry.specs[PetAction.TALKING]
-        self.assertEqual(spec.frame_ms, 210)
-        self.assertEqual(registry._frame_duration_ms(spec, 4), 210)
-        self.assertEqual(registry._frame_duration_ms(spec, 1), 1680)
+        self.assertEqual(spec.frame_ms, 280)
+        self.assertEqual(registry._frame_duration_ms(spec, 4), 280)
+        self.assertEqual(registry._frame_duration_ms(spec, 1), 2240)
 
 
 class AssetManifestTests(unittest.TestCase):

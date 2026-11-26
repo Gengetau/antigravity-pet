@@ -254,13 +254,13 @@ class SoftRigController:
         tail_sp = self._step_spring(self._sp_tail, -cvx * 0.012 + cvy * 0.005, 34.0, 7.0, step_dt)
 
         # 5. Continuous wave rhythms (breathing, hair flow, accumulated tail phase)
-        tail_freq = 0.55 if action_name == "IDLE" else (1.15 if action_name in {"HAPPY", "CELEBRATE", "PLAY_DANCE", "HIGH_FIVE", "PET_PURR"} else 0.75)
+        tail_freq = 0.42 if action_name == "IDLE" else (0.85 if action_name in {"HAPPY", "CELEBRATE", "PLAY_DANCE", "HIGH_FIVE", "PET_PURR"} else 0.58)
         tail_freq *= 1.0 - 0.35 * self._quota_sag
         self._tail_phase = (self._tail_phase + step_dt * tail_freq * math.tau) % math.tau
         tail_amp = (2.4 + add_tail_amp) * (1.0 - 0.5 * self._quota_sag)
         tail_sway = math.sin(self._tail_phase) * tail_amp + _clamp(tail_sp, -9.0, 9.0)
 
-        hair_wave = (1.9 if action_name != "DRAGGING" else 3.2) * (1.0 - 0.35 * self._quota_sag)
+        hair_wave = (1.75 if action_name != "DRAGGING" else 2.8) * (1.0 - 0.35 * self._quota_sag)
         if docked:
             hair_wave *= 0.55
         hair_lift = 0.0
@@ -269,8 +269,8 @@ class SoftRigController:
         elif cvy > 120.0:
             hair_lift = _clamp(cvy / 900.0, 0.0, 0.75)
 
-        breath = 0.5 + 0.5 * math.sin(self._time * (1.5 if action_name in {"SLEEPING", "PERCH_SLEEP", "DOCK_SLEEP"} else 2.2))
-        nod_work = math.sin(self._time * 6.5) * 0.9 if is_working and not docked else 0.0
+        breath = 0.5 + 0.5 * math.sin(self._time * (1.2 if action_name in {"SLEEPING", "PERCH_SLEEP", "DOCK_SLEEP"} else 1.75))
+        nod_work = math.sin(self._time * 3.4) * 0.65 if is_working and not docked else 0.0
 
         self.params = RigParams(
             time=self._time,
@@ -595,21 +595,21 @@ class SoftRigDeformer:
             if hl > 0.001:
                 dx += hl * (
                     hair_sway_l
-                    + hair_wave * math.sin(sy * 0.055 + t * 1.35)
-                    + hair_wave * 0.45 * math.sin(sy * 0.11 - t * 0.9)
+                    + hair_wave * math.sin(sy * 0.055 + t * 1.05)
+                    + hair_wave * 0.45 * math.sin(sy * 0.11 - t * 0.72)
                     - spread_x
                 )
-                dy -= hl * (lift_y + hair_wave * 0.30 * math.sin(sx * 0.07 + t * 1.0))
+                dy -= hl * (lift_y + hair_wave * 0.26 * math.sin(sx * 0.07 + t * 0.8))
 
             hr = grid.w_hair_r[i]
             if hr > 0.001:
                 dx += hr * (
                     hair_sway_r
-                    + hair_wave * math.sin(sy * 0.058 + t * 1.25 + 1.6)
-                    + hair_wave * 0.45 * math.sin(sy * 0.115 - t * 0.8 + 2.1)
+                    + hair_wave * math.sin(sy * 0.058 + t * 0.98 + 1.6)
+                    + hair_wave * 0.45 * math.sin(sy * 0.115 - t * 0.66 + 2.1)
                     + spread_x
                 )
-                dy -= hr * (lift_y + hair_wave * 0.30 * math.sin(sx * 0.07 + t * 0.95 + 1.0))
+                dy -= hr * (lift_y + hair_wave * 0.26 * math.sin(sx * 0.07 + t * 0.75 + 1.0))
 
             if has_animal:
                 el = grid.w_ear_l[i]
