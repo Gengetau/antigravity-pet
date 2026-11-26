@@ -59,7 +59,7 @@ from pet.particles import ParticleSystem
 from pet.physics import PhysicsBounds, ThrowPhysics
 from pet.renderer import Bubble, PetRenderer
 from pet.state import PetStateStore
-from pet.subagent_clones import SubagentCloneManager
+from pet.subagent_clones import CloneEvent, SubagentCloneManager
 from pet.surfaces import DesktopSurfaceTracker
 from settings.config import ConfigManager
 from settings.panel import PetControlPanel
@@ -189,8 +189,12 @@ class PetWindow(QWidget):
             self.paths.characters_root,
             self.paths.base_manifest_path,
             topmost=bool(config.get("topmost", True)),
+            on_interaction=self._on_subagent_interaction,
+            rng=self.rng,
         )
         self.subagent_clones.set_scale_from_host(self.current_height)
+        self._handling_clone_interaction = False
+        self._last_clone_banter_at = 0.0
         self._dock_side: str | None = None
         self._dock_screen = None
         self._dock_peeking = False
@@ -426,6 +430,20 @@ class PetWindow(QWidget):
             self.update()
         return count
 
+    def emit_relay_particles(self, *, from_side: int, accent: str = "#c084fc") -> int:
+        if not hasattr(self, "particles"):
+            return 0
+        count = self.particles.emit_relay(
+            from_side=from_side,
+            target_x=self.width() / 2.0,
+            target_y=float(BUBBLE_HEIGHT + MARGIN) + self.current_height * 0.42,
+            spread_w=max(92.0, self.width() * 0.72),
+            accent=accent,
+        )
+        if count:
+            self.update()
+        return count
+
     def paintEvent(self, _event) -> None:
         self._update_expression()
         dock_pose = (self._dock_side, self._dock_peek_progress) if self._dock_side is not None else None
@@ -583,6 +601,16 @@ class PetWindow(QWidget):
         if cue and hasattr(self, "expressions"):
             self.expressions.cue(cue, now)
         self._sync_animation_clip(immediate=immediate)
+        if (
+            not getattr(self, "_handling_clone_interaction", False)
+            and hasattr(self, "subagent_clones")
+            and self.subagent_clones.active_count > 0
+        ):
+            self.subagent_clones.notify_host_action(
+                action,
+                now=now,
+                reduced_motion=self.renderer.reduced_motion,
+            )
         return True
 
     def _refresh_control_panel(self) -> None:
@@ -819,7 +847,7 @@ class PetWindow(QWidget):
             pending, self._pending_form = self._pending_form, None
             self.set_form(pending, announce=False)
         self._follow_hud()
-        if self.subagent_clones.active_count > 0:
+        if self.subagent_clones.active_count > 0 or getattr(self.subagent_clones, "has_departing", False):
             if not self.isVisible() or self.isMinimized():
                 self._sync_subagent_clones()
             else:
@@ -2848,7 +2876,11 @@ class PetWindow(QWidget):
             getattr(self, "hud_bar", None),
             getattr(self, "token_meter", None),
             *(
-                getattr(self, "subagent_clones", None).visible_widgets
+                getattr(
+                    getattr(self, "subagent_clones", None),
+                    "all_visible_widgets",
+                    getattr(getattr(self, "subagent_clones", None), "visible_widgets", ()),
+                )
                 if hasattr(self, "subagent_clones")
                 else ()
             ),
@@ -2932,7 +2964,7 @@ class PetWindow(QWidget):
             enabled=bool(self._agy().get("subagent_clones", True)),
             host_visible=self.isVisible() and not self.isMinimized(),
         )
-        if self.subagent_clones.active_count > 0:
+        if self.subagent_clones.active_count > 0 or getattr(self.subagent_clones, "has_departing", False):
             self.subagent_clones.position_around(
                 self._sprite_rect(),
                 now=time.monotonic(),
@@ -2941,6 +2973,97 @@ class PetWindow(QWidget):
                 dock_edge=self._dock_edge,
                 perched_window_rect=self._attached_window_qrect(),
             )
+
+    def _on_subagent_interaction(self, event: CloneEvent) -> None:
+        if not self.isVisible() or self.isMinimized() or self._dock_side is not None:
+            return
+        now = time.monotonic()
+        accent = ACCENTS.get(event.form_id, "#c084fc")
+        busy_actions = {
+            PetAction.DRAGGING,
+            PetAction.FALLING,
+            PetAction.JUMP_UP,
+            PetAction.CLIMBING,
+            PetAction.LANDING,
+            PetAction.TRANSFORM,
+            PetAction.DIZZY,
+        }
+        quiet_actions = {PetAction.SLEEPING, PetAction.PERCH_SLEEP, PetAction.DOCK_SLEEP, PetAction.SULK}
+        current = self.action_machine.current
+        can_emote = current not in busy_actions and current not in quiet_actions and now >= self._sulk_until
+
+        def pick_line(kind: str, fallback: str, **values: object) -> str:
+            tracker = getattr(self, "reactions", None)
+            if tracker is not None and kind in getattr(tracker, "lines", {}):
+                return tracker._line(kind, **values)
+            return fallback.format(**values)
+
+        self._handling_clone_interaction = True
+        try:
+            if event.kind == "summoned":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+            elif event.kind == "handoff":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._request_action(PetAction.WAVE, now=now, reason="subagent_handoff", force=True)
+                    self.say(
+                        pick_line("subagent_done", "辛苦啦 {name}，成果我收下啦～", name=event.badge),
+                        preserve_action=True,
+                    )
+            elif event.kind == "clicked":
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._request_action(PetAction.HAPPY, now=now, reason="subagent_clicked", force=True)
+                    self.say(
+                        pick_line("subagent_cheer", "喂，摸完 {name} 也要多摸摸我才行～", name=event.badge),
+                        preserve_action=True,
+                    )
+            elif event.kind == "report":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                short_title = " ".join((event.title or "当前任务").split())
+                if len(short_title) > 16:
+                    short_title = short_title[:15] + "…"
+                if can_emote:
+                    self._request_action(PetAction.WAVE, now=now, reason="subagent_report", force=True)
+                    self.say(
+                        pick_line(
+                            "subagent_report",
+                            "收到 {name} 的汇报：{title}！",
+                            name=event.badge,
+                            title=short_title,
+                        ),
+                        preserve_action=True,
+                    )
+            elif event.kind == "high_five":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                self.emit_particles("confetti")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_high_five", force=True)
+                    self.say(
+                        pick_line("subagent_high_five", "和 {name} 击掌成功！合作无间～", name=event.badge),
+                        preserve_action=True,
+                    )
+            elif event.kind == "group_cheer":
+                self.emit_particles("confetti")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_group_cheer", force=True)
+                    self.say(
+                        pick_line("subagent_group_cheer", "全员干劲拉满，一起冲鸭！"),
+                        preserve_action=True,
+                    )
+            elif event.kind == "relay":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                if can_emote and now - self._last_clone_banter_at >= 10.0:
+                    self._last_clone_banter_at = now
+                    self.say(
+                        pick_line("subagent_relay", "收到 {name} 传来的线索啦～", name=event.badge),
+                        preserve_action=True,
+                    )
+        finally:
+            self._handling_clone_interaction = False
 
     def _on_live_snapshot(self, snapshot) -> None:
         self.hud_bar.update_snapshot(snapshot)

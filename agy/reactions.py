@@ -47,6 +47,34 @@ LINES: dict[str, tuple[str, ...]] = {
         "哇，同时派出 {count} 个小分身！排面拉满～",
         "{count} 个小分身并行开工，效率起飞！",
     ),
+    "subagent_done": (
+        "辛苦啦 {name}，成果我收下啦～",
+        "{name} 交卷成功！配合满分～",
+        "太棒了，{name} 顺顺利利收工啦！",
+    ),
+    "subagent_cheer": (
+        "喂，摸完 {name} 也要多摸摸我才行～",
+        "谢谢帮我给 {name} 打气呀！",
+        "{name} 被夸得干劲翻倍啦～",
+    ),
+    "subagent_report": (
+        "收到 {name} 的汇报：{title}！",
+        "了解啦 {name}，{title} 交给我衔接～",
+    ),
+    "subagent_high_five": (
+        "和 {name} 击掌成功！合作无间～",
+        "贴贴！我和 {name} 默契拉满～",
+        "耶！和 {name} 并肩作战效率起飞！",
+    ),
+    "subagent_group_cheer": (
+        "全员干劲拉满，一起冲鸭！",
+        "主模型 + 小分身合体欢呼，势不可挡～",
+    ),
+    "subagent_relay": (
+        "收到 {name} 传来的线索啦～",
+        "干得漂亮 {name}，我来整合！",
+        "信号同步完毕，继续推进～",
+    ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),
     "quota_critical": ("限额快见底了（{quota}%），{reset}。", "只剩 {quota}% 限额！{reset}"),

@@ -61,13 +61,27 @@ class RehearsalStage(QWidget):
             form_row.addWidget(btn)
         root.addWidget(form_box)
 
-        # Subagent clones
-        sub_box = QGroupBox("子代理迷你分身（复用五形态素材）")
-        sub_row = QHBoxLayout(sub_box)
+        # Subagent clones & host-subagent interplay
+        sub_box = QGroupBox("子代理迷你分身与主宠互动（复用五形态素材）")
+        sub_col = QVBoxLayout(sub_box)
+        sub_row = QHBoxLayout()
         for count in (0, 1, 2, 4, 5):
             btn = QPushButton(f"{count} 个分身")
             btn.clicked.connect(lambda _c=False, n=count: self._simulate_subagents(n))
             sub_row.addWidget(btn)
+        sub_col.addLayout(sub_row)
+        interplay_row = QHBoxLayout()
+        for label, fn in (
+            ("💖 摸摸分身", lambda: self._sim_clone_action("click")),
+            ("📋 分身汇报", lambda: self._sim_clone_action("report")),
+            ("🤝 击掌贴贴", lambda: self._sim_clone_action("high_five")),
+            ("📡 传讯脉冲", lambda: self._sim_clone_action("relay")),
+            ("🎉 全员欢呼", lambda: self._sim_clone_action("group_cheer")),
+        ):
+            btn = QPushButton(label)
+            btn.clicked.connect(lambda _c=False, cb=fn: cb())
+            interplay_row.addWidget(btn)
+        sub_col.addLayout(interplay_row)
         root.addWidget(sub_box)
 
         # Particles
@@ -130,6 +144,21 @@ class RehearsalStage(QWidget):
         )
         self.pet.telemetry.last_snapshot = snap
         self.pet._on_live_snapshot(snap)
+
+    def _sim_clone_action(self, kind: str) -> None:
+        if self.pet.subagent_clones.active_count == 0:
+            self._simulate_subagents(2)
+        clones = self.pet.subagent_clones
+        if kind == "click":
+            clones.trigger_click(0)
+        elif kind == "report":
+            clones.trigger_report(0)
+        elif kind == "high_five":
+            clones.trigger_high_five(0)
+        elif kind == "relay":
+            clones.trigger_relay(0)
+        elif kind == "group_cheer":
+            clones.trigger_group_cheer()
 
     def _sim_waiting(self) -> None:
         snap = LiveSnapshot(

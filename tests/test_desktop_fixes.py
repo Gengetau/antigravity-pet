@@ -537,6 +537,7 @@ class DesktopFixesTests(unittest.TestCase):
         self.assertEqual(self.pet.action_machine.current, PetAction.SULK)
 
     def test_transient_reaction_returns_to_working_when_agy_running(self) -> None:
+        self.pet.agy_windows.find = lambda: None  # Isolate from real host desktop windows
         self.pet.telemetry.last_snapshot = LiveSnapshot(
             source="pet_live",
             conversation_id="c1",

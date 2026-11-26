@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
 
 @dataclass(slots=True)
 class Particle:
-    kind: str  # sparkle / confetti / heart / sweat / fish / ring
+    kind: str  # sparkle / confetti / heart / sweat / fish / ring / orb
     x: float
     y: float
     vx: float
@@ -168,6 +168,56 @@ class ParticleSystem:
             self.particles = self.particles[-self.MAX_PARTICLES :]
         return max(0, added)
 
+    def emit_relay(
+        self,
+        *,
+        from_side: int,
+        target_x: float,
+        target_y: float,
+        spread_w: float = 110.0,
+        accent: str = "#c084fc",
+    ) -> int:
+        """Emit glowing data/energy orbs flowing from a subagent's side into the host pet."""
+        if not self.enabled or self.reduced_motion:
+            return 0
+        before = len(self.particles)
+        r = self.rng
+        side = -1 if from_side < 0 else 1
+        start_x = target_x + side * max(56.0, spread_w * 0.54)
+        accent_color = QColor(accent)
+        if not accent_color.isValid():
+            accent_color = QColor("#c084fc")
+        palette = (accent_color, QColor("#38bdf8"), QColor("#fbbf24"))
+        for idx in range(6):
+            lifetime = r.uniform(0.52, 0.78)
+            sx = start_x + r.uniform(-10.0, 10.0)
+            sy = target_y + r.uniform(-22.0, 22.0)
+            dx = target_x - sx
+            dy = (target_y - 8.0) - sy
+            gravity = 55.0
+            vx = dx / lifetime
+            vy = (dy - 0.5 * gravity * lifetime * lifetime) / lifetime
+            self.particles.append(
+                Particle(
+                    kind="orb" if idx % 2 == 0 else "sparkle",
+                    x=sx,
+                    y=sy,
+                    vx=vx,
+                    vy=vy,
+                    size=r.uniform(6.0, 9.5),
+                    age=-idx * 0.055,
+                    lifetime=lifetime,
+                    color=palette[idx % len(palette)],
+                    rotation=r.uniform(0.0, 90.0),
+                    vrot=r.uniform(-140.0, 140.0),
+                    gravity=gravity,
+                )
+            )
+        added = len(self.particles) - before
+        if len(self.particles) > self.MAX_PARTICLES:
+            self.particles = self.particles[-self.MAX_PARTICLES :]
+        return max(0, added)
+
     def update(self, dt: float) -> None:
         if not self.particles or dt <= 0:
             return
@@ -221,6 +271,8 @@ class ParticleSystem:
                 painter.setPen(pen)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(QPointF(0.0, 0.0), radius, radius)
+            elif p.kind == "orb":
+                self._draw_orb(painter, p.size, p.color)
             painter.restore()
         painter.restore()
 
@@ -269,3 +321,15 @@ class ParticleSystem:
         painter.drawPolygon(tail)
         painter.setBrush(QColor(255, 255, 255))
         painter.drawEllipse(QPointF(-s * 0.42, -s * 0.08), s * 0.14, s * 0.14)
+
+    @staticmethod
+    def _draw_orb(painter: QPainter, size: float, color: QColor) -> None:
+        r = size * 0.55
+        painter.setPen(Qt.PenStyle.NoPen)
+        glow = QColor(color.red(), color.green(), color.blue(), 110)
+        painter.setBrush(glow)
+        painter.drawEllipse(QPointF(0.0, 0.0), r * 1.45, r * 1.45)
+        painter.setBrush(color)
+        painter.drawEllipse(QPointF(0.0, 0.0), r * 0.85, r * 0.85)
+        painter.setBrush(QColor(255, 255, 255, 230))
+        painter.drawEllipse(QPointF(-r * 0.18, -r * 0.18), r * 0.34, r * 0.34)
