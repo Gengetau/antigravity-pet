@@ -408,6 +408,125 @@ class SubagentInterplayManagerTests(unittest.TestCase):
         finally:
             mgr.close_all()
 
+    def test_autonomous_clone_roaming_facing_catchup_and_proactive_visits(self) -> None:
+        mgr, events = self._make()
+        try:
+            subs = [
+                SubagentInfo("idle-play-r1", "idle-play", "晒太阳发呆", "闲时随机玩伴", "neon"),
+                SubagentInfo("idle-play-r2", "idle-play", "数星星", "闲时随机玩伴", "hydergon"),
+            ]
+            area = QRect(0, 0, 1920, 1040)
+            screen = _FakeScreen(area)
+            host = QRect(860, 520, 180, 220)
+            mgr.sync(subs, default_form="carbon", enabled=True, host_visible=True, now=10.0)
+            mgr.position_around(host, now=11.0, screen=screen)
+            w0, w1 = mgr.visible_widgets[0], mgr.visible_widgets[1]
+            start_x = w0.x()
+
+            # 1. Free roam rightward -> PetAction.WALKING, mirrored=False (walk_side_right), moves toward target
+            self.assertTrue(mgr.start_roam(0, now=15.0, target=(start_x + 190.0, float(w0.y()))))
+            mgr.position_around(host, now=15.05, screen=screen)
+            self.assertEqual(w0.current_action, PetAction.WALKING)
+            self.assertFalse(w0.mirrored)
+            self.assertGreater(w0.x(), start_x)
+
+            # Free roam leftward -> PetAction.WALKING, mirrored=True (walk_side)
+            mid_x = w0.x()
+            self.assertTrue(mgr.start_roam(0, now=15.2, target=(mid_x - 220.0, float(w0.y()))))
+            mgr.position_around(host, now=15.25, screen=screen)
+            self.assertEqual(w0.current_action, PetAction.WALKING)
+            self.assertTrue(w0.mirrored)
+            self.assertLess(w0.x(), mid_x)
+
+            # Finish walk -> settles into paused inside screen bounds & outside top-right keepout
+            t = 15.30
+            for _ in range(90):
+                t += 0.05
+                mgr.position_around(host, now=t, screen=screen)
+            self.assertTrue(area.contains(w0.frameGeometry()))
+            rt0 = mgr._runtime["idle-play-r1"]
+            self.assertEqual(rt0.roam_mode, "paused")
+
+            # 2. Host moves far away -> strolling clone automatically enters returning catch-up walk!
+            far_host = QRect(1420, 520, 180, 220)
+            t += 0.05
+            mgr.position_around(far_host, now=t, screen=screen)
+            self.assertEqual(rt0.roam_mode, "returning")
+            self.assertEqual(w0.current_action, PetAction.WALKING)
+            self.assertFalse(w0.mirrored)  # walking right toward far_host
+            for _ in range(180):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+                if rt0.roam_mode == "home":
+                    break
+            self.assertEqual(rt0.roam_mode, "home")
+
+            # 3. Proactive visit to host -> walks up and fires high_five & gift_share on arrival
+            events.clear()
+            self.assertTrue(mgr.start_roam(0, now=t, target=(far_host.left() - 260.0, float(w0.y()))))
+            for _ in range(60):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+            self.assertTrue(mgr.start_visit_host(0, action="high_five", now=t))
+            for _ in range(120):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+                if any(e.kind == "high_five" for e in events):
+                    break
+            self.assertTrue(any(e.kind == "high_five" for e in events))
+
+            events.clear()
+            rt0.pose_action = None
+            rt0.pose_until = 0.0
+            self.assertTrue(mgr.start_visit_host(0, action="gift_share", now=t))
+            for _ in range(120):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+                if any(e.kind == "gift_share" for e in events):
+                    break
+            self.assertTrue(any(e.kind == "gift_share" for e in events))
+
+            # 4. Proactive visit to sibling clone -> walks over and fires clone_buddy facing each other
+            events.clear()
+            rt0.pose_action = None
+            rt0.pose_until = 0.0
+            mgr._runtime["idle-play-r2"].pose_action = None
+            mgr._runtime["idle-play-r2"].pose_until = 0.0
+            self.assertTrue(mgr.start_visit_clone(0, 1, action="clone_buddy", now=t))
+            for _ in range(140):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+                if any(e.kind == "clone_buddy" for e in events):
+                    break
+            self.assertTrue(any(e.kind == "clone_buddy" for e in events))
+            t += 0.05
+            mgr.position_around(far_host, now=t, screen=screen)
+            self.assertNotEqual(w0.mirrored, w1.mirrored, "Clones should face each other during buddy high-five")
+
+            # 5. Autonomous roam scheduler triggers walking/visits on its own without manual start_*
+            rt0.pose_action = None
+            rt0.pose_until = 0.0
+            rt0.roam_mode = "home"
+            rt0.roam_pos = None
+            rt0.roam_until = 0.0
+            rt0.next_roam_at = t + 0.05
+            saw_auto_walk = False
+            for _ in range(40):
+                t += 0.05
+                mgr.position_around(far_host, now=t, screen=screen)
+                if w0.current_action == PetAction.WALKING:
+                    saw_auto_walk = True
+                    break
+            self.assertTrue(saw_auto_walk, "Playmate should autonomously start walking when next_roam_at elapses")
+
+            # 6. reduced_motion disables roaming cleanly
+            t += 0.05
+            mgr.position_around(far_host, now=t, reduced_motion=True, screen=screen)
+            self.assertEqual(rt0.roam_mode, "home")
+            self.assertIsNone(rt0.roam_pos)
+        finally:
+            mgr.close_all()
+
 
 class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
     @classmethod
@@ -586,6 +705,7 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *sc._TRICK_LINES,
             *sc._GIFT_SHARE_LINES,
             *sc._CLONE_BUDDY_LINES,
+            *sc._HOST_PAT_CLONE_LINES,
             *(line for pair in sc._CLONE_CHAT_PAIRS for line in pair),
             *(line for pair in sc._WORK_CHAT_PAIRS for line in pair),
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
@@ -707,6 +827,64 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             self.assertTrue(any(p.kind == "orb" for p in ps.particles))
         finally:
             mgr.close_all()
+
+    def test_host_proactively_pats_clone_head_and_autonomous_affection(self) -> None:
+        self.pet.summon_idle_playmates(count=2, now=800.0, duration=40.0, announce=False)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=801.0)
+        w0 = self.pet.subagent_clones.visible_widgets[0]
+
+        # 1. Direct host-initiated pat puts clone in PET_PURR with 姐姐 reply & turns sister toward clone
+        ev = self.pet.subagent_clones.trigger_host_pat_clone(0, now=802.0)
+        assert ev is not None
+        self.assertEqual(ev.kind, "host_pat_clone")
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=802.1)
+        self.assertEqual(w0.current_action, PetAction.PET_PURR)
+        self.assertIn("姐姐", w0.bubble_text)
+        expected_dir = "left" if ev.side < 0 else "right"
+        self.assertEqual(self.pet.movement.direction, expected_dir)
+        self.assertIn(self.pet.action_machine.current, {PetAction.GIFT_TOSS, PetAction.WAVE})
+        self.assertTrue(bool(self.pet.bubble.text))
+
+        # 2. request_host_pat_clone walks a far-roaming clone over first, then fires host_pat_clone on arrival
+        rt0 = self.pet.subagent_clones._runtime[self.pet.subagent_clones._entries[0][0].conversation_id]
+        rt0.pose_action = None
+        rt0.pose_until = 0.0
+        far_x = max(20.0, float(self.pet._sprite_rect().left() - 260))
+        rt0.roam_mode = "paused"
+        rt0.roam_pos = [far_x, float(w0.y())]
+        w0.move(round(far_x), w0.y())
+        req = self.pet.subagent_clones.request_host_pat_clone(0, now=806.0)
+        self.assertTrue(req)
+        self.assertEqual(rt0.roam_mode, "visit_host")
+        self.assertEqual(rt0.roam_action_on_arrive, "host_pat")
+        t = 806.0
+        for _ in range(120):
+            t += 0.05
+            self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=t)
+            if w0.current_action == PetAction.PET_PURR:
+                break
+        self.assertEqual(w0.current_action, PetAction.PET_PURR)
+
+        # 3. Autonomous _tick_host_clone_affection pats clone when host is calm/idle, never while sulking
+        self.pet._request_action(PetAction.SULK, now=t, reason="test_sulk", force=True, immediate=True)
+        self.pet._sulk_until = t + 30.0
+        self.pet._next_host_pat_clone_at = t - 1.0
+        rt0.pose_action = None
+        rt0.pose_until = 0.0
+        self.pet._tick_host_clone_affection(t)
+        self.assertIsNone(rt0.pose_action)
+
+        # Calm idle -> autonomous pat fires!
+        self.pet._sulk_until = 0.0
+        self.pet._request_action(PetAction.IDLE, now=t + 1.0, reason="test_calm", force=True, immediate=True)
+        self.pet._next_host_pat_clone_at = t + 0.5
+        self.pet._tick_host_clone_affection(t + 1.0)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=t + 1.05)
+        any_purring_or_visiting = any(
+            (r.pose_action == PetAction.PET_PURR or r.roam_action_on_arrive == "host_pat")
+            for r in self.pet.subagent_clones._runtime.values()
+        )
+        self.assertTrue(any_purring_or_visiting)
 
 
 if __name__ == "__main__":

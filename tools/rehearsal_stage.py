@@ -85,6 +85,10 @@ class RehearsalStage(QWidget):
                 ("💬 悄悄话", lambda: self._sim_clone_action("clone_chat")),
                 ("🌟 抛星光球", lambda: self._sim_clone_action("relay")),
                 ("💃 共舞派对", lambda: self._sim_clone_action("group_cheer")),
+                ("🤲 姐姐摸分身", lambda: self._sim_clone_action("host_pat")),
+                ("🚶 分身自由逛", lambda: self._sim_clone_action("roam")),
+                ("🏃 主动找姐姐", lambda: self._sim_clone_action("visit_host")),
+                ("🐾 主动找同伴", lambda: self._sim_clone_action("visit_clone")),
             )
         ):
             btn = QPushButton(label)
@@ -219,6 +223,14 @@ class RehearsalStage(QWidget):
             clones.trigger_relay(0)
         elif kind == "group_cheer":
             clones.trigger_group_cheer()
+        elif kind == "host_pat":
+            clones.trigger_host_pat_clone(0)
+        elif kind == "roam":
+            clones.start_roam(0)
+        elif kind == "visit_host":
+            clones.start_visit_host(0, action="high_five")
+        elif kind == "visit_clone":
+            clones.start_visit_clone(0, 1, action="clone_buddy")
 
     def _sim_waiting(self) -> None:
         snap = LiveSnapshot(

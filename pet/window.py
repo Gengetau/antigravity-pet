@@ -216,6 +216,7 @@ class PetWindow(QWidget):
         self._purring = False
         self._next_purr_heart_at = 0.0
         self._idle_play_manual = False
+        self._next_host_pat_clone_at = 0.0
         self._panel_open_pet_pos: QPoint | None = None
         self.expressions = ExpressionDirector()
         self.surface_tracker = DesktopSurfaceTracker(
@@ -903,6 +904,7 @@ class PetWindow(QWidget):
             self.set_form(pending, announce=False)
         self._follow_hud()
         self._tick_idle_playmates(now)
+        self._tick_host_clone_affection(now)
         if self.subagent_clones.active_count > 0 or getattr(self.subagent_clones, "has_departing", False):
             if not self.isVisible() or self.isMinimized():
                 self._sync_subagent_clones()
@@ -3477,6 +3479,32 @@ class PetWindow(QWidget):
         if can_summon:
             self.summon_idle_playmates(now=now)
 
+    def _tick_host_clone_affection(self, now: float) -> None:
+        """Let the host sister periodically pat a nearby clone's head on her own."""
+        if not hasattr(self, "subagent_clones") or self.subagent_clones.active_count <= 0:
+            self._next_host_pat_clone_at = 0.0
+            return
+        if self._next_host_pat_clone_at <= 0.0:
+            self._next_host_pat_clone_at = now + self.rng.uniform(9.5, 15.5)
+            return
+        if now < self._next_host_pat_clone_at:
+            return
+        self._next_host_pat_clone_at = now + self.rng.uniform(16.0, 26.0)
+        if (
+            not self.isVisible()
+            or self.isMinimized()
+            or self._dock_side is not None
+            or now < self._sulk_until
+            or self._purring
+            or self.interaction.active
+            or self.physics.active
+            or self.climb.active
+            or self.movement.is_walking
+            or self.action_machine.current not in {PetAction.IDLE, PetAction.PERCH, PetAction.WORKING}
+        ):
+            return
+        self.subagent_clones.request_host_pat_clone(now=now)
+
     def _sync_subagent_clones(self, snapshot=None, *, silent_replace: bool = False) -> None:
         if not hasattr(self, "subagent_clones"):
             return
@@ -3648,6 +3676,19 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_chat", force=True)
                     key = "playmate_clone_chat" if playmate else "subagent_clone_chat"
                     fb = "咦，我好像听到 {name} 在偷偷夸我～" if playmate else "咦，{name} 们在交流什么小秘密呀～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "host_pat_clone":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                self.emit_particles("hearts")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    pat_pose = PetAction.WAVE if self.surface_tracker.attached else PetAction.GIFT_TOSS
+                    self._request_action(pat_pose, now=now, reason="host_pat_clone", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_host_pat" if playmate else "subagent_host_pat"
+                    fb = "摸摸 {name} 的小脑袋，乖啦～" if playmate else "摸摸 {name} 的小脑袋，辛苦啦～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
         finally:
             self._handling_clone_interaction = False

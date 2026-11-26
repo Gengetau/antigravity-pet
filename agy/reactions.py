@@ -95,6 +95,11 @@ LINES: dict[str, tuple[str, ...]] = {
         "咦，{name} 们在交流什么小秘密呀～",
         "听到你们互相打气，我也更有劲啦！",
     ),
+    "subagent_host_pat": (
+        "摸摸 {name} 的小脑袋，辛苦啦～",
+        "乖啦乖啦，{name} 今天表现满分～",
+        "姐姐给你摸摸头，干完活一起吃小鱼干！",
+    ),
     "playmate_summon": (
         "闲着没事，摇来 {names} 陪我玩会儿～",
         "叮！随机召唤出 {names} 来串门啦～",
@@ -148,6 +153,11 @@ LINES: dict[str, tuple[str, ...]] = {
     "playmate_clone_chat": (
         "咦，我好像听到 {name} 在偷偷夸我～",
         "你们俩聊什么悄悄话呢，也告诉我嘛！",
+    ),
+    "playmate_host_pat": (
+        "摸摸 {name} 的小脑袋，乖啦～",
+        "揉揉 {name}，今天也要开开心心的～",
+        "来，姐姐给你摸摸头，贴贴～",
     ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),
