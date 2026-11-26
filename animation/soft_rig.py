@@ -319,7 +319,7 @@ class _GridWeights:
     w_chest: tuple[float, ...]
     w_skirt: tuple[float, ...]
     w_tail: tuple[float, ...]
-    w_edge_lock: tuple[float, ...]
+    w_edge_mobility: tuple[float, ...]  # 0.0 = pinned at dock wall seam, 1.0 = free to deform
     neck_x: float
     neck_y: float
     ear_l_px: float
@@ -337,8 +337,10 @@ def _build_grid_weights(width: int, height: int, *, mode: str) -> _GridWeights:
     pad_bottom = 4
     out_w = width + pad_x * 2
     out_h = height + pad_top + pad_bottom
-    xs = tuple(out_w * c / cols for c in range(cols + 1))
-    ys = tuple(out_h * r / rows for r in range(rows + 1))
+    # Use exact integer mesh vertices so destination quads and un-warped source
+    # quads align identically (bit-exact identity at zero displacement / pinned seams).
+    xs = tuple(float(round(out_w * c / cols)) for c in range(cols + 1))
+    ys = tuple(float(round(out_h * r / rows)) for r in range(rows + 1))
 
     mx = width * 0.50
     my = height * 0.275
@@ -362,7 +364,7 @@ def _build_grid_weights(width: int, height: int, *, mode: str) -> _GridWeights:
     w_chest: list[float] = []
     w_skirt: list[float] = []
     w_tail: list[float] = []
-    w_edge_lock: list[float] = []
+    w_edge_mobility: list[float] = []
 
     for r in range(rows + 1):
         oy = ys[r]
@@ -375,14 +377,17 @@ def _build_grid_weights(width: int, height: int, *, mode: str) -> _GridWeights:
             src_x.append(sx)
             src_y.append(sy)
 
-            # Lock wall-facing seam pixels on edge-docked poses so she stays glued to border.
+            # Pin the entire wall-facing border cell rigidly to the screen edge
+            # (seam_lock == 1.0 at the wall, 0.0 away) so bilinear MESH sampling
+            # never detaches or softens the docked bezel seam.
             if mode == "dock_left":
-                edge_lock = _smoothstep(0.03, 0.24, nx)
+                seam_lock = 1.0 - _smoothstep(0.11, 0.34, nx)  # 1.0 near nx=0 (left wall), 0.0 away
             elif mode == "dock_right":
-                edge_lock = _smoothstep(0.97, 0.76, nx)
+                seam_lock = _smoothstep(0.66, 0.89, nx)  # 1.0 near nx=1 (right wall), 0.0 away
             else:
-                edge_lock = 1.0
-            w_edge_lock.append(edge_lock)
+                seam_lock = 0.0
+            edge_mobility = 1.0 - seam_lock
+            w_edge_mobility.append(edge_mobility)
 
             if mode == "lying":
                 # Horizontal sleeping poses only breathe gently in the center torso.
@@ -424,17 +429,17 @@ def _build_grid_weights(width: int, height: int, *, mode: str) -> _GridWeights:
                 else 0.0
             )
 
-            w_head.append(head * edge_lock)
-            w_face.append(face * edge_lock)
-            w_back.append(back * edge_lock)
-            w_ear_l.append(ear_l * edge_lock)
-            w_ear_r.append(ear_r * edge_lock)
-            w_ahoge.append(ahoge * edge_lock)
-            w_hair_l.append(hair_l * edge_lock)
-            w_hair_r.append(hair_r * edge_lock)
-            w_chest.append(chest * edge_lock)
-            w_skirt.append(skirt * edge_lock)
-            w_tail.append(tail * edge_lock)
+            w_head.append(head * edge_mobility)
+            w_face.append(face * edge_mobility)
+            w_back.append(back * edge_mobility)
+            w_ear_l.append(ear_l * edge_mobility)
+            w_ear_r.append(ear_r * edge_mobility)
+            w_ahoge.append(ahoge * edge_mobility)
+            w_hair_l.append(hair_l * edge_mobility)
+            w_hair_r.append(hair_r * edge_mobility)
+            w_chest.append(chest * edge_mobility)
+            w_skirt.append(skirt * edge_mobility)
+            w_tail.append(tail * edge_mobility)
 
     return _GridWeights(
         width=width,
@@ -459,7 +464,7 @@ def _build_grid_weights(width: int, height: int, *, mode: str) -> _GridWeights:
         w_chest=tuple(w_chest),
         w_skirt=tuple(w_skirt),
         w_tail=tuple(w_tail),
-        w_edge_lock=tuple(w_edge_lock),
+        w_edge_mobility=tuple(w_edge_mobility),
         neck_x=neck_x,
         neck_y=neck_y,
         ear_l_px=ear_l_px,
@@ -664,8 +669,8 @@ class SoftRigDeformer:
                 dy += hd * nod_y
 
             if abs(squash) > 1e-4:
-                dx += (sx - mx) * (-squash * 0.55) * grid.w_edge_lock[i]
-                dy += (sy - h) * squash * grid.w_edge_lock[i]
+                dx += (sx - mx) * (-squash * 0.55) * grid.w_edge_mobility[i]
+                dy += (sy - h) * squash * grid.w_edge_mobility[i]
 
             inv_x[i] = sx - dx
             inv_y[i] = sy - dy

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication
 
 from animation.asset_registry import AssetRegistry
 from animation.clip import PetAction
-from animation.soft_rig import RigParams, SoftRigController, SoftRigDeformer
+from animation.soft_rig import RigParams, SoftRigController, SoftRigDeformer, _build_grid_weights
 from app.paths import AppPaths
 from pet.window import PetWindow
 from settings.config import ConfigManager
@@ -117,6 +117,46 @@ class SoftRigDeformerAndRenderTests(unittest.TestCase):
         dock_img, dock_px, _ = deformer.deform(pix, RigParams(look_x=1.0, head_rot=0.1), asset_id="dock_peek")
         self.assertEqual(dock_px, 0)
         self.assertEqual(dock_img.width(), pix.width())
+
+    def test_dock_seam_pins_wall_edge_and_allows_peeking_side_motion(self) -> None:
+        g_left = _build_grid_weights(100, 200, mode="dock_left")
+        g_right = _build_grid_weights(100, 200, mode="dock_right")
+        stride = g_left.cols + 1
+        mid_row = (g_left.rows // 2) * stride
+        # dock_left pins nx=0 and nx=0.1 (left wall) while leaving nx=1 (right peeking side) mobile
+        self.assertEqual(g_left.w_edge_mobility[mid_row + 0], 0.0)
+        self.assertEqual(g_left.w_edge_mobility[mid_row + 1], 0.0)
+        self.assertEqual(g_left.w_edge_mobility[mid_row + g_left.cols], 1.0)
+        # dock_right pins nx=1 and nx=0.9 (right wall) while leaving nx=0 (left peeking side) mobile
+        self.assertEqual(g_right.w_edge_mobility[mid_row + g_right.cols], 0.0)
+        self.assertEqual(g_right.w_edge_mobility[mid_row + g_right.cols - 1], 0.0)
+        self.assertEqual(g_right.w_edge_mobility[mid_row + 0], 1.0)
+
+        deformer = SoftRigDeformer()
+        strong = RigParams(
+            time=1.5,
+            look_x=1.0,
+            look_y=1.0,
+            head_rot=0.16,
+            ear_l=0.22,
+            ear_r=-0.22,
+            hair_sway_l=9.0,
+            hair_sway_r=9.0,
+            hair_wave=2.8,
+            breath=1.0,
+        )
+        reg = AssetRegistry(ROOT / "carbon", base_manifest=BASE_MANIFEST)
+        for direction, asset_id, wall_side in (("dock_left", "dock_peek", "left"), ("dock_right", "dock_peek_right", "right")):
+            pix = reg.clip_for(PetAction.IDLE, height=238, direction=direction).frames[0].pixmap
+            orig = pix.toImage()
+            out, px, py = deformer.deform(pix, strong, form_id="carbon", asset_id=asset_id)
+            self.assertEqual(px, 0)
+            w, h = orig.width(), orig.height()
+            wall_x = 0 if wall_side == "left" else w - 1
+            wall_alpha_diff = sum(abs(orig.pixelColor(wall_x, y).alpha() - out.pixelColor(wall_x, y + py).alpha()) for y in range(h))
+            mid_alpha_diff = sum(abs(orig.pixelColor(w // 2, y).alpha() - out.pixelColor(w // 2, y + py).alpha()) for y in range(h))
+            self.assertEqual(wall_alpha_diff, 0, f"{asset_id} wall edge column drifted by {wall_alpha_diff}")
+            self.assertGreater(mid_alpha_diff, 100, f"{asset_id} peeking interior should still deform naturally")
 
     def test_deform_all_five_forms_real_sprites_fast_and_preserves_alpha(self) -> None:
         deformer = SoftRigDeformer()
