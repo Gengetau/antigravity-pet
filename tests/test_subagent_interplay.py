@@ -625,6 +625,28 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.pet.subagent_clones.trigger_clone_buddy(0, 1, now=606.0)
         self.assertEqual(self.pet.action_machine.current, PetAction.HAPPY)
 
+        # Manual "唤玩伴" summon must NOT immediately play departure while AGY is running or pet was sleeping
+        self.pet.dismiss_idle_playmates(now=700.0)
+        self.pet.subagent_clones._clear_departing()
+        self.pet.telemetry.last_snapshot = LiveSnapshot(
+            source="pet_live",
+            conversation_id="main",
+            status="CASCADE_RUN_STATUS_RUNNING",
+            active_subagents=[],
+        )
+        self.pet._request_action(PetAction.SLEEPING, reason="test_sleep", force=True, immediate=True)
+        mates = self.pet.summon_or_add_playmates(now=705.0)
+        self.assertGreaterEqual(len(mates), 2)
+        self.assertFalse(self.pet.subagent_clones.has_departing)
+        self.pet._tick_idle_playmates(705.05)
+        self.assertEqual(self.pet.subagent_clones.active_count, len(mates))
+        self.assertFalse(self.pet.subagent_clones.has_departing)
+        # Clicking again appends without departing existing playmates
+        prev_count = self.pet.subagent_clones.active_count
+        self.pet.summon_or_add_playmates(now=706.0, add_count=1)
+        self.assertEqual(self.pet.subagent_clones.active_count, min(MAX_VISIBLE_CLONES, prev_count + 1))
+        self.assertFalse(self.pet.subagent_clones.has_departing)
+
     def test_cinematic_summon_pop_and_two_stage_depart_poof_animation(self) -> None:
         events: list[CloneEvent] = []
         mgr = SubagentCloneManager(

@@ -215,6 +215,7 @@ class PetWindow(QWidget):
         self._sulk_until = 0.0
         self._purring = False
         self._next_purr_heart_at = 0.0
+        self._idle_play_manual = False
         self._panel_open_pet_pos: QPoint | None = None
         self.expressions = ExpressionDirector()
         self.surface_tracker = DesktopSurfaceTracker(
@@ -290,7 +291,7 @@ class PetWindow(QWidget):
             on_open_meter=self.open_token_meter,
             on_hud=self.set_hud_enabled,
             on_hud_hover_only=self.set_hud_hover_only,
-            on_playmates=self.summon_or_add_playmates,
+            on_playmates=lambda _checked=False: self.summon_or_add_playmates(),
             on_follow_cursor=self.set_follow_cursor,
             on_autonomy=self.set_autonomy,
             on_dock=self._toggle_edge_dock,
@@ -3269,6 +3270,7 @@ class PetWindow(QWidget):
         now: float | None = None,
         duration: float | None = None,
         announce: bool = True,
+        manual: bool = False,
     ) -> list[SubagentInfo]:
         """Summon 2-5 random-form mini clones during idle time to play together."""
         if (
@@ -3301,10 +3303,12 @@ class PetWindow(QWidget):
                 )
             )
         play_duration = float(duration) if duration is not None else self.rng.uniform(26.0, 42.0)
+        had_existing = bool(self._idle_play_clones)
         self._idle_play_clones = playmates
+        self._idle_play_manual = bool(manual)
         self._idle_play_until = ts + max(3.0, play_duration)
         self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
-        self._sync_subagent_clones()
+        self._sync_subagent_clones(silent_replace=had_existing)
         if announce and self.isVisible() and not self.isMinimized() and self._dock_side is None:
             raw_names = [form_by_id(item.form_id).name for item in playmates]
             names = "、".join(raw_names) if len(raw_names) <= 3 else f"{raw_names[0]}、{raw_names[1]} 等 {len(raw_names)} 位"
@@ -3344,15 +3348,26 @@ class PetWindow(QWidget):
         add_count: int | None = None,
     ) -> list[SubagentInfo]:
         """Panel action: summon a random squad, add more playmates up to cap, or party at max."""
-        if (
-            not hasattr(self, "subagent_clones")
-            or not bool(self._agy().get("subagent_clones", True))
-            or self._dock_side is not None
-        ):
+        if not hasattr(self, "subagent_clones"):
             return []
         ts = time.monotonic() if now is None else float(now)
+        if not bool(self._agy().get("subagent_clones", True)):
+            self._agy_set("subagent_clones", True)
+        if self._dock_side is not None:
+            self.undock_from_edge()
+        # If real Antigravity subagents are currently active, cheer with them instead of spawning & poofing playmates.
+        snap = getattr(getattr(self, "telemetry", None), "last_snapshot", None)
+        if getattr(snap, "active_subagents", None):
+            self.subagent_clones.trigger_group_cheer(now=ts)
+            return []
+        # Wake the pet gently if sleeping/sulking so _tick_idle_playmates does not immediately dismiss new playmates.
+        quiet_states = {PetAction.SLEEPING, PetAction.PERCH_SLEEP, PetAction.DOCK_SLEEP, PetAction.SULK}
+        if ts < self._sulk_until or self.action_machine.current in quiet_states:
+            self._sulk_until = 0.0
+            self._request_action(PetAction.HAPPY, now=ts, reason="manual_playmate_wake", force=True, immediate=True)
         if not self._idle_play_clones:
-            return self.summon_idle_playmates(now=ts)
+            return self.summon_idle_playmates(now=ts, manual=True)
+        self._idle_play_manual = True
         room = MAX_VISIBLE_CLONES - len(self._idle_play_clones)
         if room <= 0:
             self._idle_play_until = max(self._idle_play_until, ts + 22.0)
@@ -3405,6 +3420,7 @@ class PetWindow(QWidget):
             return
         ts = time.monotonic() if now is None else float(now)
         self._idle_play_clones = []
+        self._idle_play_manual = False
         self._idle_play_until = 0.0
         self._idle_play_next_at = max(self._idle_play_next_at, ts + self._next_idle_play_delay())
         self._sync_subagent_clones()
@@ -3422,7 +3438,7 @@ class PetWindow(QWidget):
             should_dismiss = (
                 not clones_enabled
                 or bool(real_subs)
-                or agy_running
+                or (agy_running and not self._idle_play_manual)
                 or self._dock_side is not None
                 or not self.isVisible()
                 or self.isMinimized()
@@ -3461,7 +3477,7 @@ class PetWindow(QWidget):
         if can_summon:
             self.summon_idle_playmates(now=now)
 
-    def _sync_subagent_clones(self, snapshot=None) -> None:
+    def _sync_subagent_clones(self, snapshot=None, *, silent_replace: bool = False) -> None:
         if not hasattr(self, "subagent_clones"):
             return
         snap = snapshot if snapshot is not None else getattr(getattr(self, "telemetry", None), "last_snapshot", None)
@@ -3470,6 +3486,7 @@ class PetWindow(QWidget):
         if real_subagents:
             if self._idle_play_clones:
                 self._idle_play_clones = []
+                self._idle_play_manual = False
                 self._idle_play_until = 0.0
                 preempted_playmates = True
             subagents = real_subagents
@@ -3480,7 +3497,7 @@ class PetWindow(QWidget):
             default_form=self.form_id,
             enabled=bool(self._agy().get("subagent_clones", True)),
             host_visible=self.isVisible() and not self.isMinimized(),
-            silent_depart=preempted_playmates,
+            silent_depart=preempted_playmates or silent_replace,
         )
         if self.subagent_clones.active_count > 0 or getattr(self.subagent_clones, "has_departing", False):
             self.subagent_clones.position_around(
