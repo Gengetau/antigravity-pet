@@ -120,24 +120,49 @@ class SubagentInterplayManagerTests(unittest.TestCase):
             events.clear()  # Ignore initial summoned event
 
             w0, w1 = mgr.visible_widgets
+            w0._click_debounce_ms = 25  # Fast deterministic debounce in unit test
             center_local = QPointF(w0.width() / 2.0, w0.height() / 2.0)
             center_global = QPointF(w0.frameGeometry().center())
 
-            # 1. Left click -> cheer / head-pat + hearts + clicked event
+            # 1. Single left click -> delayed until double-click window elapses, then triggers cheer
             w0.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, center_local, center_global))
             w0.mouseReleaseEvent(_mouse(QEvent.Type.MouseButtonRelease, center_local, center_global))
+            self.assertEqual(events, [])  # Waiting for double-click window
+            deadline = time.monotonic() + 0.3
+            while not events and time.monotonic() < deadline:
+                self.app.processEvents()
+                time.sleep(0.01)
             self.assertEqual([e.kind for e in events], ["clicked"])
             self.assertEqual(events[0].conversation_id, "s1")
             self.assertTrue(bool(w0.bubble_text))
             mgr.position_around(host, now=time.monotonic(), screen=screen)
             self.assertEqual(w0.current_action, PetAction.HEAD_PAT)
 
-            # 2. Double click -> progress report
+            # 2. Full Qt double-click sequence (press1 -> release1 -> dblclick -> release2)
+            # MUST suppress the pending single-click and emit ONLY ["report"]!
             events.clear()
+            w0.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, center_local, center_global))
+            w0.mouseReleaseEvent(_mouse(QEvent.Type.MouseButtonRelease, center_local, center_global))
             w0.mouseDoubleClickEvent(_mouse(QEvent.Type.MouseButtonDblClick, center_local, center_global))
             w0.mouseReleaseEvent(_mouse(QEvent.Type.MouseButtonRelease, center_local, center_global))
+            wait_until = time.monotonic() + 0.08
+            while time.monotonic() < wait_until:
+                self.app.processEvents()
+                time.sleep(0.01)
             self.assertEqual([e.kind for e in events], ["report"])
             self.assertIn("汇报", w0.bubble_text)
+
+            # 2b. Hiding a clone cancels any pending debounced single-click
+            events.clear()
+            w0.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, center_local, center_global))
+            w0.mouseReleaseEvent(_mouse(QEvent.Type.MouseButtonRelease, center_local, center_global))
+            w0.hide()
+            wait_until = time.monotonic() + 0.08
+            while time.monotonic() < wait_until:
+                self.app.processEvents()
+                time.sleep(0.01)
+            self.assertEqual(events, [])
+            w0.show()
 
             # 3. Right click -> group cheer across all clones
             events.clear()

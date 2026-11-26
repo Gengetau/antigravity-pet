@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QPoint, QRect, QRectF, Qt
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -42,6 +42,7 @@ GLIDE_RETURN_SECONDS = 0.36
 RELAY_INTERVAL_MIN_SECONDS = 14.0
 RELAY_INTERVAL_MAX_SECONDS = 22.0
 DRAG_THRESHOLD_PX = 6
+CLICK_DEBOUNCE_MS = 240
 
 _ACCENTS: dict[str, str] = {
     "carbon": "#4b5563",
@@ -245,6 +246,10 @@ class SubagentCloneWidget(QWidget):
         self._press_window_pos: QPoint | None = None
         self._dragging = False
         self._suppress_next_release = False
+        self._click_debounce_ms = CLICK_DEBOUNCE_MS
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.timeout.connect(self._fire_pending_click)
 
         self._on_click: Callable[[SubagentCloneWidget], None] | None = None
         self._on_double_click: Callable[[SubagentCloneWidget], None] | None = None
@@ -425,6 +430,18 @@ class SubagentCloneWidget(QWidget):
         self.update()
         super().leaveEvent(event)
 
+    def _fire_pending_click(self) -> None:
+        if self.isVisible() and not self._dragging and self._on_click is not None:
+            self._on_click(self)
+
+    def hideEvent(self, event) -> None:
+        self._click_timer.stop()
+        super().hideEvent(event)
+
+    def closeEvent(self, event) -> None:
+        self._click_timer.stop()
+        super().closeEvent(event)
+
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._press_global = event.globalPosition().toPoint()
@@ -439,6 +456,7 @@ class SubagentCloneWidget(QWidget):
         if self._press_global is not None and self._press_window_pos is not None:
             delta = event.globalPosition().toPoint() - self._press_global
             if not self._dragging and delta.manhattanLength() > DRAG_THRESHOLD_PX:
+                self._click_timer.stop()
                 self._dragging = True
                 self.setCursor(Qt.CursorShape.ClosedHandCursor)
                 if self._on_drag_start is not None:
@@ -459,16 +477,18 @@ class SubagentCloneWidget(QWidget):
             self._suppress_next_release = False
             self.setCursor(Qt.CursorShape.OpenHandCursor)
             if was_dragging:
+                self._click_timer.stop()
                 if self._on_drag_end is not None:
                     self._on_drag_end(self, self.frameGeometry().center())
             elif not suppressed and self._on_click is not None:
-                self._on_click(self)
+                self._click_timer.start(self._click_debounce_ms)
             event.accept()
             return
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            self._click_timer.stop()
             self._press_global = None
             self._press_window_pos = None
             self._dragging = False
@@ -480,6 +500,7 @@ class SubagentCloneWidget(QWidget):
         super().mouseDoubleClickEvent(event)
 
     def contextMenuEvent(self, event) -> None:
+        self._click_timer.stop()
         if self._on_right_click is not None:
             self._on_right_click(self)
             event.accept()
