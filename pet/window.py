@@ -3503,6 +3503,17 @@ class PetWindow(QWidget):
             or self.action_machine.current not in {PetAction.IDLE, PetAction.PERCH, PetAction.WORKING}
         ):
             return
+        if self.subagent_clones.active_group_scene is not None:
+            return
+        if self.subagent_clones.active_count >= 2:
+            roll = self.rng.random()
+            if roll < 0.65:
+                self.subagent_clones.request_host_pat_clone(now=now)
+            elif roll < 0.85:
+                self.subagent_clones.trigger_snack_party(now=now)
+            else:
+                self.subagent_clones.trigger_group_huddle(now=now)
+            return
         self.subagent_clones.request_host_pat_clone(now=now)
 
     def _sync_subagent_clones(self, snapshot=None, *, silent_replace: bool = False) -> None:
@@ -3690,6 +3701,43 @@ class PetWindow(QWidget):
                     key = "playmate_host_pat" if playmate else "subagent_host_pat"
                     fb = "摸摸 {name} 的小脑袋，乖啦～" if playmate else "摸摸 {name} 的小脑袋，辛苦啦～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "clone_train":
+                self.emit_particles("notes")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_train", force=True)
+                    key = "playmate_clone_train" if playmate else "subagent_clone_train"
+                    fb = "呜呜——小火车开过来啦，排得真整齐～"
+                    self.say(pick_line(key, fb), preserve_action=True)
+            elif event.kind == "clone_wave":
+                self.emit_particles("confetti")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_clone_wave", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_clone_wave" if playmate else "subagent_clone_wave"
+                    fb = "轮到姐姐收尾啦，人浪接力大成功！"
+                    self.say(pick_line(key, fb), preserve_action=True)
+            elif event.kind == "snack_party":
+                self.emit_particles("fish")
+                self.emit_particles("hearts")
+                if can_emote:
+                    toss_pose = PetAction.WAVE if self.surface_tracker.attached else PetAction.QUOTA_GIFT
+                    self._request_action(toss_pose, now=now, reason="subagent_snack_party", force=True)
+                    key = "playmate_snack_party" if playmate else "subagent_snack_party"
+                    fb = "发小鱼干啦！大家排排坐一起来吃～"
+                    self.say(pick_line(key, fb), preserve_action=True)
+            elif event.kind == "group_huddle":
+                self.emit_particles("hearts")
+                self.emit_particles("confetti")
+                if can_emote:
+                    self._request_action(PetAction.PET_PURR, now=now, reason="subagent_group_huddle", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_group_huddle" if playmate else "subagent_group_huddle"
+                    fb = "哇哇！被小分身们团团抱住啦～"
+                    self.say(pick_line(key, fb), preserve_action=True)
         finally:
             self._handling_clone_interaction = False
 

@@ -89,6 +89,10 @@ class RehearsalStage(QWidget):
                 ("🚶 分身自由逛", lambda: self._sim_clone_action("roam")),
                 ("🏃 主动找姐姐", lambda: self._sim_clone_action("visit_host")),
                 ("🐾 主动找同伴", lambda: self._sim_clone_action("visit_clone")),
+                ("🚂 小火车巡游", lambda: self._sim_clone_action("clone_train")),
+                ("🌊 人浪接力", lambda: self._sim_clone_action("clone_wave")),
+                ("🐟 撒鱼干派对", lambda: self._sim_clone_action("snack_party")),
+                ("💞 围抱贴贴", lambda: self._sim_clone_action("group_huddle")),
             )
         ):
             btn = QPushButton(label)
@@ -200,8 +204,9 @@ class RehearsalStage(QWidget):
         self.pet.summon_or_add_playmates()
 
     def _sim_clone_action(self, kind: str) -> None:
-        if self.pet.subagent_clones.active_count < 2:
-            self._simulate_subagents(2)
+        min_needed = 4 if kind in {"clone_train", "clone_wave", "snack_party", "group_huddle"} else 2
+        if self.pet.subagent_clones.active_count < min_needed:
+            self._simulate_subagents(min_needed)
         clones = self.pet.subagent_clones
         if kind == "click":
             clones.trigger_click(0)
@@ -231,6 +236,14 @@ class RehearsalStage(QWidget):
             clones.start_visit_host(0, action="high_five")
         elif kind == "visit_clone":
             clones.start_visit_clone(0, 1, action="clone_buddy")
+        elif kind == "clone_train":
+            clones.trigger_clone_train()
+        elif kind == "clone_wave":
+            clones.trigger_clone_wave()
+        elif kind == "snack_party":
+            clones.trigger_snack_party()
+        elif kind == "group_huddle":
+            clones.trigger_group_huddle()
 
     def _sim_waiting(self) -> None:
         snap = LiveSnapshot(

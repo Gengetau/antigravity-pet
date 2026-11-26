@@ -504,6 +504,8 @@ class SubagentInterplayManagerTests(unittest.TestCase):
             self.assertNotEqual(w0.mirrored, w1.mirrored, "Clones should face each other during buddy high-five")
 
             # 5. Autonomous roam scheduler triggers walking/visits on its own without manual start_*
+            mgr._group_scene = None
+            mgr._next_group_scene_at = t + 30.0
             rt0.pose_action = None
             rt0.pose_until = 0.0
             rt0.roam_mode = "home"
@@ -524,6 +526,146 @@ class SubagentInterplayManagerTests(unittest.TestCase):
             mgr.position_around(far_host, now=t, reduced_motion=True, screen=screen)
             self.assertEqual(rt0.roam_mode, "home")
             self.assertIsNone(rt0.roam_pos)
+        finally:
+            mgr.close_all()
+
+    def test_choreographed_multi_pet_train_wave_snack_party_and_huddle(self) -> None:
+        from pet.subagent_clones import TRAIN_DURATION_SECONDS, WAVE_STEP_SECONDS
+
+        mgr, events = self._make()
+        try:
+            subs = [
+                SubagentInfo(f"idle-play-g{i}", "idle-play", f"玩耍{i}", "闲时随机玩伴", fid)
+                for i, fid in enumerate(("neon", "hydergon", "argon", "claude"))
+            ]
+            area = QRect(0, 0, 1920, 1040)
+            screen = _FakeScreen(area)
+            host = QRect(860, 520, 180, 220)
+            mgr.sync(subs, default_form="carbon", enabled=True, host_visible=True, now=10.0)
+            mgr.position_around(host, now=11.0, screen=screen)
+            widgets = mgr.visible_widgets
+            self.assertEqual(len(widgets), 4)
+
+            # 1. Mini Train Parade: leader + trailing cars walk together, stay in bounds, finish with CELEBRATE
+            events.clear()
+            ev_train = mgr.trigger_clone_train(now=20.0)
+            assert ev_train is not None
+            self.assertEqual(ev_train.kind, "clone_train")
+            self.assertEqual(mgr.active_group_scene, "clone_train")
+            initial_xs = [w.x() for w in widgets]
+            t = 20.0
+            for _ in range(20):
+                t += 0.05
+                mgr.position_around(host, now=t, screen=screen)
+            self.assertTrue(all(w.current_action == PetAction.WALKING for w in widgets))
+            self.assertTrue(any(abs(w.x() - ix) >= 20 for w, ix in zip(widgets, initial_xs)))
+            self.assertTrue(all(area.contains(w.frameGeometry()) for w in widgets))
+            # Complete the train duration -> scene clears & clones celebrate
+            t = 20.0 + TRAIN_DURATION_SECONDS + 0.1
+            mgr.position_around(host, now=t, screen=screen)
+            self.assertIsNone(mgr.active_group_scene)
+            self.assertTrue(all(w.current_action == PetAction.CELEBRATE for w in widgets))
+
+            # 2. Mexican Wave Relay: strictly left-to-right staggered hops, then finale event to sister
+            events.clear()
+            for i, pos_x in enumerate((420, 620, 1140, 1340)):
+                cid = subs[i].conversation_id
+                rt = mgr._runtime[cid]
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "paused"
+                rt.roam_pos = [float(pos_x), 600.0]
+                widgets[i].move(pos_x, 600)
+                widgets[i].clear_bubble()
+            self.assertTrue(mgr.trigger_clone_wave(now=30.0))
+            self.assertEqual(mgr.active_group_scene, "clone_wave")
+            # Leftmost clone fired immediately; rightmost has not yet fired
+            self.assertTrue(bool(widgets[0].bubble_text))
+            self.assertEqual(widgets[3].bubble_text, "")
+            self.assertFalse(any(e.kind == "clone_wave" for e in events))
+            # Advance across all 4 stagger steps + finale
+            t = 30.0
+            for _ in range(40):
+                t += 0.05
+                mgr.position_around(host, now=t, screen=screen)
+            self.assertTrue(all(bool(w.bubble_text) for w in widgets))
+            self.assertTrue(any(e.kind == "clone_wave" for e in events))
+            self.assertIn("姐姐", widgets[3].bubble_text)
+            # Expire wave scene
+            mgr.position_around(host, now=30.0 + 4 * WAVE_STEP_SECONDS + 2.2, screen=screen)
+            self.assertIsNone(mgr.active_group_scene)
+
+            # 3. Snack Party: scattered clones trot toward sister and switch to PetAction.EATING without overlap
+            events.clear()
+            for i, pos_x in enumerate((380, 520, 1280, 1440)):
+                cid = subs[i].conversation_id
+                rt = mgr._runtime[cid]
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "paused"
+                rt.roam_pos = [float(pos_x), 600.0]
+                widgets[i].move(pos_x, 600)
+            ev_snack = mgr.trigger_snack_party(now=40.0)
+            assert ev_snack is not None
+            self.assertEqual(ev_snack.kind, "snack_party")
+            self.assertEqual(mgr.active_group_scene, "snack_party")
+            t = 40.0
+            mgr.position_around(host, now=40.05, screen=screen)
+            self.assertTrue(any(w.current_action == PetAction.WALKING for w in widgets))
+            for _ in range(95):
+                t += 0.05
+                mgr.position_around(host, now=t, screen=screen)
+                if all(w.current_action == PetAction.EATING for w in widgets):
+                    break
+            self.assertTrue(all(w.current_action == PetAction.EATING for w in widgets))
+            _hl, _hr, host_vis = mgr._host_visual_bounds(host)
+            for w in widgets:
+                vr = mgr._clone_visual_rect(w.x(), w.y(), w.width(), w.height(), *w.visual_sprite_size)
+                self.assertFalse(vr.intersects(host_vis))
+
+            # 4. Group Huddle: scattered clones converge around sister and melt into PET_PURR + emit group_huddle
+            events.clear()
+            mgr._group_scene = None
+            for i, pos_x in enumerate((420, 540, 1260, 1380)):
+                cid = subs[i].conversation_id
+                rt = mgr._runtime[cid]
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "paused"
+                rt.roam_pos = [float(pos_x), 600.0]
+                widgets[i].move(pos_x, 600)
+            self.assertTrue(mgr.trigger_group_huddle(now=50.0))
+            self.assertEqual(mgr.active_group_scene, "group_huddle")
+            t = 50.0
+            for _ in range(95):
+                t += 0.05
+                mgr.position_around(host, now=t, screen=screen)
+                if any(e.kind == "group_huddle" for e in events):
+                    break
+            self.assertTrue(any(e.kind == "group_huddle" for e in events))
+            t += 0.05
+            mgr.position_around(host, now=t, screen=screen)
+            self.assertTrue(all(w.current_action == PetAction.PET_PURR for w in widgets))
+
+            # 5. Autonomous multi-pet scheduler starts a group scene on its own when _next_group_scene_at elapses
+            mgr._group_scene = None
+            for cid, rt in mgr._runtime.items():
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "home"
+                rt.roam_pos = None
+                rt.next_roam_at = t + 30.0
+            mgr._next_group_scene_at = t + 0.02
+            mgr.position_around(host, now=t + 0.05, screen=screen)
+            self.assertIn(mgr.active_group_scene, {"clone_train", "clone_wave", "snack_party", "group_huddle"})
+
+            # 6. reduced_motion cleanly ends active group scene and executes calm fallbacks
+            mgr.position_around(host, now=t + 0.10, reduced_motion=True, screen=screen)
+            self.assertIsNone(mgr.active_group_scene)
+            events.clear()
+            self.assertTrue(mgr.trigger_clone_wave(now=t + 0.20))
+            self.assertIsNone(mgr.active_group_scene)
+            self.assertTrue(any(e.kind == "clone_wave" for e in events))
         finally:
             mgr.close_all()
 
@@ -706,6 +848,14 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *sc._GIFT_SHARE_LINES,
             *sc._CLONE_BUDDY_LINES,
             *sc._HOST_PAT_CLONE_LINES,
+            *sc._TRAIN_LEADER_LINES,
+            *sc._TRAIN_FOLLOWER_LINES,
+            *sc._WAVE_CHANT_LINES,
+            sc._WAVE_BATON_LINE,
+            *sc._SNACK_RUSH_LINES,
+            *sc._SNACK_EAT_LINES,
+            *sc._HUDDLE_CALL_LINES,
+            *sc._HUDDLE_PURR_LINES,
             *(line for pair in sc._CLONE_CHAT_PAIRS for line in pair),
             *(line for pair in sc._WORK_CHAT_PAIRS for line in pair),
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
@@ -874,17 +1024,52 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.pet._tick_host_clone_affection(t)
         self.assertIsNone(rt0.pose_action)
 
-        # Calm idle -> autonomous pat fires!
+        # Calm idle -> autonomous sisterly affection fires (head pat, snack party, or cuddle huddle)!
         self.pet._sulk_until = 0.0
         self.pet._request_action(PetAction.IDLE, now=t + 1.0, reason="test_calm", force=True, immediate=True)
         self.pet._next_host_pat_clone_at = t + 0.5
         self.pet._tick_host_clone_affection(t + 1.0)
         self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=t + 1.05)
-        any_purring_or_visiting = any(
-            (r.pose_action == PetAction.PET_PURR or r.roam_action_on_arrive == "host_pat")
-            for r in self.pet.subagent_clones._runtime.values()
+        any_sister_affection = (
+            self.pet.subagent_clones.active_group_scene in {"snack_party", "group_huddle"}
+            or any(
+                (
+                    r.pose_action in {PetAction.PET_PURR, PetAction.EATING}
+                    or r.roam_action_on_arrive == "host_pat"
+                )
+                for r in self.pet.subagent_clones._runtime.values()
+            )
         )
-        self.assertTrue(any_purring_or_visiting)
+        self.assertTrue(any_sister_affection)
+
+    def test_window_responds_to_all_multi_pet_group_scenes(self) -> None:
+        self.pet.summon_idle_playmates(count=4, now=900.0, duration=50.0, announce=False)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=901.0)
+
+        # 1. Train parade -> sister waves & cheers
+        ev_train = self.pet.subagent_clones.trigger_clone_train(now=902.0)
+        assert ev_train is not None
+        self.assertEqual(self.pet.action_machine.current, PetAction.WAVE)
+        self.assertTrue(bool(self.pet.bubble.text))
+
+        # 2. Snack party -> sister tosses fish gift & speaks
+        self.pet.subagent_clones._group_scene = None
+        ev_snack = self.pet.subagent_clones.trigger_snack_party(now=904.0)
+        assert ev_snack is not None
+        self.assertIn(self.pet.action_machine.current, {PetAction.QUOTA_GIFT, PetAction.WAVE})
+        self.assertTrue(bool(self.pet.bubble.text))
+
+        # 3. Group huddle -> sister melts into PET_PURR once clones gather
+        self.pet.subagent_clones._group_scene = None
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=906.0, reduced_motion=True)
+        self.assertTrue(self.pet.subagent_clones.trigger_group_huddle(now=907.0))
+        self.assertEqual(self.pet.action_machine.current, PetAction.PET_PURR)
+        self.assertTrue(bool(self.pet.bubble.text))
+
+        # 4. Mexican wave finale -> sister celebrates
+        self.assertTrue(self.pet.subagent_clones.trigger_clone_wave(now=908.0))
+        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        self.assertTrue(bool(self.pet.bubble.text))
 
 
 if __name__ == "__main__":

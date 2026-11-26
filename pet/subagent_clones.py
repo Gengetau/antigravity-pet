@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -54,6 +54,10 @@ ROAM_CATCHUP_DISTANCE_PX = 340.0
 ROAM_HOST_RADIUS_X = 260
 WORK_ROAM_RADIUS_X = 150
 HOST_PAT_DIRECT_RADIUS_PX = 135.0
+WAVE_STEP_SECONDS = 0.28
+TRAIN_DURATION_SECONDS = 4.4
+SNACK_PARTY_DURATION_SECONDS = 6.2
+HUDDLE_DURATION_SECONDS = 5.6
 
 
 def is_playmate_id(conversation_id: str) -> bool:
@@ -191,7 +195,54 @@ _HOST_PAT_CLONE_LINES: tuple[str, ...] = (
     "被 {host} 摸头啦～",
     "嘿嘿，{host} 手好暖",
     "呼噜呼噜，最爱 {host}",
-    "好舒服，再摸一下嘛",
+    "好舒服，{host} 再摸嘛",
+)
+
+_TRAIN_LEADER_LINES: tuple[str, ...] = (
+    "呜呜！小火车开动～",
+    "跟我来，巡游出发！",
+    "小小列车发车啦～",
+)
+
+_TRAIN_FOLLOWER_LINES: tuple[str, ...] = (
+    "排好队跟紧啦！",
+    "呜呜，出发咯～",
+    "来啦来啦，别掉队！",
+)
+
+_WAVE_CHANT_LINES: tuple[str, ...] = (
+    "一！",
+    "二！",
+    "三！",
+    "起飞！",
+    "接力！",
+    "耶——！",
+)
+
+_WAVE_BATON_LINE = "交棒给 {host}！"
+
+_SNACK_RUSH_LINES: tuple[str, ...] = (
+    "哇！小鱼干！",
+    "我来啦 {host}！",
+    "留一条给我～",
+)
+
+_SNACK_EAT_LINES: tuple[str, ...] = (
+    "嗷呜，超香！",
+    "谢谢 {host} 投喂～",
+    "小鱼干最棒啦！",
+)
+
+_HUDDLE_CALL_LINES: tuple[str, ...] = (
+    "{host} 贴贴！",
+    "来抱 {host} 啦～",
+    "包围 {host}！",
+)
+
+_HUDDLE_PURR_LINES: tuple[str, ...] = (
+    "最喜欢 {host} 啦～",
+    "软乎乎超暖和！",
+    "和 {host} 贴贴真好",
 )
 
 _CLONE_CHAT_PAIRS: tuple[tuple[str, str], ...] = (
@@ -251,6 +302,7 @@ _ACTION_FRAME_INTERVALS: dict[PetAction, float] = {
     PetAction.GIFT_TOSS: 0.18,
     PetAction.WORKING: 0.18,
     PetAction.WALKING: 0.16,
+    PetAction.EATING: 0.24,
 }
 
 
@@ -347,7 +399,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
 class CloneEvent:
     """Structured host <-> subagent interaction event sent to PetWindow."""
 
-    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay / pet_rub / trick / gift_share / clone_buddy / clone_chat / host_pat_clone
+    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay / pet_rub / trick / gift_share / clone_buddy / clone_chat / host_pat_clone / clone_train / clone_wave / snack_party / group_huddle
     conversation_id: str
     form_id: str
     badge: str
@@ -405,6 +457,22 @@ class _DepartingClone:
     duration: float
     widget: "SubagentCloneWidget"
     poof_emitted: bool = False
+
+
+@dataclass(slots=True)
+class _GroupScene:
+    kind: str  # clone_train / clone_wave / snack_party / group_huddle
+    started_at: float
+    ends_at: float
+    order: list[str]
+    direction: int = 1
+    waypoints: list[tuple[float, float]] = field(default_factory=list)
+    waypoint_idx: int = 0
+    targets: dict[str, tuple[float, float]] = field(default_factory=dict)
+    step_fired: set[str] = field(default_factory=set)
+    finale_fired: bool = False
+    next_fx_at: float = 0.0
+    is_playmate: bool = False
 
 
 def _compact_text(text: str, max_chars: int = 16) -> str:
@@ -944,6 +1012,8 @@ class SubagentCloneManager:
         self._last_tick_now: float | None = None
         self._last_mood_at: dict[PetAction, float] = {}
         self._next_relay_at = 0.0
+        self._group_scene: _GroupScene | None = None
+        self._next_group_scene_at = 0.0
 
     def set_host_name(self, name: str, *, form_id: str | None = None) -> None:
         cleaned = (name or "").strip()
@@ -1006,6 +1076,10 @@ class SubagentCloneManager:
     @property
     def all_visible_widgets(self) -> tuple[SubagentCloneWidget, ...]:
         return self.visible_widgets + self.departing_widgets
+
+    @property
+    def active_group_scene(self) -> str | None:
+        return self._group_scene.kind if self._group_scene is not None else None
 
     def set_topmost(self, topmost: bool) -> None:
         self._topmost = bool(topmost)
@@ -1197,6 +1271,7 @@ class SubagentCloneManager:
         now = time.monotonic()
         rt = self._runtime.get(info.conversation_id)
         if rt is not None:
+            self._group_scene = None
             self._clear_roam(rt)
             rt.dragging = True
             rt.pose_action = PetAction.FALLING
@@ -1862,6 +1937,7 @@ class SubagentCloneManager:
         rt.roam_target_id = None
         rt.roam_action_on_arrive = action
         rt.walk_facing = 1 if tx >= widget.x() else -1
+        self._next_group_scene_at = max(self._next_group_scene_at, ts + 8.0)
         return True
 
     def start_visit_clone(
@@ -1909,6 +1985,7 @@ class SubagentCloneManager:
         rt_a.roam_target_id = info_b.conversation_id
         rt_a.roam_action_on_arrive = action
         rt_a.walk_facing = 1 if tx >= widget.x() else -1
+        self._next_group_scene_at = max(self._next_group_scene_at, ts + 8.0)
         return True
 
     def trigger_host_pat_clone(
@@ -1993,6 +2070,639 @@ class SubagentCloneManager:
             return self.trigger_host_pat_clone(resolved, now=ts)
         return self.start_visit_host(resolved, action="host_pat", now=ts)
 
+    # ----- Choreographed multi-pet group scenes (2..6 clones + sister) ---------
+
+    def _free_clone_indices(self) -> list[int]:
+        free: list[int] = []
+        for idx, (info, _f, _b) in enumerate(self._entries):
+            if idx >= len(self._widgets):
+                continue
+            rt = self._runtime.get(info.conversation_id)
+            if rt is not None and rt.dragging:
+                continue
+            free.append(idx)
+        return free
+
+    def _compute_group_gather_targets(
+        self,
+        indices: list[int],
+        host_rect: QRect,
+        area: QRect,
+        keepouts: list[QRect],
+    ) -> dict[str, tuple[float, float]]:
+        """Assign cozy, zero-overlap gathering spots tightly flanking both sides of sister."""
+        host_vis_left, host_vis_right, host_vis_rect = self._host_visual_bounds(host_rect)
+        placed: list[QRect] = []
+        targets: dict[str, tuple[float, float]] = {}
+        for slot_idx, idx in enumerate(indices):
+            widget = self._widgets[idx]
+            info = self._entries[idx][0]
+            vis_w, vis_h = widget.visual_sprite_size
+            px, py, _side, vrect = self._place_clone_slot(
+                idx=slot_idx,
+                widget_w=widget.width(),
+                widget_h=widget.height(),
+                vis_w=vis_w,
+                vis_h=vis_h,
+                host_rect=host_rect,
+                host_vis_left=host_vis_left,
+                host_vis_right=host_vis_right,
+                host_vis_rect=host_vis_rect,
+                area=area,
+                keepouts=keepouts,
+                placed_visual_rects=placed,
+                sway_x=0.0,
+            )
+            placed.append(vrect)
+            targets[info.conversation_id] = (float(px), float(py))
+        return targets
+
+    def trigger_clone_train(self, *, now: float | None = None) -> CloneEvent | None:
+        """2..6 clones form a follow-the-leader mini train patrolling across the desktop."""
+        free = self._free_clone_indices()
+        if len(free) < 2:
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        host_rect = self._last_host_rect or QRect(860, 500, 180, 220)
+        area = self._last_area or QRect(0, 0, 1920, 1080)
+        keepouts = self._last_keepouts
+        # Choose initial direction with more desktop room; front-most clone leads so the line never tangles.
+        space_left = host_rect.center().x() - area.left()
+        space_right = area.right() - host_rect.center().x()
+        direction = 1 if space_right >= space_left else -1
+        ordered_indices = sorted(free, key=lambda i: self._widgets[i].x(), reverse=(direction > 0))
+        order = [self._entries[i][0].conversation_id for i in ordered_indices]
+        lead_idx = ordered_indices[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        lead_w = self._widgets[lead_idx]
+        playmate = any(is_playmate_id(cid) for cid in order)
+
+        w, h = lead_w.width(), lead_w.height()
+        base_y = max(area.top(), min(host_rect.bottom() - h - 6, area.bottom() - h + 1))
+        for kz in keepouts:
+            if QRect(host_rect.center().x(), base_y, w, h).intersects(kz):
+                base_y = min(area.bottom() - h + 1, max(base_y, kz.bottom() + 6))
+        left_x = float(max(area.left() + 12, host_rect.center().x() - 320))
+        right_x = float(min(area.right() - w - 12, host_rect.center().x() + 320))
+        waypoints = [(right_x, float(base_y)), (left_x, float(base_y))] if direction > 0 else [
+            (left_x, float(base_y)),
+            (right_x, float(base_y)),
+        ]
+
+        lead_line = self._format_line(self._rng.choice(_TRAIN_LEADER_LINES))
+        follower_line = self._format_line(self._rng.choice(_TRAIN_FOLLOWER_LINES))
+        for rank, idx in enumerate(ordered_indices):
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            rt.pose_action = None
+            rt.pose_until = 0.0
+            rt.roam_target = None
+            rt.roam_target_id = None
+            rt.roam_action_on_arrive = None
+            if self._last_reduced_motion:
+                rt.pose_action = PetAction.WAVE
+                rt.pose_until = ts + 2.4
+            else:
+                rt.roam_mode = "walking"
+                rt.roam_pos = [float(widget.x()), float(widget.y())]
+                rt.walk_facing = direction
+            widget.emit_particles("notes", reduced_motion=self._last_reduced_motion)
+            if rank == 0:
+                widget.say(lead_line, now=ts, duration=2.6)
+            elif rank == 1:
+                widget.say(follower_line, now=ts, duration=2.6)
+
+        if not self._last_reduced_motion:
+            self._group_scene = _GroupScene(
+                kind="clone_train",
+                started_at=ts,
+                ends_at=ts + TRAIN_DURATION_SECONDS,
+                order=order,
+                direction=direction,
+                waypoints=waypoints,
+                next_fx_at=ts + 0.9,
+                is_playmate=playmate,
+            )
+        else:
+            self._group_scene = None
+
+        rt_lead = self._runtime[lead_info.conversation_id]
+        event = CloneEvent(
+            kind="clone_train",
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=lead_info.title,
+            side=rt_lead.last_side,
+            text=lead_line,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_clone_wave(self, *, now: float | None = None) -> bool:
+        """Left-to-right Mexican wave jump relay across clones, handing off the grand finale to sister."""
+        free = self._free_clone_indices()
+        if len(free) < 2:
+            return False
+        ts = time.monotonic() if now is None else float(now)
+        ordered_indices = sorted(free, key=lambda i: self._widgets[i].x())
+        order = [self._entries[i][0].conversation_id for i in ordered_indices]
+        playmate = any(is_playmate_id(cid) for cid in order)
+
+        if self._last_reduced_motion:
+            for rank, idx in enumerate(ordered_indices):
+                cid = self._entries[idx][0].conversation_id
+                rt = self._runtime.setdefault(
+                    cid,
+                    self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+                )
+                rt.pose_action = PetAction.CELEBRATE
+                rt.pose_until = ts + 2.0
+                chant = (
+                    self._format_line(_WAVE_BATON_LINE)
+                    if rank == len(ordered_indices) - 1
+                    else _WAVE_CHANT_LINES[rank % len(_WAVE_CHANT_LINES)]
+                )
+                self._widgets[idx].say(chant, now=ts, duration=2.2)
+                self._widgets[idx].emit_particles("sparkles", reduced_motion=True)
+            last_idx = ordered_indices[-1]
+            last_info, last_form, last_badge = self._entries[last_idx]
+            self._group_scene = None
+            self._emit_event(
+                CloneEvent(
+                    kind="clone_wave",
+                    conversation_id=last_info.conversation_id,
+                    form_id=last_form,
+                    badge=last_badge,
+                    title=last_info.title,
+                    side=self._runtime[last_info.conversation_id].last_side,
+                    text=self._format_line(_WAVE_BATON_LINE),
+                    is_playmate=playmate,
+                )
+            )
+            return True
+
+        for idx in ordered_indices:
+            cid = self._entries[idx][0].conversation_id
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            self._pause_roam(rt, ts, hold=len(order) * WAVE_STEP_SECONDS + 2.0)
+
+        self._group_scene = _GroupScene(
+            kind="clone_wave",
+            started_at=ts,
+            ends_at=ts + len(order) * WAVE_STEP_SECONDS + 1.9,
+            order=order,
+            is_playmate=playmate,
+        )
+        # Fire the leftmost starter right away so feedback is instant
+        first_idx = ordered_indices[0]
+        first_cid = order[0]
+        self._group_scene.step_fired.add(first_cid)
+        rt0 = self._runtime[first_cid]
+        rt0.pose_action = PetAction.CELEBRATE
+        rt0.pose_until = ts + 1.6
+        rt0.hop_started_at = ts
+        rt0.hop_duration = 0.46
+        rt0.hop_height = 17.0
+        first_dur = len(order) * WAVE_STEP_SECONDS + 1.6
+        self._widgets[first_idx].say(_WAVE_CHANT_LINES[0], now=ts, duration=first_dur)
+        self._widgets[first_idx].emit_particles("sparkles", reduced_motion=False)
+        self._widgets[first_idx].emit_particles("notes", reduced_motion=False)
+        return True
+
+    def trigger_snack_party(self, *, now: float | None = None) -> CloneEvent | None:
+        """Sister tosses dried fish; all clones rush in around her and munch happily together."""
+        free = self._free_clone_indices()
+        if not free:
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        host_rect = self._last_host_rect or QRect(860, 500, 180, 220)
+        area = self._last_area or QRect(0, 0, 1920, 1080)
+        keepouts = self._last_keepouts
+        targets = self._compute_group_gather_targets(free, host_rect, area, keepouts)
+        order = [self._entries[i][0].conversation_id for i in free]
+        playmate = any(is_playmate_id(cid) for cid in order)
+
+        scene = _GroupScene(
+            kind="snack_party",
+            started_at=ts,
+            ends_at=ts + SNACK_PARTY_DURATION_SECONDS,
+            order=order,
+            targets=targets,
+            is_playmate=playmate,
+        )
+        speakers = 0
+        for idx in free:
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            tx, ty = targets[cid]
+            dist = math.hypot(widget.x() - tx, widget.y() - ty)
+            if self._last_reduced_motion or dist <= 26.0:
+                scene.step_fired.add(cid)
+                self._pause_roam(rt, ts, hold=SNACK_PARTY_DURATION_SECONDS)
+                rt.pose_action = PetAction.EATING
+                rt.pose_until = max(ts + 3.2, scene.ends_at)
+                rt.face_dir_until = ts + 3.0
+                rt.face_mirrored = (widget.x() + widget.width() // 2) > host_rect.center().x()
+                widget.emit_particles("fish", reduced_motion=self._last_reduced_motion)
+                widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+                if speakers < 2:
+                    speakers += 1
+                    widget.say(self._format_line(self._rng.choice(_SNACK_EAT_LINES)), now=ts, duration=2.6)
+            else:
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "walking"
+                rt.roam_pos = [float(widget.x()), float(widget.y())]
+                rt.roam_target = (tx, ty)
+                rt.walk_facing = 1 if tx >= widget.x() else -1
+                if speakers < 2:
+                    speakers += 1
+                    widget.say(self._format_line(self._rng.choice(_SNACK_RUSH_LINES)), now=ts, duration=2.0)
+                widget.emit_particles("sparkles", reduced_motion=False)
+
+        self._group_scene = None if self._last_reduced_motion else scene
+        lead_idx = free[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        event = CloneEvent(
+            kind="snack_party",
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=lead_info.title,
+            side=self._runtime[lead_info.conversation_id].last_side,
+            text=self._format_line(_SNACK_EAT_LINES[0]),
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_group_huddle(self, *, now: float | None = None) -> bool:
+        """All clones converge from across the desktop to flank sister closely and snuggle her with hearts."""
+        free = self._free_clone_indices()
+        if len(free) < 2:
+            return False
+        ts = time.monotonic() if now is None else float(now)
+        host_rect = self._last_host_rect or QRect(860, 500, 180, 220)
+        area = self._last_area or QRect(0, 0, 1920, 1080)
+        keepouts = self._last_keepouts
+        targets = self._compute_group_gather_targets(free, host_rect, area, keepouts)
+        order = [self._entries[i][0].conversation_id for i in free]
+        playmate = any(is_playmate_id(cid) for cid in order)
+
+        scene = _GroupScene(
+            kind="group_huddle",
+            started_at=ts,
+            ends_at=ts + HUDDLE_DURATION_SECONDS,
+            order=order,
+            targets=targets,
+            is_playmate=playmate,
+        )
+        speakers = 0
+        for idx in free:
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            tx, ty = targets[cid]
+            dist = math.hypot(widget.x() - tx, widget.y() - ty)
+            if self._last_reduced_motion or dist <= 26.0:
+                scene.step_fired.add(cid)
+                self._pause_roam(rt, ts, hold=3.0)
+                rt.pose_action = PetAction.PET_PURR
+                rt.pose_until = ts + 2.8
+                rt.face_dir_until = ts + 2.8
+                rt.face_mirrored = (widget.x() + widget.width() // 2) > host_rect.center().x()
+                rt.hop_started_at = ts
+                rt.hop_duration = 0.38
+                rt.hop_height = 7.0
+                widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+            else:
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "walking"
+                rt.roam_pos = [float(widget.x()), float(widget.y())]
+                rt.roam_target = (tx, ty)
+                rt.walk_facing = 1 if tx >= widget.x() else -1
+                if speakers < 2:
+                    speakers += 1
+                    widget.say(self._format_line(self._rng.choice(_HUDDLE_CALL_LINES)), now=ts, duration=2.0)
+
+        self._group_scene = None if self._last_reduced_motion else scene
+        # If every clone is already right beside sister (or reduced_motion), trigger the warm huddle finale immediately!
+        if len(scene.step_fired) == len(order) or self._last_reduced_motion:
+            scene.finale_fired = True
+            self._fire_huddle_finale(free, ts=ts, playmate=playmate)
+        return True
+
+    def _fire_huddle_finale(self, indices: list[int], *, ts: float, playmate: bool) -> None:
+        if not indices:
+            return
+        host_rect = self._last_host_rect or QRect(860, 500, 180, 220)
+        for rank, idx in enumerate(indices):
+            if idx >= len(self._entries) or idx >= len(self._widgets):
+                continue
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.get(cid)
+            if rt is not None and not rt.dragging:
+                rt.pose_action = PetAction.PET_PURR
+                rt.pose_until = max(rt.pose_until, ts + 2.6)
+                rt.face_dir_until = max(rt.face_dir_until, ts + 2.6)
+                rt.face_mirrored = (widget.x() + widget.width() // 2) > host_rect.center().x()
+                rt.nudge_until = ts + 0.85
+                rt.nudge_strength = 12.0
+            widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+            if rank < 2:
+                widget.say(self._format_line(self._rng.choice(_HUDDLE_PURR_LINES)), now=ts, duration=2.6)
+        lead_idx = indices[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        self._emit_event(
+            CloneEvent(
+                kind="group_huddle",
+                conversation_id=lead_info.conversation_id,
+                form_id=lead_form,
+                badge=lead_badge,
+                title=lead_info.title,
+                side=self._runtime[lead_info.conversation_id].last_side,
+                text=self._format_line(_HUDDLE_PURR_LINES[0]),
+                is_playmate=playmate,
+            )
+        )
+
+    def _tick_group_scene(
+        self,
+        host_rect: QRect,
+        area: QRect,
+        keepouts: list[QRect],
+        *,
+        now: float,
+        dt: float,
+        reduced_motion: bool,
+        cid_to_index: dict[str, int],
+        deferred_arrivals: list[Callable[[], None]],
+    ) -> dict[str, tuple[float, float, int]]:
+        """Advance any active choreographed multi-pet scene and return walking overrides {cid: (x, y, facing)}."""
+        scene = self._group_scene
+        if scene is None:
+            return {}
+        min_needed = 1 if scene.kind == "snack_party" else 2
+        active_order = [
+            cid
+            for cid in scene.order
+            if cid in cid_to_index
+            and not self._runtime.get(cid, _CloneRuntime(now)).dragging
+        ]
+        if reduced_motion or len(active_order) < min_needed:
+            self._group_scene = None
+            return {}
+        scene.order = active_order
+        walk_overrides: dict[str, tuple[float, float, int]] = {}
+
+        def clamp_step(nx: float, ny: float, w: int, h: int) -> tuple[float, float]:
+            cx = float(max(area.left(), min(nx, area.right() - w + 1)))
+            cy = float(max(area.top(), min(ny, area.bottom() - h + 1)))
+            for kz in keepouts:
+                if QRect(round(cx), round(cy), w, h).intersects(kz):
+                    cy = float(min(area.bottom() - h + 1, max(cy, kz.bottom() + 4)))
+            return cx, cy
+
+        if scene.kind == "clone_train":
+            if now >= scene.ends_at:
+                for cid in active_order:
+                    idx = cid_to_index[cid]
+                    rt = self._runtime[cid]
+                    rt.roam_mode = "paused"
+                    rt.roam_until = now + 2.0
+                    rt.next_roam_at = now + self._rng.uniform(4.5, 8.0)
+                    rt.pose_action = PetAction.CELEBRATE
+                    rt.pose_until = now + 1.5
+                    rt.hop_started_at = now
+                    rt.hop_duration = 0.40
+                    rt.hop_height = 10.0
+                    self._widgets[idx].emit_particles("sparkles", reduced_motion=False)
+                self._next_group_scene_at = max(
+                    self._next_group_scene_at,
+                    now + (self._rng.uniform(16.0, 26.0) if scene.is_playmate else self._rng.uniform(28.0, 42.0)),
+                )
+                self._group_scene = None
+                return {}
+
+            lead_cid = active_order[0]
+            lead_idx = cid_to_index[lead_cid]
+            lead_w = self._widgets[lead_idx]
+            lead_rt = self._runtime[lead_cid]
+            if lead_rt.roam_pos is None:
+                lead_rt.roam_pos = [float(lead_w.x()), float(lead_w.y())]
+            tx, ty = scene.waypoints[scene.waypoint_idx % len(scene.waypoints)]
+            dx = tx - lead_rt.roam_pos[0]
+            dy = ty - lead_rt.roam_pos[1]
+            dist = math.hypot(dx, dy)
+            lead_step = 88.0 * max(0.016, dt)
+            if dist <= max(8.0, lead_step):
+                scene.waypoint_idx = (scene.waypoint_idx + 1) % len(scene.waypoints)
+                tx, ty = scene.waypoints[scene.waypoint_idx]
+                dx = tx - lead_rt.roam_pos[0]
+                dy = ty - lead_rt.roam_pos[1]
+                dist = max(1.0, math.hypot(dx, dy))
+            lead_facing = 1 if dx >= 0 else -1
+            nx, ny = clamp_step(
+                lead_rt.roam_pos[0] + (dx / dist) * lead_step,
+                lead_rt.roam_pos[1] + (dy / dist) * lead_step,
+                lead_w.width(),
+                lead_w.height(),
+            )
+            walk_overrides[lead_cid] = (nx, ny, lead_facing)
+            prev_x, prev_y, prev_facing = nx, ny, lead_facing
+            for cid in active_order[1:]:
+                idx = cid_to_index[cid]
+                widget = self._widgets[idx]
+                rt = self._runtime[cid]
+                if rt.roam_pos is None:
+                    rt.roam_pos = [float(widget.x()), float(widget.y())]
+                vis_w, _vis_h = widget.visual_sprite_size
+                follow_gap = float(vis_w + 10)
+                goal_x = prev_x - prev_facing * follow_gap
+                goal_y = prev_y
+                fdx = goal_x - rt.roam_pos[0]
+                fdy = goal_y - rt.roam_pos[1]
+                fdist = math.hypot(fdx, fdy)
+                fstep = 96.0 * max(0.016, dt)
+                if fdist <= max(4.0, fstep):
+                    fx, fy = clamp_step(goal_x, goal_y, widget.width(), widget.height())
+                    ffacing = prev_facing
+                else:
+                    ffacing = 1 if fdx >= 0 else -1
+                    fx, fy = clamp_step(
+                        rt.roam_pos[0] + (fdx / fdist) * fstep,
+                        rt.roam_pos[1] + (fdy / fdist) * fstep,
+                        widget.width(),
+                        widget.height(),
+                    )
+                walk_overrides[cid] = (fx, fy, ffacing)
+                prev_x, prev_y, prev_facing = fx, fy, ffacing
+            if now >= scene.next_fx_at:
+                scene.next_fx_at = now + 0.95
+                lead_w.emit_particles("notes", reduced_motion=False)
+                if len(active_order) >= 2:
+                    tail_w = self._widgets[cid_to_index[active_order[-1]]]
+                    tail_w.emit_particles("sparkles", reduced_motion=False)
+            return walk_overrides
+
+        if scene.kind == "clone_wave":
+            for rank, cid in enumerate(active_order):
+                if cid in scene.step_fired:
+                    continue
+                if now >= scene.started_at + rank * WAVE_STEP_SECONDS:
+                    scene.step_fired.add(cid)
+                    idx = cid_to_index[cid]
+                    rt = self._runtime[cid]
+                    rt.pose_action = PetAction.CELEBRATE if rank % 2 == 0 else PetAction.HIGH_FIVE
+                    rt.pose_until = now + 1.6
+                    rt.hop_started_at = now
+                    rt.hop_duration = 0.46
+                    rt.hop_height = 17.0
+                    chant = (
+                        self._format_line(_WAVE_BATON_LINE)
+                        if rank == len(active_order) - 1
+                        else _WAVE_CHANT_LINES[rank % len(_WAVE_CHANT_LINES)]
+                    )
+                    chant_dur = max(1.8, (len(active_order) - rank) * WAVE_STEP_SECONDS + 1.6)
+                    self._widgets[idx].say(chant, now=now, duration=chant_dur)
+                    self._widgets[idx].emit_particles("sparkles", reduced_motion=False)
+                    self._widgets[idx].emit_particles("notes", reduced_motion=False)
+            if (
+                not scene.finale_fired
+                and len(scene.step_fired) >= len(active_order)
+                and now >= scene.started_at + len(active_order) * WAVE_STEP_SECONDS
+            ):
+                scene.finale_fired = True
+                last_idx = cid_to_index[active_order[-1]]
+                last_info, last_form, last_badge = self._entries[last_idx]
+                last_side = self._runtime[last_info.conversation_id].last_side
+                playmate = scene.is_playmate
+
+                def _emit_wave_finale(
+                    info=last_info,
+                    form_id=last_form,
+                    badge=last_badge,
+                    side=last_side,
+                    pm=playmate,
+                ) -> None:
+                    self._emit_event(
+                        CloneEvent(
+                            kind="clone_wave",
+                            conversation_id=info.conversation_id,
+                            form_id=form_id,
+                            badge=badge,
+                            title=info.title,
+                            side=side,
+                            text=self._format_line(_WAVE_BATON_LINE),
+                            is_playmate=pm,
+                        )
+                    )
+
+                deferred_arrivals.append(_emit_wave_finale)
+            if now >= scene.ends_at:
+                for cid in active_order:
+                    self._runtime[cid].next_roam_at = now + self._rng.uniform(4.5, 8.5)
+                self._next_group_scene_at = max(
+                    self._next_group_scene_at,
+                    now + (self._rng.uniform(16.0, 26.0) if scene.is_playmate else self._rng.uniform(28.0, 42.0)),
+                )
+                self._group_scene = None
+            return {}
+
+        if scene.kind in {"snack_party", "group_huddle"}:
+            # Refresh targets if host moved
+            active_indices = [cid_to_index[cid] for cid in active_order]
+            fresh_targets = self._compute_group_gather_targets(active_indices, host_rect, area, keepouts)
+            scene.targets.update(fresh_targets)
+            for cid in active_order:
+                if cid in scene.step_fired:
+                    continue
+                idx = cid_to_index[cid]
+                widget = self._widgets[idx]
+                rt = self._runtime[cid]
+                if rt.roam_pos is None:
+                    rt.roam_pos = [float(widget.x()), float(widget.y())]
+                tx, ty = scene.targets[cid]
+                dx = tx - rt.roam_pos[0]
+                dy = ty - rt.roam_pos[1]
+                dist = math.hypot(dx, dy)
+                step = rt.roam_speed * 1.75 * max(0.016, dt)
+                if dist <= max(8.0, step):
+                    scene.step_fired.add(cid)
+                    cx, cy = clamp_step(tx, ty, widget.width(), widget.height())
+                    rt.roam_pos = [cx, cy]
+                    rt.roam_mode = "paused"
+                    rt.roam_until = max(now + 2.8, scene.ends_at)
+                    rt.face_dir_until = max(now + 2.8, scene.ends_at)
+                    rt.face_mirrored = (cx + widget.width() / 2.0) > host_rect.center().x()
+                    if scene.kind == "snack_party":
+                        rt.pose_action = PetAction.EATING
+                        rt.pose_until = max(now + 3.0, scene.ends_at)
+                        widget.emit_particles("fish", reduced_motion=False)
+                        widget.emit_particles("hearts", reduced_motion=False)
+                        if len(scene.step_fired) <= 2:
+                            widget.say(self._format_line(self._rng.choice(_SNACK_EAT_LINES)), now=now, duration=2.6)
+                    else:
+                        rt.pose_action = PetAction.PET_PURR
+                        rt.pose_until = now + 2.8
+                        rt.hop_started_at = now
+                        rt.hop_duration = 0.36
+                        rt.hop_height = 6.5
+                        widget.emit_particles("hearts", reduced_motion=False)
+                else:
+                    facing = 1 if dx >= 0 else -1
+                    nx, ny = clamp_step(
+                        rt.roam_pos[0] + (dx / dist) * step,
+                        rt.roam_pos[1] + (dy / dist) * step,
+                        widget.width(),
+                        widget.height(),
+                    )
+                    walk_overrides[cid] = (nx, ny, facing)
+
+            if (
+                scene.kind == "group_huddle"
+                and not scene.finale_fired
+                and (
+                    len(scene.step_fired) >= len(active_order)
+                    or (now >= scene.started_at + 2.4 and len(scene.step_fired) >= max(1, len(active_order) // 2))
+                )
+            ):
+                scene.finale_fired = True
+                pm = scene.is_playmate
+                indices_snap = list(active_indices)
+                ts_snap = now
+                deferred_arrivals.append(lambda: self._fire_huddle_finale(indices_snap, ts=ts_snap, playmate=pm))
+
+            if now >= scene.ends_at:
+                for cid in active_order:
+                    self._runtime[cid].next_roam_at = now + self._rng.uniform(4.5, 8.5)
+                self._next_group_scene_at = max(
+                    self._next_group_scene_at,
+                    now + (self._rng.uniform(16.0, 26.0) if scene.is_playmate else self._rng.uniform(28.0, 42.0)),
+                )
+                self._group_scene = None
+            return walk_overrides
+
+        return {}
+
     def notify_host_action(
         self,
         action: PetAction,
@@ -2072,6 +2782,7 @@ class SubagentCloneManager:
         self._enabled = bool(enabled)
         self._host_visible = bool(host_visible)
         if not self._enabled or not self._host_visible:
+            self._group_scene = None
             self._entries = []
             self._runtime.clear()
             self._fade = 0.0
@@ -2139,6 +2850,7 @@ class SubagentCloneManager:
                 )
 
         if not shown:
+            self._group_scene = None
             self._entries = []
             self._runtime.clear()
             self._fade = 0.0
@@ -2487,6 +3199,7 @@ class SubagentCloneManager:
         self._last_tick_now = now
 
         if (dock_edge or "").strip().lower() in ("left", "right"):
+            self._group_scene = None
             self._fade = 0.0
             self._clear_departing()
             for widget in self._widgets:
@@ -2496,6 +3209,7 @@ class SubagentCloneManager:
 
         self._tick_departing(host_rect, now=now, dt=dt, reduced_motion=reduced_motion)
         if not self._entries:
+            self._group_scene = None
             return
 
         self._fade = 1.0 if reduced_motion else min(1.0, max(0.22, self._fade + 0.14))
@@ -2510,6 +3224,16 @@ class SubagentCloneManager:
         placed_visual_rects: list[QRect] = []
         deferred_arrivals: list[Callable[[], None]] = []
         cid_to_index = {info.conversation_id: i for i, (info, _f, _b) in enumerate(self._entries)}
+        scene_walk_overrides = self._tick_group_scene(
+            host_rect,
+            area,
+            keepouts,
+            now=now,
+            dt=dt,
+            reduced_motion=reduced_motion,
+            cid_to_index=cid_to_index,
+            deferred_arrivals=deferred_arrivals,
+        )
         for idx in range(count):
             widget = self._widgets[idx]
             info, form_id, _badge = self._entries[idx]
@@ -2570,7 +3294,19 @@ class SubagentCloneManager:
                 pose_just_expired = True
 
             is_walking = False
-            if not reduced_motion and not rt.dragging and not in_summon and rt.glide_from is None:
+            if info.conversation_id in scene_walk_overrides and not reduced_motion and not rt.dragging:
+                sx, sy, sfacing = scene_walk_overrides[info.conversation_id]
+                rt.roam_mode = "walking"
+                rt.roam_pos = [sx, sy]
+                rt.walk_facing = sfacing
+                is_walking = True
+            elif (
+                self._group_scene is None
+                and not reduced_motion
+                and not rt.dragging
+                and not in_summon
+                and rt.glide_from is None
+            ):
                 # Auto catch-up if sister moved far away from a strolling/paused clone
                 if (
                     rt.roam_pos is not None
@@ -2623,24 +3359,15 @@ class SubagentCloneManager:
                             if j != idx
                             and not self._runtime.get(self._entries[j][0].conversation_id, _CloneRuntime(now)).dragging
                         ]
+                        vx, vy, _vside = self._host_visit_spot(idx, host_rect, area, keepouts)
+                        can_visit_host = rt.roam_pos is not None and math.hypot(cur_x - vx, cur_y - vy) > 36.0
                         roll = self._rng.random()
                         if rt.roam_pos is not None and dist_home > 180.0 and roll < 0.30:
                             rt.roam_mode = "returning"
                             rt.roam_target = (float(clamped_x), float(clamped_y))
                             rt.roam_target_id = None
                             rt.roam_action_on_arrive = None
-                        elif roll < 0.56:
-                            dest = self._pick_free_roam_spot(idx, host_rect, area, keepouts, radius_x=ROAM_HOST_RADIUS_X)
-                            if dest is not None:
-                                rt.roam_mode = "walking"
-                                rt.roam_pos = [cur_x, cur_y]
-                                rt.roam_target = dest
-                                rt.roam_target_id = None
-                                rt.roam_action_on_arrive = None
-                            else:
-                                rt.next_roam_at = now + self._rng.uniform(3.5, 6.0)
-                        elif roll < 0.80 or not other_free:
-                            vx, vy, _vside = self._host_visit_spot(idx, host_rect, area, keepouts)
+                        elif can_visit_host and roll < 0.62:
                             rt.roam_mode = "visit_host"
                             rt.roam_pos = [cur_x, cur_y]
                             rt.roam_target = (vx, vy)
@@ -2650,6 +3377,16 @@ class SubagentCloneManager:
                                 weights=(0.38, 0.36, 0.26),
                                 k=1,
                             )[0]
+                        elif roll < 0.72 or not other_free:
+                            dest = self._pick_free_roam_spot(idx, host_rect, area, keepouts, radius_x=ROAM_HOST_RADIUS_X)
+                            if dest is not None:
+                                rt.roam_mode = "walking"
+                                rt.roam_pos = [cur_x, cur_y]
+                                rt.roam_target = dest
+                                rt.roam_target_id = None
+                                rt.roam_action_on_arrive = None
+                            else:
+                                rt.next_roam_at = now + self._rng.uniform(3.5, 6.0)
                         else:
                             target_idx = self._rng.choice(other_free)
                             spot = self._sibling_visit_spot(idx, target_idx, host_rect, area, keepouts)
@@ -2660,7 +3397,15 @@ class SubagentCloneManager:
                                 rt.roam_target_id = self._entries[target_idx][0].conversation_id
                                 rt.roam_action_on_arrive = self._rng.choice(("clone_buddy", "clone_chat"))
                             else:
-                                rt.next_roam_at = now + self._rng.uniform(3.5, 6.0)
+                                dest = self._pick_free_roam_spot(idx, host_rect, area, keepouts, radius_x=ROAM_HOST_RADIUS_X)
+                                if dest is not None:
+                                    rt.roam_mode = "walking"
+                                    rt.roam_pos = [cur_x, cur_y]
+                                    rt.roam_target = dest
+                                    rt.roam_target_id = None
+                                    rt.roam_action_on_arrive = None
+                                else:
+                                    rt.next_roam_at = now + self._rng.uniform(3.5, 6.0)
                     else:
                         # Real working subagents mostly stay focused beside sister, with occasional light visits
                         if rt.roam_pos is not None:
@@ -2962,8 +3707,43 @@ class SubagentCloneManager:
         for arrive_fn in deferred_arrivals:
             arrive_fn()
 
-        # Periodic collaborative banter: single clone relays to sister; 2+ clones mix chat, gift share, and relay!
-        if self._next_relay_at > 0 and now >= self._next_relay_at:
+        # Autonomous multi-pet group scene scheduler (train / wave / snack party / cuddle huddle)
+        if not reduced_motion and self._group_scene is None and count >= 2:
+            any_playmate = any(is_playmate_id(info.conversation_id) for info, _f, _b in self._entries)
+            if self._next_group_scene_at <= 0.0:
+                self._next_group_scene_at = now + (
+                    self._rng.uniform(11.0, 18.0) if any_playmate else self._rng.uniform(24.0, 38.0)
+                )
+            elif now >= self._next_group_scene_at:
+                ready = [
+                    i
+                    for i, (info, _f, _b) in enumerate(self._entries)
+                    if not self._runtime.get(info.conversation_id, _CloneRuntime(now)).dragging
+                    and self._runtime.get(info.conversation_id, _CloneRuntime(now)).pose_action is None
+                    and (now - self._runtime.get(info.conversation_id, _CloneRuntime(now)).spawned_at) >= 5.0
+                ]
+                if len(ready) >= 2:
+                    self._next_group_scene_at = now + (
+                        self._rng.uniform(18.0, 28.0) if any_playmate else self._rng.uniform(30.0, 46.0)
+                    )
+                    pick = self._rng.choice(
+                        ("clone_train", "clone_wave", "snack_party", "group_huddle")
+                        if any_playmate
+                        else ("clone_wave", "snack_party")
+                    )
+                    if pick == "clone_train":
+                        self.trigger_clone_train(now=now)
+                    elif pick == "clone_wave":
+                        self.trigger_clone_wave(now=now)
+                    elif pick == "snack_party":
+                        self.trigger_snack_party(now=now)
+                    else:
+                        self.trigger_group_huddle(now=now)
+        elif count < 2:
+            self._next_group_scene_at = 0.0
+
+        # Periodic collaborative banter (paused while a choreographed multi-pet scene is running)
+        if self._group_scene is None and self._next_relay_at > 0 and now >= self._next_relay_at:
             any_playmate = any(is_playmate_id(info.conversation_id) for info, _f, _b in self._entries)
             if any_playmate:
                 self._next_relay_at = now + self._rng.uniform(
@@ -2995,6 +3775,8 @@ class SubagentCloneManager:
                 self.trigger_relay(free_indices[0], now=now)
 
     def close_all(self) -> None:
+        self._group_scene = None
+        self._next_group_scene_at = 0.0
         self._clear_departing()
         for widget in self._widgets:
             widget.hide()
