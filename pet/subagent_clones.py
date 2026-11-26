@@ -406,6 +406,8 @@ class SubagentCloneWidget(QWidget):
         self.setMouseTracking(True)
 
         self._pixmap = QPixmap()
+        self._sprite_w = 64
+        self._sprite_h = 92
         self._badge = ""
         self._accent = QColor("#8b5cf6")
         self._opacity = 1.0
@@ -507,6 +509,10 @@ class SubagentCloneWidget(QWidget):
         self._on_wheel_trick = on_wheel_trick
         self._on_middle_click = on_middle_click
 
+    @property
+    def visual_sprite_size(self) -> tuple[int, int]:
+        return (self._sprite_w, self._sprite_h)
+
     def configure(
         self,
         *,
@@ -533,6 +539,8 @@ class SubagentCloneWidget(QWidget):
         if min_frame_size is not None:
             frame_w = max(frame_w, int(min_frame_size[0]))
             frame_h = max(frame_h, int(min_frame_size[1]))
+        self._sprite_w = max(44, frame_w)
+        self._sprite_h = max(64, frame_h)
         w = max(148, frame_w + 54)
         h = max(124, frame_h + 34 + self.BUBBLE_TOP_PAD)
         if (self.width(), self.height()) != (w, h):
@@ -572,6 +580,8 @@ class SubagentCloneWidget(QWidget):
         ts = time.monotonic() if now is None else float(now)
         self._bubble_text = clean
         self._bubble_until = ts + max(0.4, float(duration))
+        if self.isVisible():
+            self.raise_()
         self.update()
 
     def clear_bubble(self) -> None:
@@ -1106,21 +1116,14 @@ class SubagentCloneManager:
             rt.dragging = False
             rt.glide_from = QPoint(widget.x(), widget.y())
             rt.glide_started_at = now
-        near_host = False
+        host_dist = float("inf")
         if self._last_host_rect is not None and self._last_host_rect.isValid():
             host_center = self._last_host_rect.center()
-            dist = math.hypot(drop_center.x() - host_center.x(), drop_center.y() - host_center.y())
-            near_host = dist <= HIGH_FIVE_RADIUS_PX
-        if near_host:
-            if rt is not None:
-                # Hold briefly beside the host so hands visibly clap before gliding back.
-                rt.glide_hold_until = now + 0.48
-                rt.glide_started_at = rt.glide_hold_until
-            self.trigger_high_five(idx, now=now)
-            return
-        # Otherwise check if dropped near a sibling clone for a clone-to-clone high-five!
+            host_dist = math.hypot(drop_center.x() - host_center.x(), drop_center.y() - host_center.y())
+        # Also check nearest sibling clone so dropping directly onto a sibling triggers clone_buddy
+        # even when clones stand cozily close beside the host.
         nearest_other: int | None = None
-        nearest_dist = CLONE_HIGH_FIVE_RADIUS_PX + 1.0
+        nearest_dist = float("inf")
         for other_idx in range(len(self._entries)):
             if other_idx == idx or other_idx >= len(self._widgets):
                 continue
@@ -1132,11 +1135,18 @@ class SubagentCloneManager:
             if d < nearest_dist:
                 nearest_dist = d
                 nearest_other = other_idx
-        if nearest_other is not None and nearest_dist <= CLONE_HIGH_FIVE_RADIUS_PX:
+        if nearest_other is not None and nearest_dist <= CLONE_HIGH_FIVE_RADIUS_PX and nearest_dist < host_dist:
             if rt is not None:
                 rt.glide_hold_until = now + 0.48
                 rt.glide_started_at = rt.glide_hold_until
             self.trigger_clone_buddy(idx, nearest_other, now=now)
+            return
+        if host_dist <= HIGH_FIVE_RADIUS_PX:
+            if rt is not None:
+                # Hold briefly beside the host so hands visibly clap before gliding back.
+                rt.glide_hold_until = now + 0.48
+                rt.glide_started_at = rt.glide_hold_until
+            self.trigger_high_five(idx, now=now)
             return
         if rt is not None:
             rt.glide_hold_until = 0.0
@@ -1765,26 +1775,52 @@ class SubagentCloneManager:
         return zones
 
     @staticmethod
-    def _resolve_keepout_slot(
+    def _host_visual_bounds(host_rect: QRect) -> tuple[int, int, QRect]:
+        """Estimate the opaque character body inside ``host_rect`` (ignoring bubble width padding)."""
+        host_cx = host_rect.center().x()
+        body_w = min(host_rect.width(), max(108, round(host_rect.height() * 0.54)))
+        left = host_cx - body_w // 2
+        right = left + body_w
+        return left, right, QRect(left, host_rect.top(), body_w, host_rect.height())
+
+    @staticmethod
+    def _clone_visual_rect(wx: int, wy: int, widget_w: int, widget_h: int, vis_w: int, vis_h: int) -> QRect:
+        """Collision rect covering the visible mini sprite + margin (excluding wide transparent bubble padding)."""
+        cx = wx + widget_w // 2
+        cw = vis_w + 12
+        ch = vis_h + 18
+        top = wy + widget_h - 18 - ch
+        return QRect(cx - cw // 2, top, cw, ch)
+
+    @classmethod
+    def _place_clone_slot(
+        cls,
         *,
-        preferred_x: int,
-        preferred_y: int,
-        preferred_side: int,
+        idx: int,
         widget_w: int,
         widget_h: int,
+        vis_w: int,
+        vis_h: int,
         host_rect: QRect,
+        host_vis_left: int,
+        host_vis_right: int,
+        host_vis_rect: QRect,
         area: QRect,
         keepouts: list[QRect],
-        placed_rects: list[QRect],
-        left_tier: int,
-        below_tier: int,
-        single_side_stack: bool,
+        placed_visual_rects: list[QRect],
         sway_x: float,
-    ) -> tuple[int, int, int, bool, bool]:
-        """Resolve a clone position so it never overlaps any keep-out zone.
+    ) -> tuple[int, int, int, QRect]:
+        """Choose the closest cozy slot around the host with zero keep-out and zero sprite overlap.
 
-        Returns ``(x, y, final_side, used_left_tier, used_below_tier)``.
+        Clones line up side-by-side right next to the host's visual body first (alternating left/right
+        when open, or spilling cleanly to the open side near a screen edge) and only step up to a full
+        non-overlapping second row when horizontal space is exhausted.
         """
+        host_gap = 10
+        col_step = vis_w + 18
+        row_step = vis_h + 24
+        base_y = host_rect.bottom() - widget_h - 6
+        arc_lifts = (0, 8, 14, 8, 14, 18)
 
         def clamp(px: int, py: int) -> tuple[int, int]:
             return (
@@ -1792,67 +1828,85 @@ class SubagentCloneManager:
                 max(area.top(), min(py, area.bottom() - widget_h + 1)),
             )
 
-        def hitting(px: int, py: int) -> list[QRect]:
+        def hits_keepout(px: int, py: int) -> bool:
             rect = QRect(px, py, widget_w, widget_h)
-            return [kz for kz in keepouts if rect.intersects(kz)]
+            return any(rect.intersects(kz) for kz in keepouts)
 
-        def overlap_area(px: int, py: int) -> int:
-            rect = QRect(px, py, widget_w, widget_h)
+        def visual_overlap(vrect: QRect) -> int:
             total = 0
-            for other in placed_rects:
-                inter = rect.intersected(other)
+            inter_h = vrect.intersected(host_vis_rect)
+            if inter_h.isValid():
+                total += inter_h.width() * inter_h.height() * 4
+            for other in placed_visual_rects:
+                inter = vrect.intersected(other)
                 if inter.isValid():
                     total += inter.width() * inter.height()
             return total
 
-        cx, cy = clamp(preferred_x, preferred_y)
-        hits = hitting(cx, cy)
-        if not hits:
-            return cx, cy, preferred_side, False, False
+        def slot_pos(side: int, col: int, row: int) -> tuple[int, int]:
+            if side < 0:
+                center_x = host_vis_left - host_gap - vis_w // 2 - col * col_step
+            else:
+                center_x = host_vis_right + host_gap + vis_w // 2 + col * col_step
+            wx = round(center_x - widget_w / 2.0 + sway_x)
+            lift = arc_lifts[col % len(arc_lifts)] if row == 0 else 0
+            wy = round(base_y - row * row_step - lift)
+            return clamp(wx, wy)
 
-        candidates: list[tuple[int, int, int, bool, bool]] = []
+        preferred_side = -1 if idx % 2 == 0 else 1
+        sides_order = (preferred_side, -preferred_side)
 
-        # 1. Prefer shifting cleanly to the left of the host pet.
-        for t in range(left_tier, left_tier + 6):
-            gap_x = 12 + (t % 2) * (widget_w - 14)
-            row = (t // 2) if single_side_stack else t
-            lx = round(host_rect.left() - widget_w - gap_x + sway_x)
-            ly = round(host_rect.bottom() - widget_h - (18 + row * 52))
-            lx, ly = clamp(lx, ly)
-            if not hitting(lx, ly):
-                if overlap_area(lx, ly) == 0:
-                    return lx, ly, -1, True, False
-                candidates.append((lx, ly, -1, True, False))
+        # Ordered candidate list: closest horizontal slots first, then clean non-overlapping upper rows,
+        # then below-keepout rows if top edge / window controls block above.
+        candidates: list[tuple[int, int, int]] = []
+        for row in (0, 1, 2):
+            for col in range(6):
+                for s in sides_order:
+                    px, py = slot_pos(s, col, row)
+                    final_side = -1 if (px + widget_w // 2) < host_rect.center().x() else 1
+                    candidates.append((px, py, final_side))
 
-        # 2. If host itself sits near the keep-out zone, tuck just left of the keep-out.
-        min_kz_left = min(kz.left() for kz in hits)
-        for t in range(6):
-            lx = min_kz_left - widget_w - 8 - (t % 2) * (widget_w - 14)
-            ly = cy + (t // 2) * 52
-            lx, ly = clamp(lx, ly)
-            if not hitting(lx, ly):
-                if overlap_area(lx, ly) == 0:
-                    return lx, ly, -1, True, False
-                candidates.append((lx, ly, -1, True, False))
+        if keepouts:
+            max_kz_bottom = max(kz.bottom() for kz in keepouts)
+            for r in range(3):
+                by = max_kz_bottom + 8 + r * row_step
+                for col in range(6):
+                    for s in sides_order:
+                        px, _ = slot_pos(s, col, 0)
+                        bx, by_c = clamp(px, by)
+                        final_side = -1 if (bx + widget_w // 2) < host_rect.center().x() else 1
+                        candidates.append((bx, by_c, final_side))
 
-        # 3. Otherwise drop cleanly below the keep-out zone.
-        max_kz_bottom = max(kz.bottom() for kz in hits)
-        for t in range(below_tier, below_tier + 6):
-            by = max_kz_bottom + 8 + t * 50
-            for bx_raw in (preferred_x, host_rect.right() + 12, host_rect.left() - widget_w - 12):
-                bx, by_c = clamp(bx_raw, by)
-                if not hitting(bx, by_c):
-                    b_side = -1 if (bx + widget_w // 2) < host_rect.center().x() else 1
-                    if overlap_area(bx, by_c) == 0:
-                        return bx, by_c, b_side, False, True
-                    candidates.append((bx, by_c, b_side, False, True))
+        # Also add fallback positions cleanly below the host if upper screen is tight
+        below_host_y = host_rect.bottom() + 8
+        for col in range(6):
+            for s in sides_order:
+                px, _ = slot_pos(s, col, 0)
+                bx, by_c = clamp(px, below_host_y)
+                final_side = -1 if (bx + widget_w // 2) < host_rect.center().x() else 1
+                candidates.append((bx, by_c, final_side))
 
-        if candidates:
-            return min(candidates, key=lambda c: overlap_area(c[0], c[1]))
+        best_fallback: tuple[int, int, int, int, QRect] | None = None
+        seen: set[tuple[int, int]] = set()
+        for px, py, side in candidates:
+            if (px, py) in seen:
+                continue
+            seen.add((px, py))
+            if hits_keepout(px, py):
+                continue
+            vrect = cls._clone_visual_rect(px, py, widget_w, widget_h, vis_w, vis_h)
+            ov = visual_overlap(vrect)
+            if ov == 0:
+                return px, py, side, vrect
+            if best_fallback is None or ov < best_fallback[0]:
+                best_fallback = (ov, px, py, side, vrect)
 
-        # Last-resort fallback on tiny screens: bottom-left of work area.
+        if best_fallback is not None:
+            _ov, px, py, side, vrect = best_fallback
+            return px, py, side, vrect
+
         fx, fy = clamp(area.left(), area.bottom() - widget_h + 1)
-        return fx, fy, -1, False, True
+        return fx, fy, -1, cls._clone_visual_rect(fx, fy, widget_w, widget_h, vis_w, vis_h)
 
     def _tick_departing(self, host_rect: QRect, *, now: float, dt: float, reduced_motion: bool) -> None:
         if not self._departing:
@@ -1955,75 +2009,39 @@ class SubagentCloneManager:
         keepouts = self._keepout_zones(area, perched_window_rect)
 
         count = len(self._entries)
-        space_left = host_rect.left() - area.left()
-        space_right = area.right() - host_rect.right()
-        min_slot_w = max((self._widgets[i].width() for i in range(count)), default=112) + 16
-        can_left = space_left >= min_slot_w
-        can_right = space_right >= min_slot_w
-        single_side_stack = not can_left or not can_right
-
-        left_tier = 0
-        right_tier = 0
-        below_tier = 0
-        placed_rects: list[QRect] = []
+        host_vis_left, host_vis_right, host_vis_rect = self._host_visual_bounds(host_rect)
+        placed_visual_rects: list[QRect] = []
         for idx in range(count):
             widget = self._widgets[idx]
             info, form_id, _badge = self._entries[idx]
             rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(now, -1 if idx % 2 == 0 else 1))
-            if can_left and can_right:
-                side = -1 if idx % 2 == 0 else 1
-            elif can_left:
-                side = -1
-            elif can_right:
-                side = 1
-            else:
-                side = -1 if space_left >= space_right else 1
-            # Fan clones cleanly across up to 3 staggered tiers per side so 4-6 clones frame the host
-            col_offsets = (10, max(78, widget.width() - 22), 26)
-            if side < 0:
-                tier = left_tier
-                gap_x = col_offsets[tier % len(col_offsets)]
-                x = host_rect.left() - widget.width() - gap_x
-            else:
-                tier = right_tier
-                gap_x = col_offsets[tier % len(col_offsets)]
-                x = host_rect.right() + gap_x
-            row = tier // 2 if single_side_stack else tier
-            base_y = host_rect.bottom() - widget.height() - (16 + row * 54)
+            vis_w, vis_h = widget.visual_sprite_size
             phase = rt.motion_phase
             spd = rt.motion_speed
             sway_x = 0.0 if reduced_motion else (
-                math.sin(now * 1.45 * spd + phase) * 2.8 + math.sin(now * 0.72 * spd + phase * 1.6) * 1.4
+                math.sin(now * 1.45 * spd + phase) * 2.2 + math.sin(now * 0.72 * spd + phase * 1.6) * 1.1
             )
             bob_y = 0.0 if reduced_motion else (
                 math.sin(now * 2.4 * spd + phase) * 3.6 + math.sin(now * 1.15 * spd + phase * 1.7) * 1.5
             )
 
-            clamped_x, clamped_y, final_side, used_left, used_below = self._resolve_keepout_slot(
-                preferred_x=round(x + sway_x),
-                preferred_y=round(base_y),
-                preferred_side=side,
+            clamped_x, clamped_y, final_side, placed_vrect = self._place_clone_slot(
+                idx=idx,
                 widget_w=widget.width(),
                 widget_h=widget.height(),
+                vis_w=vis_w,
+                vis_h=vis_h,
                 host_rect=host_rect,
+                host_vis_left=host_vis_left,
+                host_vis_right=host_vis_right,
+                host_vis_rect=host_vis_rect,
                 area=area,
                 keepouts=keepouts,
-                placed_rects=placed_rects,
-                left_tier=left_tier,
-                below_tier=below_tier,
-                single_side_stack=single_side_stack,
+                placed_visual_rects=placed_visual_rects,
                 sway_x=sway_x,
             )
-            if used_left:
-                left_tier += 1
-            elif used_below:
-                below_tier += 1
-            elif final_side < 0:
-                left_tier += 1
-            else:
-                right_tier += 1
             rt.last_side = final_side
-            placed_rects.append(QRect(clamped_x, clamped_y, widget.width(), widget.height()))
+            placed_visual_rects.append(placed_vrect)
 
             # Resolve active pose:
             # - Fresh entrance plays SUMMON_POP arc
@@ -2113,14 +2131,16 @@ class SubagentCloneManager:
             render_opacity = self._fade
             if not rt.dragging:
                 target_x, target_y = clamped_x, clamped_y
-                # Smooth inward nudge during report / high-five / relay (never crosses host edge!)
+                # Smooth inward nudge during report / high-five / relay (never crosses host visual edge!)
                 if not reduced_motion and now < rt.nudge_until:
                     rem = max(0.0, rt.nudge_until - now)
                     nudge_px = math.sin(min(1.0, rem / 0.75) * math.pi) * rt.nudge_strength
                     if final_side < 0:
-                        target_x = min(host_rect.left() - widget.width() - 2, round(target_x + nudge_px))
+                        max_left_x = host_vis_left - (widget.width() + vis_w) // 2 - 2
+                        target_x = min(max_left_x, round(target_x + nudge_px))
                     else:
-                        target_x = max(host_rect.right() + 2, round(target_x - nudge_px))
+                        min_right_x = host_vis_right - (widget.width() - vis_w) // 2 + 2
+                        target_x = max(min_right_x, round(target_x - nudge_px))
                 # Cinematic parabolic pop-out entrance bursting from host center with elastic scale
                 elif in_summon:
                     st = max(0.0, min(1.0, spawn_age / SUMMON_SLIDE_SECONDS))

@@ -369,6 +369,45 @@ class SubagentInterplayManagerTests(unittest.TestCase):
         finally:
             mgr.close_all()
 
+    def test_six_clones_stay_close_to_host_and_never_stack_even_near_screen_edge(self) -> None:
+        mgr, _events = self._make()
+        try:
+            subs = [
+                SubagentInfo(f"idle-play-{i}", "idle-play", f"活动{i}", "闲时随机玩伴", fid)
+                for i, fid in enumerate(("neon", "hydergon", "argon", "claude", "carbon", "neon"))
+            ]
+            area = QRect(0, 0, 1920, 1040)
+            screen = _FakeScreen(area)
+            mgr.sync(subs, default_form="carbon", enabled=True, host_visible=True, now=10.0)
+
+            # Check both center-of-screen and right-edge-pinched (exact screenshot scenario!)
+            for label, host in (
+                ("center", QRect(820, 520, 260, 255)),
+                ("right_edge", QRect(1600, 520, 260, 255)),
+                ("left_edge", QRect(20, 520, 260, 255)),
+            ):
+                mgr.position_around(host, now=12.0, reduced_motion=True, screen=screen)
+                widgets = mgr.visible_widgets
+                self.assertEqual(len(widgets), 6, label)
+                host_left, host_right, host_vis = mgr._host_visual_bounds(host)
+                vrects = [
+                    mgr._clone_visual_rect(w.x(), w.y(), w.width(), w.height(), *w.visual_sprite_size)
+                    for w in widgets
+                ]
+                # 1. Zero pairwise visual overlap among all 6 clones and between clones & host
+                for i, vr in enumerate(vrects):
+                    self.assertFalse(vr.intersects(host_vis), f"{label}: clone {i} overlapped host {vr} vs {host_vis}")
+                    for j in range(i + 1, len(vrects)):
+                        self.assertFalse(vr.intersects(vrects[j]), f"{label}: clones {i}&{j} stacked {vr} vs {vrects[j]}")
+                # 2. Innermost clone sits cozily close to host visual body (<= 24px gap, never a 100px canyon!)
+                min_edge_gap = min(
+                    min(abs(host_left - vr.right()), abs(vr.left() - host_right))
+                    for vr in vrects
+                )
+                self.assertLessEqual(min_edge_gap, 24, f"{label}: innermost clone too far ({min_edge_gap}px)")
+        finally:
+            mgr.close_all()
+
 
 class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
     @classmethod

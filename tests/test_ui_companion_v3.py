@@ -85,9 +85,9 @@ class SubagentClonesV31Tests(unittest.TestCase):
                 seen_frames_0.add(w0.frame_index)
                 seen_frames_1.add(w1.frame_index)
 
-                # Left clone faces normal (mirrored=False), right clone mirrors (mirrored=True)
-                self.assertLess(w0.x(), host.left())
-                self.assertGreater(w1.x(), host.right())
+                # Left clone sits cleanly left of host (mirrored=False), right clone right of host (mirrored=True)
+                self.assertLess(w0.frameGeometry().center().x(), host.left())
+                self.assertGreater(w1.frameGeometry().center().x(), host.right())
                 self.assertFalse(w0.mirrored)
                 self.assertTrue(w1.mirrored)
                 self.assertEqual(
