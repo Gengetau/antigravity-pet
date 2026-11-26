@@ -133,6 +133,8 @@
 
     $('chk-follow-model').checked = Boolean(agy.follow_model);
     $('chk-hud-enabled').checked = Boolean(agy.hud_enabled);
+    const hoverOnlyEl = $('chk-hud-hover-only');
+    if (hoverOnlyEl) hoverOnlyEl.checked = Boolean(agy.hud_hover_only);
     $('chk-hud-locked').checked = Boolean(agy.hud_locked);
     $('chk-autonomy').checked = Boolean(agy.autonomy);
     $('chk-reactions').checked = Boolean(agy.reactions);
@@ -318,6 +320,10 @@
 
   $('chk-follow-model').addEventListener('change', (e) => saveConfig({ follow_model: e.target.checked }));
   $('chk-hud-enabled').addEventListener('change', (e) => saveConfig({ hud_enabled: e.target.checked }));
+  const hoverOnlyChk = $('chk-hud-hover-only');
+  if (hoverOnlyChk) {
+    hoverOnlyChk.addEventListener('change', (e) => saveConfig({ hud_hover_only: e.target.checked }));
+  }
   $('chk-hud-locked').addEventListener('change', (e) => saveConfig({ hud_locked: e.target.checked }));
   $('chk-autonomy').addEventListener('change', (e) => saveConfig({ autonomy: e.target.checked }));
   $('chk-reactions').addEventListener('change', (e) => saveConfig({ reactions: e.target.checked }));

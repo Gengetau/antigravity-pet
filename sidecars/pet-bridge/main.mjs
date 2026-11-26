@@ -1133,6 +1133,7 @@ const DEFAULT_AGY_CONFIG = {
   particles: true,
   edge_dock: true,
   hud_enabled: true,
+  hud_hover_only: false,
   hud_mode: 'attached',
   hud_appearance: 'dialog',
   hud_locked: false,
@@ -1167,9 +1168,15 @@ function updatePetConfig(patch) {
   if (typeof patch.form === 'string' && VALID_FORM_IDS.has(patch.form)) {
     agy.form = patch.form;
   }
-  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_locked', 'autonomy', 'reactions', 'subagent_clones', 'particles', 'edge_dock']) {
+  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_hover_only', 'hud_locked', 'autonomy', 'reactions', 'subagent_clones', 'particles', 'edge_dock']) {
     if (typeof patch[boolKey] === 'boolean') {
       agy[boolKey] = patch[boolKey];
+    }
+  }
+  if (patch.hud_hover_only === true) {
+    agy.hud_enabled = true;
+    if (agy.hud_mode === 'floating') {
+      agy.hud_mode = 'attached';
     }
   }
   if (typeof patch.hud_mode === 'string' && VALID_HUD_MODES.has(patch.hud_mode)) {

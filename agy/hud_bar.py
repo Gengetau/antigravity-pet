@@ -108,6 +108,7 @@ class HudBar(QWidget):
         self._conversations: list[tuple[str, str]] = []
         self._pet_rect: QRect | None = None
         self.hovered: bool = False
+        self.menu_open: bool = False
 
         self._tail_dir: str | None = None  # "down" (HUD above pet), "up" (below) or None
         self._outer = QVBoxLayout(self)
@@ -513,7 +514,12 @@ class HudBar(QWidget):
         menu.addAction("立即刷新数据", self._on_refresh)
         menu.addSeparator()
         menu.addAction("隐藏悬浮条", self._on_hide)
-        menu.exec(event.globalPos())
+        self.menu_open = True
+        try:
+            menu.exec(event.globalPos())
+        finally:
+            self.menu_open = False
+            self.hover_changed.emit(self.hovered)
 
     def _set_mode(self, mode: str) -> None:
         self.settings["hud_mode"] = mode
@@ -537,6 +543,9 @@ class HudBar(QWidget):
         self.settings_changed.emit()
 
     def _toggle_hover_only(self) -> None:
-        self.settings["hud_hover_only"] = not bool(self.settings.get("hud_hover_only", False))
-        self.settings_changed.emit()
+        new_val = not bool(self.settings.get("hud_hover_only", False))
+        self.settings["hud_hover_only"] = new_val
+        if new_val:
+            self.settings["hud_enabled"] = True
+            self.hovered = False
         self.settings_changed.emit()

@@ -2093,6 +2093,8 @@ class PetWindow(QWidget):
     def enterEvent(self, event) -> None:
         self._hovered = True
         self._hovered_since = time.monotonic()
+        if hasattr(self, "_hud_leave_timer"):
+            self._hud_leave_timer.stop()
         if self._dock_side is not None:
             self._dock_peeking = True
             self._dock_leave_at = 0.0
@@ -2109,7 +2111,16 @@ class PetWindow(QWidget):
         self._rub_last_pos = None
         if self._dock_side is not None:
             self._dock_leave_at = time.monotonic() + 0.55
-        self._sync_hud_visibility()
+        if (
+            hasattr(self, "_hud_leave_timer")
+            and self._hud_leave_grace_ms > 0
+            and bool(self._agy().get("hud_hover_only", False))
+            and hasattr(self, "hud_bar")
+            and self.hud_bar.isVisible()
+        ):
+            self._hud_leave_timer.start(self._hud_leave_grace_ms)
+        else:
+            self._sync_hud_visibility()
         super().leaveEvent(event)
 
     def set_passthrough(self, enabled: bool) -> None:
@@ -2229,7 +2240,10 @@ class PetWindow(QWidget):
         return section
 
     def _agy_set(self, key: str, value: object) -> None:
-        self._agy()[key] = value
+        agy = self._agy()
+        agy[key] = value
+        if hasattr(self, "hud_bar"):
+            self.hud_bar.settings = agy
         self.config.save()
 
     def _load_registry(self, form_id: str) -> AssetRegistry:
@@ -2341,8 +2355,12 @@ class PetWindow(QWidget):
             on_pin=self._pin_conversation,
             on_hide=lambda: self.set_hud_enabled(False),
         )
+        self._hud_leave_grace_ms = 320
+        self._hud_leave_timer = QTimer(self)
+        self._hud_leave_timer.setSingleShot(True)
+        self._hud_leave_timer.timeout.connect(self._sync_hud_visibility)
         self.hud_bar.settings_changed.connect(self._on_hud_settings_changed)
-        self.hud_bar.hover_changed.connect(lambda _h: self._sync_hud_visibility())
+        self.hud_bar.hover_changed.connect(self._on_hud_hover_changed)
         self.token_meter = TokenMeterWindow(
             on_request_report=self.telemetry.request_report,
             on_toggle_subagents=self._set_include_subagents,
@@ -2388,7 +2406,11 @@ class PetWindow(QWidget):
             if target_form != self.form_id:
                 self.set_form(target_form, manual=False, persist=False)
         was_attached = self.hud_bar.attached
+        was_hover_only = bool(self.hud_bar.settings.get("hud_hover_only", False))
         self.hud_bar.settings = settings
+        if not was_hover_only and bool(settings.get("hud_hover_only", False)):
+            self._hud_leave_timer.stop()
+            self.hud_bar.hovered = False
         if was_attached and not self.hud_bar.attached:
             self.hud_bar.restore_floating_position()
         self.hud_bar.apply_appearance()
@@ -2414,20 +2436,54 @@ class PetWindow(QWidget):
         self.token_meter.raise_()
         self.token_meter.activateWindow()
 
+    def _on_hud_hover_changed(self, hovered: bool) -> None:
+        if hovered or getattr(self.hud_bar, "menu_open", False):
+            self._hud_leave_timer.stop()
+            self._sync_hud_visibility()
+        elif (
+            self._hud_leave_grace_ms > 0
+            and bool(self._agy().get("hud_hover_only", False))
+            and not self._hovered
+            and self.hud_bar.isVisible()
+        ):
+            self._hud_leave_timer.start(self._hud_leave_grace_ms)
+        else:
+            self._sync_hud_visibility()
+
     def _on_hud_settings_changed(self) -> None:
+        if hasattr(self, "hud_bar") and self.hud_bar.settings is not self._agy():
+            self._agy().update(self.hud_bar.settings)
+            self.hud_bar.settings = self._agy()
+        self._hud_leave_timer.stop()
         self.config.save()
         self._sync_hud_visibility()
         self._refresh_control_panel()
 
     def set_hud_enabled(self, enabled: bool) -> None:
+        self._hud_leave_timer.stop()
         self._agy_set("hud_enabled", bool(enabled))
         self._sync_hud_visibility()
         self._refresh_control_panel()
 
     def set_hud_hover_only(self, enabled: bool) -> None:
-        if enabled and hasattr(self, "hud_bar"):
-            self.hud_bar.hovered = False
-        self._agy_set("hud_hover_only", bool(enabled))
+        flag = bool(enabled)
+        if hasattr(self, "_hud_leave_timer"):
+            self._hud_leave_timer.stop()
+        agy = self._agy()
+        agy["hud_hover_only"] = flag
+        if flag:
+            # Make turning hover-only HUD on immediately effective even if HUD was off or floating.
+            agy["hud_enabled"] = True
+            if agy.get("hud_mode") == "floating":
+                agy["hud_mode"] = "attached"
+            if hasattr(self, "hud_bar"):
+                self.hud_bar.hovered = False
+                self.hud_bar.settings = agy
+                self.hud_bar.apply_appearance()
+        elif hasattr(self, "hud_bar"):
+            self.hud_bar.settings = agy
+        self.config.save()
+        self._hud_anchor = None
         self._sync_hud_visibility()
         self._refresh_control_panel()
 
@@ -2440,7 +2496,13 @@ class PetWindow(QWidget):
         if not self.isVisible():
             return False
         if bool(settings.get("hud_hover_only", False)):
-            return bool(self._hovered or getattr(self.hud_bar, "hovered", False))
+            grace_active = hasattr(self, "_hud_leave_timer") and self._hud_leave_timer.isActive()
+            return bool(
+                self._hovered
+                or getattr(self.hud_bar, "hovered", False)
+                or getattr(self.hud_bar, "menu_open", False)
+                or grace_active
+            )
         return True
 
     def _sync_fish_stash(self, now: float) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import random
 import tempfile
@@ -207,6 +208,43 @@ class StageAClonesAndWindowInteractionTests(unittest.TestCase):
         self.assertEqual(self.pet.renderer._stash_label, "62%")
 
         self.pet.leaveEvent(QEvent(QEvent.Type.Leave))
+        # Short grace window keeps HUD reachable when moving pointer across gap onto HUD bar
+        self.assertTrue(self.pet.hud_bar.isVisible())
+        self.assertTrue(self.pet._hud_leave_timer.isActive())
+        # Moving onto HUD bar cancels leave timer and keeps HUD open
+        self.pet.hud_bar.enterEvent(QEnterEvent(QPointF(10, 10), QPointF(10, 10), QPointF(10, 10)))
+        self.assertFalse(self.pet._hud_leave_timer.isActive())
+        self.assertTrue(self.pet.hud_bar.isVisible())
+        # Leaving HUD bar starts grace timer; once grace expires, HUD hides cleanly
+        self.pet.hud_bar.leaveEvent(QEvent(QEvent.Type.Leave))
+        self.pet._hud_leave_timer.stop()
+        self.pet._sync_hud_visibility()
+        self.assertFalse(self.pet.hud_bar.isVisible())
+
+        # Toggling hover-only off via panel restores HUD immediately, and turning on from floating switches to attached
+        self.pet.control_panel.hud_hover_only.click()
+        self.assertFalse(bool(self.pet._agy().get("hud_hover_only")))
+        self.assertTrue(self.pet.hud_bar.isVisible())
+        self.pet._agy_set("hud_mode", "floating")
+        self.pet._agy_set("hud_enabled", False)
+        self.pet.set_hud_hover_only(True)
+        self.assertTrue(bool(self.pet._agy().get("hud_enabled")))
+        self.assertEqual(self.pet._agy().get("hud_mode"), "attached")
+        self.assertFalse(self.pet.hud_bar.isVisible())
+
+        # HudBar right-click menu toggle and external sidebar config.json edits stay in sync
+        self.pet.hud_bar._toggle_hover_only()
+        self.assertFalse(bool(self.pet._agy().get("hud_hover_only")))
+        self.assertFalse(self.pet.control_panel.hud_hover_only.isChecked())
+        self.assertTrue(self.pet.hud_bar.isVisible())
+
+        raw_cfg = json.loads(self.pet.config.path.read_text(encoding="utf-8"))
+        raw_cfg["agy"]["hud_hover_only"] = True
+        self.pet.config.path.write_text(json.dumps(raw_cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.pet.config._last_mtime_ns = 0
+        self.pet._sync_external_config()
+        self.assertTrue(bool(self.pet._agy().get("hud_hover_only")))
+        self.assertTrue(self.pet.control_panel.hud_hover_only.isChecked())
         self.assertFalse(self.pet.hud_bar.isVisible())
 
     def test_clone_high_five_holds_before_glide_and_host_faces_left_clone(self) -> None:
