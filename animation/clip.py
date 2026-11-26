@@ -52,6 +52,12 @@ class PetAction(str, Enum):
     GIFT_TOSS = "GIFT_TOSS"
     SUMMON_POP = "SUMMON_POP"
     DEPART_POOF = "DEPART_POOF"
+    # Companion v3.3 iconic strong-prop work & reaction poses.
+    WORK_READING = "WORK_READING"
+    WORK_SEARCHING = "WORK_SEARCHING"
+    WORK_DRAWING = "WORK_DRAWING"
+    WORK_COMPACTING = "WORK_COMPACTING"
+    QUOTA_GIFT = "QUOTA_GIFT"
 
     @classmethod
     def coerce(cls, value: "PetAction | str") -> "PetAction":

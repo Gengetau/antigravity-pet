@@ -351,7 +351,7 @@ class ReactionTracker:
                     Reaction(
                         "quota_refilled",
                         self._line("quota_refilled", quota=f"{quota:.0f}"),
-                        "CELEBRATE",
+                        "QUOTA_GIFT",
                         particle="fish",
                     )
                 )
@@ -382,7 +382,7 @@ class ReactionTracker:
                 self._context_warned_for.clear()
             self._context_warned_for.add(ctx_key)
             reactions.append(
-                Reaction("context_high", self._line("context_high", ctx=f"{ctx:.0f}"), "DIZZY", particle="sweat")
+                Reaction("context_high", self._line("context_high", ctx=f"{ctx:.0f}"), "WORK_COMPACTING", particle="sweat")
             )
 
         latest_ver = str(getattr(snapshot, "available_update_version", "") or "").strip()

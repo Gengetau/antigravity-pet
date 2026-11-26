@@ -239,6 +239,7 @@ class PetWindow(QWidget):
         self._shake_flips = 0
         self._shake_sign = 0
         self._shake_clock = 0.0
+        self._last_tool_category = ""
         self._recent_pokes: deque[float] = deque(maxlen=8)
         self._recent_feedings: deque[float] = deque(maxlen=6)
 
@@ -509,6 +510,8 @@ class PetWindow(QWidget):
         PetAction.GIFT_TOSS: "happy",
         PetAction.SUMMON_POP: "happy",
         PetAction.DEPART_POOF: "happy",
+        PetAction.QUOTA_GIFT: "happy",
+        PetAction.WORK_DRAWING: "happy",
         PetAction.ANGRY: "pout",
         PetAction.SULK: "pout",
         PetAction.DIZZY: "worried",
@@ -589,6 +592,11 @@ class PetWindow(QWidget):
             direction = "edge"
         elif current == PetAction.CLIMBING and self.climb.plan is not None:
             direction = self.climb.plan.facing
+        elif current == PetAction.WORKING and self._dock_side is None and not self.surface_tracker.attached:
+            snap = getattr(getattr(self, "telemetry", None), "last_snapshot", None)
+            tool_cat = str(getattr(snap, "latest_tool_category", "") or "").strip().lower()
+            if tool_cat in {"reading", "searching", "drawing", "compacting"}:
+                direction = f"tool_{tool_cat}"
         program = self.asset_registry.program_for(
             current,
             height=self.current_height,
@@ -3450,6 +3458,11 @@ class PetWindow(QWidget):
         if self.token_meter.isVisible():
             self.token_meter.update_live(snapshot)
         self._sync_subagent_clones(snapshot)
+        tool_cat = str(getattr(snapshot, "latest_tool_category", "") or "").strip().lower() if snapshot is not None else ""
+        if tool_cat != self._last_tool_category:
+            self._last_tool_category = tool_cat
+            if self.action_machine.current == PetAction.WORKING and self._dock_side is None and not self.surface_tracker.attached:
+                self._sync_animation_clip(crossfade=True)
         self._refresh_control_panel()
         settings = self._agy()
         if not settings.get("reactions", True) and not settings.get("follow_model"):

@@ -472,6 +472,61 @@ def pose_for(effect: str, elapsed_seconds: float) -> EffectPose:
             shadow_opacity=0.14,
             decoration="sparkle",
         )
+    if effect == "work_reading":
+        # Focused gentle page-reading nod & calm breathing.
+        nod = math.sin(time * 2.2)
+        return EffectPose(
+            offset_y=nod * 1.4,
+            rotation_degrees=math.sin(time * 0.9) * 1.6,
+            scale_y=1.0 - nod * 0.012,
+            shadow_opacity=0.20,
+        )
+    if effect == "work_searching":
+        # Curious detective lean sweeping left and right with magnifying glass.
+        sweep = math.sin(time * 2.0)
+        return EffectPose(
+            offset_x=sweep * 3.0,
+            offset_y=-abs(sweep) * 1.4,
+            rotation_degrees=sweep * 3.4,
+            scale_x=1.0 - abs(sweep) * 0.015,
+            scale_y=1.0 + abs(sweep) * 0.018,
+            shadow_opacity=0.20,
+        )
+    if effect == "work_drawing":
+        # Upbeat artistic brush-sway rhythm.
+        sway = math.sin(time * 3.2)
+        bob = abs(math.sin(time * 6.4))
+        return EffectPose(
+            offset_x=sway * 2.4,
+            offset_y=-bob * 2.2,
+            rotation_degrees=sway * 2.8,
+            scale_y=1.0 + bob * 0.02,
+            shadow_opacity=0.20,
+            decoration="sparkle",
+        )
+    if effect == "work_compacting":
+        # Rhythmic downward squishing bounce on the bursting suitcase.
+        press = max(0.0, math.sin(time * 7.5))
+        return EffectPose(
+            offset_y=press * 3.6 - (1.0 - press) * 1.2,
+            rotation_degrees=math.sin(time * 3.75) * 2.5,
+            scale_x=1.0 + press * 0.045,
+            scale_y=1.0 - press * 0.055,
+            shadow_scale=1.0 + press * 0.08,
+            shadow_opacity=0.22,
+        )
+    if effect == "quota_gift":
+        # Joyful buoyant gift-box lift celebration.
+        hop = abs(math.sin(time * 5.2))
+        return EffectPose(
+            offset_y=-hop * 4.5,
+            rotation_degrees=math.sin(time * 2.6) * 2.8,
+            scale_x=1.0 - hop * 0.024,
+            scale_y=1.0 + hop * 0.035,
+            shadow_scale=1.0 - hop * 0.08,
+            shadow_opacity=0.20,
+            decoration="sparkle",
+        )
     return EffectPose()
 
 

@@ -296,6 +296,10 @@ FORM_POSES: dict[str, dict[str, list[str]]] = {
         "depart_poof": [
             "pure human girl (NO cat ears, NO cat tail), standing horizontally centered facing front/slightly three-quarter right giving a bright cheerful goodbye salute/wave: raise viewer's-RIGHT arm (character's left arm) waving goodbye clearly near her head/shoulder (matching a rightward farewell wave), viewer's-LEFT arm resting naturally down by her side, cute playful wink with one eye closed and warm bright smile, both cream-heeled feet planted, leave generous horizontal margins so all voluminous curly terracotta hair tips fit completely inside the canvas, pure transparent background, NO text",
         ],
+        "work_compacting": [
+            "horizontally centered hilarious chibi packing pose: leaning forward with BOTH hands pressing down hard on top of a bulging overstuffed cute pastel-violet travel suitcase resting right at her feet with a few blank white folded paper sheets popping out of the seam, cheeks puffed adorably with determined effort and cute scrunched-up eyes, full body + entire suitcase cleanly inside frame on pure transparent background, strictly NO text, NO letters, NO ground shadow",
+            "pure human girl (NO cat ears, NO cat tail); keep EXACT SAME character scale, head size, vertical position, clean curly terracotta hair (NO scratch/motion lines), determined puffed-cheek eyes-open expression, and exact same bulging pastel-violet gold-corner suitcase with blank white papers (NO text) right beneath her hands as image 2; strictly fix the two legs symmetrically around the suitcase so ONE leg and cream-heeled shoe is clearly visible on the viewer's-LEFT side of the suitcase (planted or bracing firmly) and the OTHER leg and cream-heeled shoe is clearly visible on the viewer's-RIGHT side of the suitcase (lifting/tiptoeing slightly in effort) — NEVER put both legs on the right side of the suitcase; BOTH hands pressing firmly on the suitcase lid; generous clean margins, zero ground shadow, NO text",
+        ],
     },
 }
 
@@ -318,6 +322,11 @@ FORM_NOTES: dict[str, dict[str, str]] = {
         "perch_sleep": "Hugging her lavender cat pillow on her lap with her chin resting sleepily on top of the pillow, eyes softly closed, dangling legs with lavender cat-face slippers hanging straight down, no floating sparkles",
         "dock_sleep": "Her lavender cat pillow tucked cozy against her chest/cheek as she dozes peacefully hugging the invisible vertical edge on the left; both eyes softly closed in peaceful sleep, no floating sparkles",
         "refuse_food": "Holding her lavender cat pillow tucked under her left arm while waving her oversized sleeves 'no thanks' and turning her sleepy flustered face away, NO food prop, NO text, no floating sparkles",
+        "work_reading": "STRICTLY NO purple cat plushie anywhere so both oversized-sleeve hands hold the glowing blue-violet hardcover book cleanly; strictly two arms only, NO text on book cover, NO floating sparkles",
+        "work_searching": "STRICTLY NO purple cat plushie anywhere so her oversized-sleeve hands hold the large golden-rimmed magnifying glass cleanly; strictly two arms only, NO text, NO floating sparkles",
+        "work_drawing": "STRICTLY NO purple cat plushie anywhere so one hand holds the wooden pastel artist palette and the other waves the paintbrush cleanly; strictly two arms only, NO text",
+        "work_compacting": "STRICTLY NO purple cat plushie anywhere; both oversized-sleeve hands press down enthusiastically on the overstuffed lavender-cream suitcase; strictly two arms only, NO text on papers or suitcase",
+        "quota_gift": "STRICTLY NO purple cat plushie anywhere so both oversized-sleeve hands happily hold up the big lavender-cream ribbon gift box; strictly two arms only, NO text",
     },
     "claude": {
         "dock_peek": "She is a HUMAN girl: NO animal ears and NO tail. Keep her coral-orange curly hair, orange flower hair ornament, and white-and-black lace dress",
@@ -338,6 +347,11 @@ FORM_NOTES: dict[str, dict[str, str]] = {
         "gift_toss": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas",
         "summon_pop": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins and strictly NO floating comic marks, dots, teardrops, or sparkles",
         "depart_poof": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas",
+        "work_reading": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all voluminous curly terracotta hair tips stay completely inside the canvas, NO text on book cover",
+        "work_searching": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas, NO text",
+        "work_drawing": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas, NO text",
+        "work_compacting": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas, NO text on papers or suitcase",
+        "quota_gift": "She is a HUMAN girl: NO animal ears and NO tail. Keep generous horizontal margins so all curly hair tips stay inside the canvas, NO text",
     },
 }
 
@@ -667,6 +681,26 @@ ASSETS: dict[str, tuple[str, list[str]]] = {
         "same character, outfit, scale and centered framing as image 2: playful anticipation crouch turning three-quarter right preparing to hop away, knees bent lightly, glancing cheerfully back over her shoulder with a cute waving hand and happy grin, NO text",
         "same character, outfit, scale and centered framing as image 2: graceful mid-air joyful leap arcing upward and right — legs tucked playfully beneath her, one hand raised waving goodbye, hair and outfit trailing dynamically behind with a big beaming smile, pure transparent background, NO text",
         "same character, outfit, scale and centered framing as image 2: compact buoyant mid-air tuck-hop dissolving cheerfully away — arms and knees tucked in a cute floating leap, eyes happily squeezed shut in a curved '^ ^' smile with light blush, fluttering hair and ribbons, pure transparent background, NO solid white circle, NO text",
+    ]),
+    "work_reading": (PORTRAIT, [
+        "standing horizontally centered holding a big open hardcover indigo-blue magic spellbook/codebook with both hands at chest height: head tilted slightly down reading intently with bright focused curious eyes, subtle warm light from the blank glowing pages illuminating her face, full body with both shoes planted cleanly on pure transparent background, strictly NO text or letters on the book or pages",
+        "same character, outfit, scale, centered standing feet and exact same open indigo-blue hardcover book as image 2: leaning gently to the other side while turning a glowing blank page with one fingertip, cute fascinated smile and sparkling focused eyes, strictly NO text or letters anywhere",
+    ]),
+    "work_searching": (PORTRAIT, [
+        "standing horizontally centered in a playful chibi detective pose leaning slightly forward: holding a large shiny golden-rimmed round magnifying glass right up in front of her right eye so her magnified eye looks hilariously big, bright and super curious through the clear glass lens, left hand on hip or poised near chest, leaning slightly left inspecting clues, full body with both shoes cleanly inside frame on pure transparent background, NO text",
+        "same character, outfit, scale, centered footing, single-sided accessories, and exact same large golden-rimmed magnifying glass as image 2: strictly KEEP the magnifying glass held in the EXACT SAME hand (viewer's-LEFT hand / character's right hand) over the EXACT SAME viewer's-left eye just like image 2 (do NOT swap hands, do NOT swap eyes, do NOT mirror hair ornaments or earrings); lean head and torso subtly forward/sideways peering enthusiastically with a cheerful detective smirk and free viewer's-right hand raised playfully, NO text",
+    ]),
+    "work_drawing": (PORTRAIT, [
+        "standing horizontally centered as a joyful chibi artist: left hand holding a cute wooden pastel artist palette dotted with bright rainbow paint dabs (pink, sky blue, gold, lavender), right hand holding a big cute wooden paintbrush raised mid-stroke with a tiny curved pastel paint-swirl tip, beaming creative smile with sparkling eyes, full body with both shoes cleanly inside frame on pure transparent background, NO text",
+        "same character, outfit, scale, centered standing feet, wooden artist palette, paintbrush, and asymmetric accessories as image 2: strictly LOCK handedness to image 2 — her right hand (on viewer's-LEFT side) ALWAYS holds and flicks the wooden paintbrush upward/outward on the upper-left in a cheerful finishing pastel paint arc, and her left hand (on viewer's-RIGHT side) ALWAYS holds the wooden paint palette steadily on the right; strictly NO prop or hand swap, NO mirror flip of tail or hair ornaments, NO ribbon hanging off the palette rim, generous horizontal margins so the paint swirl stays well inside canvas, proud happy wink and delighted grin, NO text",
+    ]),
+    "work_compacting": (PORTRAIT, [
+        "horizontally centered hilarious chibi packing pose: leaning forward with BOTH hands pressing down hard on top of a bulging overstuffed cute pastel-violet travel suitcase resting right at her feet with a few blank white folded paper sheets popping out of the seam, cheeks puffed adorably with determined effort and cute scrunched-up eyes, full body + entire suitcase cleanly inside frame on pure transparent background, strictly NO text, NO letters, NO ground shadow",
+        "same character, outfit, EXACT SAME head size, character scale, vertical position, and exact same bulging pastel-violet suitcase right beneath her hands as image 2 (do NOT leap high into mid-air above the suitcase and do NOT shrink her head or body): leaning energetically over the suitcase bouncing her weight down with BOTH clean 5-finger hands pressing or hovering just millimeters above the suitcase lid, one foot lifted playfully back for balance, determined puffed-cheek expression, 1-2 clean blank white folded papers fluttering slightly from the seam; strictly NO comic speed lines, NO jagged scratch streaks over hair, NO floating droplets, NO outer white glow or fog, crisp dark outlines on pure transparent background, strictly NO text, NO letters",
+    ]),
+    "quota_gift": (PORTRAIT, [
+        "standing horizontally centered joyfully hugging a large adorable pastel-cream and lavender gift box tied with a big shiny golden-pink ribbon bow right in front of her chest with both hands, huge sparkling happy eyes and beaming delighted smile, both shoes planted cleanly on pure transparent background, NO text",
+        "same character, outfit, EXACT SAME head size, head Y-position, curved top ahoge, asymmetric hair ornaments, and body scale as image 2 (strictly do NOT lift or stack the gift box above the top of her head): rising lightly on tiptoes joyfully presenting the EXACT SAME ribbon-wrapped gift box symmetrically forward and slightly upward at chest-to-chin height (top of ribbon bow stays around chin/lower-cheek level, well below her crown and eyes), BOTH arms/sleeves symmetrically and naturally connected to her shoulders holding the left and right sides of the gift box, happy curved '^ ^' beaming smile; strictly NO one-handed hold, NO detached fingers, NO truncated sleeves, NO shrunken body, NO stray color specks, generous margins, NO text",
     ]),
 }
 

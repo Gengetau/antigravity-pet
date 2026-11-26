@@ -332,9 +332,9 @@ def cmd_install(args) -> None:
     missing = sorted(set(old["assets"]) - set(new["assets"]) - SKIP_REGENERATE)
     if missing and not args.allow_partial and not partial_mode:
         sys.exit(f"新素材缺少 {missing}，加 --allow-partial 会保留这些旧素材")
-    for key in set(old["assets"]) - set(new["assets"]):
-        new["assets"][key] = old["assets"][key]
-    new = {**old, "assets": {**new["assets"]}}  # keep format_version and other top-level keys
+    merged_assets = dict(old["assets"])
+    merged_assets.update(new["assets"])
+    new = {**old, "assets": merged_assets}  # keep format_version, top-level keys, and existing asset order
     shutil.copytree(staged, target / "processed", dirs_exist_ok=True)
     (target / "manifests" / "actions.json").write_text(json.dumps(new, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"已安装到 {target}" + (f"，旧素材备份在 {backup}" if backup else "（增量合入）"))

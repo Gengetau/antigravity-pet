@@ -1499,6 +1499,106 @@
       },
       "quality": "agy_fallback_until_art",
       "requires_real_frames": false
+    },
+    "WORK_READING": {
+      "id": "WORK_READING",
+      "asset": "work_reading",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 31,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 420,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "work_reading"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "WORK_SEARCHING": {
+      "id": "WORK_SEARCHING",
+      "asset": "work_searching",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 31,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 380,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "work_searching"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "WORK_DRAWING": {
+      "id": "WORK_DRAWING",
+      "asset": "work_drawing",
+      "loop": true,
+      "duration_ms": null,
+      "priority": 31,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 320,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "work_drawing"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "WORK_COMPACTING": {
+      "id": "WORK_COMPACTING",
+      "asset": "work_compacting",
+      "loop": false,
+      "duration_ms": 2080,
+      "priority": 52,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 260,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "work_compacting"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
+    },
+    "QUOTA_GIFT": {
+      "id": "QUOTA_GIFT",
+      "asset": "quota_gift",
+      "loop": false,
+      "duration_ms": 2400,
+      "priority": 62,
+      "interruptible": true,
+      "return_state": "IDLE",
+      "frame_ms": 300,
+      "anchor": {
+        "type": "ground",
+        "x": 0.5,
+        "y": 0.985
+      },
+      "procedural_motion": {
+        "type": "quota_gift"
+      },
+      "quality": "agy_fallback_until_art",
+      "requires_real_frames": false
     }
   },
   "fallbacks": {
@@ -1545,7 +1645,12 @@
     "play_dance": "happy",
     "gift_toss": "wave",
     "summon_pop": "happy",
-    "depart_poof": "wave"
+    "depart_poof": "wave",
+    "work_reading": "work_typing",
+    "work_searching": "idle_think",
+    "work_drawing": "work_typing",
+    "work_compacting": "work_typing",
+    "quota_gift": "celebrate"
   },
   "notes": [
     "所有运行时动作均来自同一套统一角色母版；运行时不生成图片。",

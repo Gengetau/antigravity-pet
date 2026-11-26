@@ -126,6 +126,21 @@ class RehearsalStage(QWidget):
             ev_grid.addWidget(btn, idx // 3, idx % 3)
         root.addWidget(ev_box)
 
+        # Stage C iconic strong-prop semantic work & quota poses
+        prop_box = QGroupBox("强道具大剪影姿态（阶段 C）")
+        prop_row = QHBoxLayout(prop_box)
+        for label, action in (
+            ("📖 捧书读码", PetAction.WORK_READING),
+            ("🔍 放大镜搜", PetAction.WORK_SEARCHING),
+            ("🎨 调色板画", PetAction.WORK_DRAWING),
+            ("🧳 压行李箱", PetAction.WORK_COMPACTING),
+            ("🎁 满血礼物", PetAction.QUOTA_GIFT),
+        ):
+            btn = QPushButton(label)
+            btn.clicked.connect(lambda _c=False, act=action: self._sim_prop_pose(act))
+            prop_row.addWidget(btn)
+        root.addWidget(prop_box)
+
     def _simulate_subagents(self, count: int) -> None:
         presets = [
             SubagentInfo("sub-1", "main-1", "检索项目结构与依赖", "Gemini 4 Neon (High)", "neon"),
@@ -247,6 +262,23 @@ class RehearsalStage(QWidget):
             self.pet.emit_particles(fx)
         self.pet._request_action(PetAction.CELEBRATE, reason="rehearsal_fest", force=True)
         self.pet.say(line, preserve_action=True)
+
+    def _sim_prop_pose(self, action: PetAction) -> None:
+        self.pet._request_action(action, reason="rehearsal_prop", force=True, immediate=True)
+        if action == PetAction.QUOTA_GIFT:
+            self.pet.emit_particles("fish")
+            self.pet.say("满血礼物和小鱼干雨送达啦！", preserve_action=True)
+        elif action == PetAction.WORK_READING:
+            self.pet.say("正在捧着魔法代码书细读源码～", preserve_action=True)
+        elif action == PetAction.WORK_SEARCHING:
+            self.pet.emit_particles("sparkles")
+            self.pet.say("举起放大镜，线索休想溜走！", preserve_action=True)
+        elif action == PetAction.WORK_DRAWING:
+            self.pet.emit_particles("sparkles")
+            self.pet.say("灵感爆发，挥笔上色中～", preserve_action=True)
+        elif action == PetAction.WORK_COMPACTING:
+            self.pet.emit_particles("sweat")
+            self.pet.say("嘿咻嘿咻！把爆满的上下文压进箱子～", preserve_action=True)
 
     def _sim_sulk(self) -> None:
         self.pet._recent_pokes.clear()

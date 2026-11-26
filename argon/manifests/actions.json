@@ -1549,6 +1549,111 @@
         ]
       },
       "frame_count": 4
+    },
+    "work_reading": {
+      "source_masters": [
+        "assets/processed/masters/generated/work_reading_00.png",
+        "assets/processed/masters/generated/work_reading_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/work_reading/work_reading_187_00.png",
+          "assets/processed/runtime/states/work_reading/work_reading_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/work_reading/work_reading_238_00.png",
+          "assets/processed/runtime/states/work_reading/work_reading_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/work_reading/work_reading_306_00.png",
+          "assets/processed/runtime/states/work_reading/work_reading_306_01.png"
+        ]
+      },
+      "frame_count": 2
+    },
+    "work_searching": {
+      "source_masters": [
+        "assets/processed/masters/generated/work_searching_00.png",
+        "assets/processed/masters/generated/work_searching_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/work_searching/work_searching_187_00.png",
+          "assets/processed/runtime/states/work_searching/work_searching_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/work_searching/work_searching_238_00.png",
+          "assets/processed/runtime/states/work_searching/work_searching_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/work_searching/work_searching_306_00.png",
+          "assets/processed/runtime/states/work_searching/work_searching_306_01.png"
+        ]
+      },
+      "frame_count": 2
+    },
+    "work_drawing": {
+      "source_masters": [
+        "assets/processed/masters/generated/work_drawing_00.png",
+        "assets/processed/masters/generated/work_drawing_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/work_drawing/work_drawing_187_00.png",
+          "assets/processed/runtime/states/work_drawing/work_drawing_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/work_drawing/work_drawing_238_00.png",
+          "assets/processed/runtime/states/work_drawing/work_drawing_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/work_drawing/work_drawing_306_00.png",
+          "assets/processed/runtime/states/work_drawing/work_drawing_306_01.png"
+        ]
+      },
+      "frame_count": 2
+    },
+    "work_compacting": {
+      "source_masters": [
+        "assets/processed/masters/generated/work_compacting_00.png",
+        "assets/processed/masters/generated/work_compacting_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/work_compacting/work_compacting_187_00.png",
+          "assets/processed/runtime/states/work_compacting/work_compacting_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/work_compacting/work_compacting_238_00.png",
+          "assets/processed/runtime/states/work_compacting/work_compacting_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/work_compacting/work_compacting_306_00.png",
+          "assets/processed/runtime/states/work_compacting/work_compacting_306_01.png"
+        ]
+      },
+      "frame_count": 2
+    },
+    "quota_gift": {
+      "source_masters": [
+        "assets/processed/masters/generated/quota_gift_00.png",
+        "assets/processed/masters/generated/quota_gift_01.png"
+      ],
+      "frames": {
+        "187": [
+          "assets/processed/runtime/states/quota_gift/quota_gift_187_00.png",
+          "assets/processed/runtime/states/quota_gift/quota_gift_187_01.png"
+        ],
+        "238": [
+          "assets/processed/runtime/states/quota_gift/quota_gift_238_00.png",
+          "assets/processed/runtime/states/quota_gift/quota_gift_238_01.png"
+        ],
+        "306": [
+          "assets/processed/runtime/states/quota_gift/quota_gift_306_00.png",
+          "assets/processed/runtime/states/quota_gift/quota_gift_306_01.png"
+        ]
+      },
+      "frame_count": 2
     }
   },
   "expressions": {

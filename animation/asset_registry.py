@@ -41,6 +41,14 @@ BESPOKE_DOCK_ASSETS = frozenset(
     (*DOCK_LEFT_ASSETS.values(), *DOCK_RIGHT_ASSETS.values())
 )
 
+# Fine-grained tool poses resolved dynamically under PetAction.WORKING.
+TOOL_WORK_ASSETS = {
+    "tool_reading": "work_reading",
+    "tool_searching": "work_searching",
+    "tool_drawing": "work_drawing",
+    "tool_compacting": "work_compacting",
+}
+
 
 class AssetRegistry:
     def __init__(self, assets_dir: Path, *, base_manifest: Path | None = None) -> None:
@@ -219,6 +227,8 @@ class AssetRegistry:
                 return "walk_side_right"
         if action == PetAction.CLIMBING and direction == "right":
             return "climb_side_right"
+        if action == PetAction.WORKING and direction in TOOL_WORK_ASSETS:
+            return TOOL_WORK_ASSETS[direction]
         if direction == "edge" and action in EDGE_ASSETS:
             # On a window's top edge: sitting with the legs over the edge.
             return EDGE_ASSETS[action]
