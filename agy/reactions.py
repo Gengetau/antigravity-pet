@@ -75,10 +75,34 @@ LINES: dict[str, tuple[str, ...]] = {
         "干得漂亮 {name}，我来整合！",
         "信号同步完毕，继续推进～",
     ),
+    "subagent_pet_rub": (
+        "哇，{name} 被揉得呼噜呼噜的～",
+        "揉完 {name} 记得也揉揉我呀～",
+    ),
+    "subagent_trick": (
+        "拍手！{name} 这招表演满分～",
+        "哇！{name} 转圈圈好可爱～",
+    ),
+    "subagent_gift_share": (
+        "哇，谢谢 {name} 送的小礼物！",
+        "收到 {name} 的小鱼干啦，干劲满血～",
+    ),
+    "subagent_clone_buddy": (
+        "哈哈，{name} 和同伴配合得真默契～",
+        "大家击掌贴贴，团队氛围满分！",
+    ),
+    "subagent_clone_chat": (
+        "咦，{name} 们在交流什么小秘密呀～",
+        "听到你们互相打气，我也更有劲啦！",
+    ),
     "playmate_summon": (
         "闲着没事，摇来 {names} 陪我玩会儿～",
         "叮！随机召唤出 {names} 来串门啦～",
         "摸鱼时间！叫来 {names} 一起玩～",
+    ),
+    "playmate_add": (
+        "越热闹越好！欢迎 {names} 加入派对～",
+        "叮！又摇来 {names} 一起玩啦～",
     ),
     "playmate_done": (
         "拜拜啦 {name}，下次闲了再一起玩～",
@@ -104,6 +128,26 @@ LINES: dict[str, tuple[str, ...]] = {
     "playmate_relay": (
         "接住啦 {name}！我也回你一颗星星～",
         "哈哈 {name} 好调皮，再来一次！",
+    ),
+    "playmate_pet_rub": (
+        "哇，{name} 被揉得眼睛都眯起来啦～",
+        "偏心！揉完 {name} 也要多揉揉我～",
+    ),
+    "playmate_trick": (
+        "拍手拍手！{name} 转圈圈超可爱～",
+        "哇！{name} 还会变小花样呢，再来一个！",
+    ),
+    "playmate_gift_share": (
+        "哇，谢谢 {name} 塞给我的小礼物！",
+        "收到 {name} 的小鱼干啦，贴贴～",
+    ),
+    "playmate_clone_buddy": (
+        "哈哈，{name} 和同伴贴贴得好开心～",
+        "姐妹们玩得这么热闹，带我一个呀！",
+    ),
+    "playmate_clone_chat": (
+        "咦，我好像听到 {name} 在偷偷夸我～",
+        "你们俩聊什么悄悄话呢，也告诉我嘛！",
     ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),

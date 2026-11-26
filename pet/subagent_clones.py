@@ -31,21 +31,23 @@ from animation.asset_registry import AssetRegistry
 from animation.clip import PetAction
 from pet.particles import ParticleSystem
 
-MAX_VISIBLE_CLONES = 4
+MAX_VISIBLE_CLONES = 6
 MAX_ANIMATION_FRAMES = 4
 FRAME_INTERVAL_SECONDS = 0.18
 CLONE_PHASE_STEP_SECONDS = 0.45
 SUMMON_SLIDE_SECONDS = 0.68
 HANDOFF_DURATION_SECONDS = 1.25
 HIGH_FIVE_RADIUS_PX = 140.0
+CLONE_HIGH_FIVE_RADIUS_PX = 115.0
 GLIDE_RETURN_SECONDS = 0.36
-RELAY_INTERVAL_MIN_SECONDS = 14.0
-RELAY_INTERVAL_MAX_SECONDS = 22.0
-PLAY_RELAY_INTERVAL_MIN_SECONDS = 6.5
-PLAY_RELAY_INTERVAL_MAX_SECONDS = 11.0
+RELAY_INTERVAL_MIN_SECONDS = 12.0
+RELAY_INTERVAL_MAX_SECONDS = 19.0
+PLAY_RELAY_INTERVAL_MIN_SECONDS = 5.5
+PLAY_RELAY_INTERVAL_MAX_SECONDS = 9.5
 DRAG_THRESHOLD_PX = 6
 CLICK_DEBOUNCE_MS = 240
 PLAYMATE_PREFIX = "idle-play-"
+HOST_CALL_NAME = "姐姐"
 
 
 def is_playmate_id(conversation_id: str) -> bool:
@@ -73,19 +75,10 @@ _CLICK_LINES: tuple[str, ...] = (
     "收到打气，冲鸭！",
 )
 
-_HOST_SPEAKER_NAMES: dict[str, str] = {
-    "carbon": "Carbon",
-    "hydergon": "小氢",
-    "neon": "Neon",
-    "argon": "Argon",
-    "claude": "Claude",
-}
-
-
-def _format_host_line(template: str, host_name: str) -> str:
+def _format_host_line(template: str, host_name: str = HOST_CALL_NAME) -> str:
     if "{host}" not in template:
         return template
-    name = (host_name or "Carbon").strip() or "Carbon"
+    name = (host_name or HOST_CALL_NAME).strip() or HOST_CALL_NAME
     if any("\u4e00" <= ch <= "\u9fff" for ch in name):
         return (
             template.replace(" {host} ", name)
@@ -122,7 +115,7 @@ _GROUP_CHEER_LINES: tuple[str, ...] = (
 )
 
 _PLAY_SUMMON_LINES: tuple[str, ...] = (
-    "嘿！来找你玩啦～",
+    "嘿！来找 {host} 玩～",
     "摸鱼时间，一起玩！",
     "随机分身来串门～",
     "闲着也是闲着，嗨！",
@@ -160,12 +153,105 @@ _PLAY_GROUP_CHEER_LINES: tuple[str, ...] = (
     "摸鱼小队万岁～",
 )
 
+_PET_RUB_LINES: tuple[str, ...] = (
+    "呜哇…好舒服呀～",
+    "呼噜呼噜，别停嘛",
+    "被揉得软乎乎啦～",
+    "最喜欢揉头啦！",
+)
+
+_TRICK_LINES: tuple[str, ...] = (
+    "看我转个小圈圈～",
+    "锵锵！变个小花样",
+    "{host} 快看我这招！",
+    "哒哒哒，跳一支舞",
+)
+
+_GIFT_SHARE_LINES: tuple[str, ...] = (
+    "小礼物送给 {host}！",
+    "给 {host} 囤的小鱼干",
+    "偷偷塞颗星星糖～",
+    "{host} 辛苦啦，收下",
+)
+
+_CLONE_BUDDY_LINES: tuple[str, ...] = (
+    "贴贴！最佳搭档～",
+    "嘿嘿，击掌成功！",
+    "姐妹同心效率翻倍",
+    "一起陪 {host} 玩吧～",
+)
+
+_CLONE_CHAT_PAIRS: tuple[tuple[str, str], ...] = (
+    ("偷偷夸 {host} 一句～", "{host} 超厉害的！"),
+    ("分你一半小鱼干～", "哇谢谢，好香呀！"),
+    ("比比谁跳得更高！", "我肯定跳得更高～"),
+    ("一起逗 {host} 笑吧！", "好呀好呀，冲鸭！"),
+    ("休息下伸个懒腰～", "呼——精神满满啦"),
+)
+
+_WORK_CHAT_PAIRS: tuple[tuple[str, str], ...] = (
+    ("这块我快查完啦～", "加油！我来接力～"),
+    ("线索同步给你啦！", "收到，马上核对～"),
+    ("一起帮 {host} 兜底！", "嗯嗯，配合满分～"),
+)
+
 _PLAY_IDLE_POSES: tuple[PetAction, ...] = (
-    PetAction.PLAY_DANCE,
+    PetAction.IDLE,
+    PetAction.BLINK,
+    PetAction.GLANCE,
     PetAction.HAPPY,
     PetAction.WAVE,
-    PetAction.IDLE,
+    PetAction.STRETCH,
+    PetAction.THINKING,
+    PetAction.PLAY_DANCE,
+    PetAction.WORK_DRAWING,
+    PetAction.WORK_READING,
+    PetAction.QUOTA_GIFT,
 )
+
+_WORK_MICRO_BREAK_POSES: tuple[PetAction, ...] = (
+    PetAction.THINKING,
+    PetAction.STRETCH,
+    PetAction.GLANCE,
+    PetAction.WAVE,
+)
+
+_ACTION_FRAME_INTERVALS: dict[PetAction, float] = {
+    PetAction.IDLE: 0.32,
+    PetAction.BLINK: 0.26,
+    PetAction.GLANCE: 0.30,
+    PetAction.THINKING: 0.30,
+    PetAction.STRETCH: 0.30,
+    PetAction.TIRED: 0.32,
+    PetAction.WORK_READING: 0.32,
+    PetAction.WORK_SEARCHING: 0.30,
+    PetAction.WORK_DRAWING: 0.25,
+    PetAction.WORK_COMPACTING: 0.22,
+    PetAction.QUOTA_GIFT: 0.25,
+    PetAction.WAVE: 0.24,
+    PetAction.HAPPY: 0.24,
+    PetAction.PET_PURR: 0.24,
+    PetAction.HEAD_PAT: 0.24,
+    PetAction.PLAY_DANCE: 0.18,
+    PetAction.CELEBRATE: 0.18,
+    PetAction.HIGH_FIVE: 0.18,
+    PetAction.GIFT_TOSS: 0.18,
+    PetAction.WORKING: 0.18,
+}
+
+
+def _work_pose_for_title(title: str) -> PetAction:
+    text = (title or "").lower()
+    if any(k in text for k in ("画", "图", "设计", "ui", "样式", "排版", "绘")):
+        return PetAction.WORK_DRAWING
+    if any(k in text for k in ("查", "搜", "分析", "日志", "定位", "排障", "search", "grep")):
+        return PetAction.WORK_SEARCHING
+    if any(k in text for k in ("读", "文档", "审查", "核对", "看", "read", "review")):
+        return PetAction.WORK_READING
+    if any(k in text for k in ("整理", "压缩", "重构", "归档", "合并", "compact")):
+        return PetAction.WORK_COMPACTING
+    return PetAction.WORKING
+
 
 _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[str, ...]]] = {
     PetAction.HEAD_PAT: (
@@ -182,9 +268,9 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
     ),
     PetAction.EATING: (
         PetAction.WAVE,
-        2.4,
+        2.6,
         "sparkles",
-        ("好香！留一口嘛～", "干完活我也想吃！"),
+        ("好香！留一口嘛～", "干完活我也想吃！", "{host} 分我小鱼干"),
     ),
     PetAction.CELEBRATE: (
         PetAction.CELEBRATE,
@@ -196,7 +282,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.HAPPY,
         1.8,
         None,
-        ("你开心我也开心～",),
+        ("{host} 开心我也开心",),
     ),
     PetAction.SULK: (
         PetAction.WAVE,
@@ -208,25 +294,25 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.POKE_REACT,
         1.8,
         "sweat",
-        ("{host} 生气了…", "我乖乖干活去！"),
+        ("哇！{host} 生气了…", "我乖乖干活去！"),
     ),
     PetAction.WAITING_USER: (
         PetAction.WAITING_USER,
         3.2,
         "alert",
-        ("{host} 等你确认！", "快看看确认弹窗～"),
+        ("{host} 等你确认哦！", "快看看确认弹窗～"),
     ),
     PetAction.SLEEPING: (
         PetAction.WORKING,
         2.6,
         None,
-        ("{host} 睡着啦～",),
+        ("嘘，{host} 睡着啦～",),
     ),
     PetAction.PERCH_SLEEP: (
         PetAction.WORKING,
         2.6,
         None,
-        ("{host} 打盹中～",),
+        ("嘘，{host} 打盹中～",),
     ),
     PetAction.DRAGGING: (
         PetAction.FALLING,
@@ -247,7 +333,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
 class CloneEvent:
     """Structured host <-> subagent interaction event sent to PetWindow."""
 
-    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay
+    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay / pet_rub / trick / gift_share / clone_buddy / clone_chat
     conversation_id: str
     form_id: str
     badge: str
@@ -264,11 +350,22 @@ class _CloneRuntime:
     pose_until: float = 0.0
     nudge_until: float = 0.0
     nudge_strength: float = 16.0
+    nudge_dir_x: int = 0
     last_side: int = -1
     dragging: bool = False
     glide_from: QPoint | None = None
     glide_started_at: float = 0.0
     glide_hold_until: float = 0.0
+    motion_phase: float = 0.0
+    motion_speed: float = 1.0
+    idle_action: PetAction | None = None
+    idle_until: float = 0.0
+    idle_glance_until: float = 0.0
+    next_hop_at: float = 0.0
+    hop_started_at: float = 0.0
+    hop_duration: float = 0.42
+    hop_height: float = 8.0
+    next_ambient_fx_at: float = 0.0
 
 
 @dataclass(slots=True)
@@ -306,6 +403,7 @@ class SubagentCloneWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setWindowTitle("AGY 子代理分身")
         self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.setMouseTracking(True)
 
         self._pixmap = QPixmap()
         self._badge = ""
@@ -314,6 +412,8 @@ class SubagentCloneWidget(QWidget):
         self._bob_y = 0.0
         self._tilt_deg = 0.0
         self._render_scale = 1.0
+        self._scale_x = 1.0
+        self._scale_y = 1.0
         self._mirrored = False
         self._frame_index = 0
         self._action = PetAction.WORKING
@@ -332,11 +432,23 @@ class SubagentCloneWidget(QWidget):
         self._click_timer.setSingleShot(True)
         self._click_timer.timeout.connect(self._fire_pending_click)
 
+        # Mouse back-and-forth head-rub & wheel-trick state
+        self._rub_last_x: float | None = None
+        self._rub_dir: int = 0
+        self._rub_flips: int = 0
+        self._rub_dist: float = 0.0
+        self._rub_window_start: float = 0.0
+        self._rub_cooldown_until: float = 0.0
+        self._wheel_cooldown_until: float = 0.0
+
         self._on_click: Callable[[SubagentCloneWidget], None] | None = None
         self._on_double_click: Callable[[SubagentCloneWidget], None] | None = None
         self._on_right_click: Callable[[SubagentCloneWidget], None] | None = None
         self._on_drag_start: Callable[[SubagentCloneWidget], None] | None = None
         self._on_drag_end: Callable[[SubagentCloneWidget, QPoint], None] | None = None
+        self._on_pet_rub: Callable[[SubagentCloneWidget], None] | None = None
+        self._on_wheel_trick: Callable[[SubagentCloneWidget], None] | None = None
+        self._on_middle_click: Callable[[SubagentCloneWidget], None] | None = None
 
         self._badge_font = QFont()
         self._badge_font.setPointSize(8)
@@ -382,12 +494,18 @@ class SubagentCloneWidget(QWidget):
         on_right_click: Callable[[SubagentCloneWidget], None] | None = None,
         on_drag_start: Callable[[SubagentCloneWidget], None] | None = None,
         on_drag_end: Callable[[SubagentCloneWidget, QPoint], None] | None = None,
+        on_pet_rub: Callable[[SubagentCloneWidget], None] | None = None,
+        on_wheel_trick: Callable[[SubagentCloneWidget], None] | None = None,
+        on_middle_click: Callable[[SubagentCloneWidget], None] | None = None,
     ) -> None:
         self._on_click = on_click
         self._on_double_click = on_double_click
         self._on_right_click = on_right_click
         self._on_drag_start = on_drag_start
         self._on_drag_end = on_drag_end
+        self._on_pet_rub = on_pet_rub
+        self._on_wheel_trick = on_wheel_trick
+        self._on_middle_click = on_middle_click
 
     def configure(
         self,
@@ -490,21 +608,36 @@ class SubagentCloneWidget(QWidget):
         if dirty:
             self.update()
 
-    def set_bob(self, offset_y: float, opacity: float, *, scale: float = 1.0, tilt_deg: float = 0.0) -> None:
+    def set_bob(
+        self,
+        offset_y: float,
+        opacity: float,
+        *,
+        scale: float = 1.0,
+        scale_x: float | None = None,
+        scale_y: float | None = None,
+        tilt_deg: float = 0.0,
+    ) -> None:
         new_bob = float(offset_y)
         new_op = max(0.0, min(1.0, float(opacity)))
         new_scale = max(0.20, min(1.35, float(scale)))
-        new_tilt = max(-12.0, min(12.0, float(tilt_deg)))
+        new_sx = max(0.20, min(1.35, float(new_scale if scale_x is None else scale_x)))
+        new_sy = max(0.20, min(1.35, float(new_scale if scale_y is None else scale_y)))
+        new_tilt = max(-14.0, min(14.0, float(tilt_deg)))
         if (
             abs(new_bob - self._bob_y) < 0.05
             and abs(new_op - self._opacity) < 0.005
             and abs(new_scale - self._render_scale) < 0.005
+            and abs(new_sx - self._scale_x) < 0.004
+            and abs(new_sy - self._scale_y) < 0.004
             and abs(new_tilt - self._tilt_deg) < 0.12
         ):
             return
         self._bob_y = new_bob
         self._opacity = new_op
         self._render_scale = new_scale
+        self._scale_x = new_sx
+        self._scale_y = new_sy
         self._tilt_deg = new_tilt
         self.update()
 
@@ -521,6 +654,10 @@ class SubagentCloneWidget(QWidget):
 
     def leaveEvent(self, event) -> None:
         self._hovered = False
+        self._rub_last_x = None
+        self._rub_dir = 0
+        self._rub_flips = 0
+        self._rub_dist = 0.0
         self.update()
         super().leaveEvent(event)
 
@@ -544,6 +681,11 @@ class SubagentCloneWidget(QWidget):
             self._suppress_next_release = False
             event.accept()
             return
+        if event.button() == Qt.MouseButton.MiddleButton and self._on_middle_click is not None:
+            self._click_timer.stop()
+            self._on_middle_click(self)
+            event.accept()
+            return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
@@ -559,7 +701,43 @@ class SubagentCloneWidget(QWidget):
                 self.move(self._press_window_pos + delta)
                 event.accept()
                 return
+        elif self._on_pet_rub is not None and self._hovered:
+            pos = event.position()
+            if pos.y() >= self.BUBBLE_TOP_PAD - 6:
+                now = time.monotonic()
+                if now >= self._rub_cooldown_until:
+                    x = float(pos.x())
+                    if self._rub_last_x is None or now - self._rub_window_start > 1.25:
+                        self._rub_last_x = x
+                        self._rub_dir = 0
+                        self._rub_flips = 0
+                        self._rub_dist = 0.0
+                        self._rub_window_start = now
+                    else:
+                        dx = x - self._rub_last_x
+                        if abs(dx) >= 3.5:
+                            direction = 1 if dx > 0 else -1
+                            if self._rub_dir != 0 and direction != self._rub_dir:
+                                self._rub_flips += 1
+                            self._rub_dir = direction
+                            self._rub_dist += abs(dx)
+                            self._rub_last_x = x
+                            if self._rub_flips >= 3 and self._rub_dist >= 26.0:
+                                self._rub_cooldown_until = now + 2.6
+                                self._rub_flips = 0
+                                self._rub_dist = 0.0
+                                self._on_pet_rub(self)
         super().mouseMoveEvent(event)
+
+    def wheelEvent(self, event) -> None:
+        if self._on_wheel_trick is not None and not self._dragging:
+            now = time.monotonic()
+            if now >= self._wheel_cooldown_until:
+                self._wheel_cooldown_until = now + 1.4
+                self._on_wheel_trick(self)
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._press_global is not None:
@@ -627,13 +805,14 @@ class SubagentCloneWidget(QWidget):
             fw = float(self._pixmap.width())
             fh = float(self._pixmap.height())
             foot_y = max(float(self.BUBBLE_TOP_PAD) - 2.0 + fh, shadow_y + self._bob_y + hover_lift)
-            if abs(s - 1.0) > 0.005 or abs(self._tilt_deg) > 0.1:
+            sx, sy = self._scale_x, self._scale_y
+            if abs(sx - 1.0) > 0.004 or abs(sy - 1.0) > 0.004 or abs(self._tilt_deg) > 0.1:
                 painter.save()
                 painter.translate(cx, foot_y)
                 if abs(self._tilt_deg) > 0.1:
                     painter.rotate(self._tilt_deg)
-                if abs(s - 1.0) > 0.005:
-                    painter.scale(s, s)
+                if abs(sx - 1.0) > 0.004 or abs(sy - 1.0) > 0.004:
+                    painter.scale(sx, sy)
                 painter.drawPixmap(round(-fw / 2.0), round(-fh), self._pixmap)
                 painter.restore()
             else:
@@ -719,8 +898,7 @@ class SubagentCloneManager:
         self._enabled = True
         self._host_visible = True
         self._host_form = "carbon"
-        self._host_name: str | None = None
-        self._host_name_form: str | None = None
+        self._host_name: str = HOST_CALL_NAME
         self._sprite_height = 96
         self._fade = 0.0
         self._last_host_rect: QRect | None = None
@@ -732,16 +910,23 @@ class SubagentCloneManager:
 
     def set_host_name(self, name: str, *, form_id: str | None = None) -> None:
         cleaned = (name or "").strip()
-        self._host_name = cleaned or None
-        self._host_name_form = normalize_form(form_id) if form_id else None
+        self._host_name = cleaned or HOST_CALL_NAME
 
     def _host_display_name(self) -> str:
-        if self._host_name and self._host_name_form in (None, self._host_form):
-            return self._host_name
-        return _HOST_SPEAKER_NAMES.get(self._host_form, form_by_id(self._host_form).name)
+        return self._host_name or HOST_CALL_NAME
 
     def _format_line(self, template: str) -> str:
         return _format_host_line(template, self._host_display_name())
+
+    def _make_runtime(self, now: float, side: int) -> _CloneRuntime:
+        return _CloneRuntime(
+            spawned_at=now,
+            last_side=side,
+            motion_phase=self._rng.uniform(0.0, math.tau),
+            motion_speed=self._rng.uniform(0.86, 1.16),
+            next_hop_at=now + self._rng.uniform(3.8, 8.2),
+            next_ambient_fx_at=now + self._rng.uniform(5.5, 11.0),
+        )
 
     @property
     def active_count(self) -> int:
@@ -862,6 +1047,9 @@ class SubagentCloneManager:
             on_right_click=self._handle_widget_right_click,
             on_drag_start=self._handle_widget_drag_start,
             on_drag_end=self._handle_widget_drag_end,
+            on_pet_rub=self._handle_widget_pet_rub,
+            on_wheel_trick=self._handle_widget_wheel_trick,
+            on_middle_click=self._handle_widget_middle_click,
         )
 
     def _handle_widget_click(self, widget: SubagentCloneWidget) -> None:
@@ -878,6 +1066,21 @@ class SubagentCloneManager:
         idx = self._index_for_widget(widget)
         if idx is not None:
             self.trigger_group_cheer(source_index=idx)
+
+    def _handle_widget_pet_rub(self, widget: SubagentCloneWidget) -> None:
+        idx = self._index_for_widget(widget)
+        if idx is not None:
+            self.trigger_pet_rub(idx)
+
+    def _handle_widget_wheel_trick(self, widget: SubagentCloneWidget) -> None:
+        idx = self._index_for_widget(widget)
+        if idx is not None:
+            self.trigger_spin_trick(idx)
+
+    def _handle_widget_middle_click(self, widget: SubagentCloneWidget) -> None:
+        idx = self._index_for_widget(widget)
+        if idx is not None:
+            self.trigger_gift_share(idx)
 
     def _handle_widget_drag_start(self, widget: SubagentCloneWidget) -> None:
         idx = self._index_for_widget(widget)
@@ -914,13 +1117,33 @@ class SubagentCloneManager:
                 rt.glide_hold_until = now + 0.48
                 rt.glide_started_at = rt.glide_hold_until
             self.trigger_high_five(idx, now=now)
-        else:
+            return
+        # Otherwise check if dropped near a sibling clone for a clone-to-clone high-five!
+        nearest_other: int | None = None
+        nearest_dist = CLONE_HIGH_FIVE_RADIUS_PX + 1.0
+        for other_idx in range(len(self._entries)):
+            if other_idx == idx or other_idx >= len(self._widgets):
+                continue
+            other_w = self._widgets[other_idx]
+            if not other_w.isVisible():
+                continue
+            oc = other_w.frameGeometry().center()
+            d = math.hypot(drop_center.x() - oc.x(), drop_center.y() - oc.y())
+            if d < nearest_dist:
+                nearest_dist = d
+                nearest_other = other_idx
+        if nearest_other is not None and nearest_dist <= CLONE_HIGH_FIVE_RADIUS_PX:
             if rt is not None:
-                rt.glide_hold_until = 0.0
-                rt.pose_action = PetAction.WAVE
-                rt.pose_until = now + 1.0
-            back_line = "跑回来继续玩啦～" if is_playmate_id(info.conversation_id) else "回来继续干活啦～"
-            widget.say(back_line, now=now, duration=1.8)
+                rt.glide_hold_until = now + 0.48
+                rt.glide_started_at = rt.glide_hold_until
+            self.trigger_clone_buddy(idx, nearest_other, now=now)
+            return
+        if rt is not None:
+            rt.glide_hold_until = 0.0
+            rt.pose_action = PetAction.WAVE
+            rt.pose_until = now + 1.0
+        back_line = "跑回来继续玩啦～" if is_playmate_id(info.conversation_id) else "回来继续干活啦～"
+        widget.say(back_line, now=now, duration=1.8)
 
     # ----- Direct / programmatic host <-> subagent interaction triggers ---------
 
@@ -1078,6 +1301,198 @@ class SubagentCloneManager:
         self._emit_event(event)
         return event
 
+    def trigger_pet_rub(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
+        """Gentle mouse back-and-forth head rub melts a clone into a happy purr."""
+        if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        info, form_id, badge = self._entries[index]
+        widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
+        rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(ts, -1))
+        rt.pose_action = PetAction.PET_PURR
+        rt.pose_until = ts + 2.6
+        rt.hop_started_at = ts
+        rt.hop_duration = 0.36
+        rt.hop_height = 6.0
+        line = self._format_line(self._rng.choice(_PET_RUB_LINES))
+        widget.say(line, now=ts, duration=2.6)
+        widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+        event = CloneEvent(
+            kind="pet_rub",
+            conversation_id=info.conversation_id,
+            form_id=form_id,
+            badge=badge,
+            title=info.title,
+            side=rt.last_side,
+            text=line,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_spin_trick(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
+        """Scroll wheel or trigger makes the clone hop and show off a lively trick."""
+        if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        info, form_id, badge = self._entries[index]
+        widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
+        rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(ts, -1))
+        rt.pose_action = self._rng.choice((PetAction.PLAY_DANCE, PetAction.CELEBRATE, PetAction.QUOTA_GIFT))
+        rt.pose_until = ts + 2.2
+        rt.hop_started_at = ts
+        rt.hop_duration = 0.44
+        rt.hop_height = 13.0
+        line = self._format_line(self._rng.choice(_TRICK_LINES))
+        widget.say(line, now=ts, duration=2.5)
+        widget.emit_particles("notes", reduced_motion=self._last_reduced_motion)
+        widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+        event = CloneEvent(
+            kind="trick",
+            conversation_id=info.conversation_id,
+            form_id=form_id,
+            badge=badge,
+            title=info.title,
+            side=rt.last_side,
+            text=line,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_gift_share(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
+        """Clone holds up a little gift / dried fish for the host sister."""
+        if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        info, form_id, badge = self._entries[index]
+        widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
+        rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(ts, -1))
+        if rt.dragging:
+            return None
+        rt.pose_action = PetAction.QUOTA_GIFT
+        rt.pose_until = ts + 2.3
+        rt.nudge_until = ts + 0.85
+        rt.nudge_strength = 18.0
+        rt.nudge_dir_x = 0
+        line = self._format_line(self._rng.choice(_GIFT_SHARE_LINES))
+        widget.say(line, now=ts, duration=2.6)
+        widget.emit_particles("fish", reduced_motion=self._last_reduced_motion)
+        widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+        event = CloneEvent(
+            kind="gift_share",
+            conversation_id=info.conversation_id,
+            form_id=form_id,
+            badge=badge,
+            title=info.title,
+            side=rt.last_side,
+            text=line,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_clone_buddy(
+        self,
+        index_a: int = 0,
+        index_b: int = 1,
+        *,
+        now: float | None = None,
+    ) -> CloneEvent | None:
+        """Two clones clap hands and celebrate together (drag-to-sibling or programmatic)."""
+        if len(self._entries) < 2:
+            return None
+        if not (0 <= index_a < len(self._entries)) or not (0 <= index_b < len(self._entries)) or index_a == index_b:
+            return None
+        if index_a >= len(self._widgets) or index_b >= len(self._widgets):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        info_a, form_a, badge_a = self._entries[index_a]
+        info_b, _form_b, _badge_b = self._entries[index_b]
+        w_a, w_b = self._widgets[index_a], self._widgets[index_b]
+        rt_a = self._runtime.setdefault(info_a.conversation_id, self._make_runtime(ts, -1))
+        rt_b = self._runtime.setdefault(info_b.conversation_id, self._make_runtime(ts, 1))
+        playmate = is_playmate_id(info_a.conversation_id) or is_playmate_id(info_b.conversation_id)
+        for rt in (rt_a, rt_b):
+            rt.pose_action = PetAction.HIGH_FIVE
+            rt.pose_until = ts + 2.1
+            rt.hop_started_at = ts
+            rt.hop_duration = 0.40
+            rt.hop_height = 10.0
+        line_a = self._format_line(self._rng.choice(_CLONE_BUDDY_LINES))
+        others = [c for c in _CLONE_BUDDY_LINES if self._format_line(c) != line_a]
+        line_b = self._format_line(self._rng.choice(others or _CLONE_BUDDY_LINES))
+        w_a.say(line_a, now=ts, duration=2.5)
+        w_b.say(line_b, now=ts, duration=2.5)
+        for w in (w_a, w_b):
+            w.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+            w.emit_particles("confetti", reduced_motion=self._last_reduced_motion)
+        event = CloneEvent(
+            kind="clone_buddy",
+            conversation_id=info_a.conversation_id,
+            form_id=form_a,
+            badge=badge_a,
+            title=info_a.title,
+            side=rt_a.last_side,
+            text=line_a,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_clone_chat(
+        self,
+        index_a: int = 0,
+        index_b: int = 1,
+        *,
+        now: float | None = None,
+    ) -> CloneEvent | None:
+        """Two clones exchange playful whispers / encouragement with each other."""
+        if len(self._entries) < 2:
+            return None
+        if not (0 <= index_a < len(self._entries)) or not (0 <= index_b < len(self._entries)) or index_a == index_b:
+            return None
+        if index_a >= len(self._widgets) or index_b >= len(self._widgets):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        info_a, form_a, badge_a = self._entries[index_a]
+        info_b, _form_b, _badge_b = self._entries[index_b]
+        rt_a = self._runtime.setdefault(info_a.conversation_id, self._make_runtime(ts, -1))
+        rt_b = self._runtime.setdefault(info_b.conversation_id, self._make_runtime(ts, 1))
+        if rt_a.dragging or rt_b.dragging:
+            return None
+        playmate = is_playmate_id(info_a.conversation_id) or is_playmate_id(info_b.conversation_id)
+        raw_a, raw_b = self._rng.choice(_CLONE_CHAT_PAIRS if playmate else _WORK_CHAT_PAIRS)
+        line_a = self._format_line(raw_a)
+        line_b = self._format_line(raw_b)
+        rt_a.pose_action = PetAction.WAVE
+        rt_a.pose_until = ts + 2.2
+        rt_b.pose_action = PetAction.HAPPY if playmate else PetAction.WAVE
+        rt_b.pose_until = ts + 2.2
+        rt_b.hop_started_at = ts + 0.12
+        rt_b.hop_duration = 0.38
+        rt_b.hop_height = 8.0
+        w_a, w_b = self._widgets[index_a], self._widgets[index_b]
+        w_a.say(line_a, now=ts, duration=2.5)
+        w_b.say(line_b, now=ts, duration=2.6)
+        w_a.emit_particles("notes" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
+        w_b.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
+        event = CloneEvent(
+            kind="clone_chat",
+            conversation_id=info_a.conversation_id,
+            form_id=form_a,
+            badge=badge_a,
+            title=info_a.title,
+            side=rt_a.last_side,
+            text=line_a,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
     def notify_host_action(
         self,
         action: PetAction,
@@ -1110,7 +1525,7 @@ class SubagentCloneManager:
         speaker_idx = self._rng.choice(eligible)
         for idx in eligible:
             info = self._entries[idx][0]
-            rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
+            rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(ts, -1))
             if clone_action != PetAction.WORKING:
                 rt.pose_action = clone_action
                 rt.pose_until = ts + duration
@@ -1118,6 +1533,8 @@ class SubagentCloneManager:
                 self._widgets[idx].say(self._format_line(self._rng.choice(lines)), now=ts, duration=min(2.6, duration))
                 if particle:
                     self._widgets[idx].emit_particles(particle, reduced_motion=reduced_motion)
+            elif action in {PetAction.EATING, PetAction.CELEBRATE} and particle:
+                self._widgets[idx].emit_particles(particle, reduced_motion=reduced_motion)
         return True
 
     def sync(
@@ -1166,7 +1583,7 @@ class SubagentCloneManager:
         docked = (self._last_dock_edge or "").strip().lower() in ("left", "right")
         finished_ids = [cid for cid in prev_positions if cid not in new_ids]
         if finished_ids and not silent_depart and not docked and self._last_host_rect is not None:
-            for cid in finished_ids[:2]:
+            for cid in finished_ids[:4]:
                 start_pos, side, form_id, badge, title = prev_positions[cid]
                 playmate = is_playmate_id(cid)
                 dep_widget = SubagentCloneWidget(topmost=self._topmost, rng=self._rng)
@@ -1290,9 +1707,9 @@ class SubagentCloneManager:
             model_line = f"\n模型：{info.model_label}" if (info.model_label and not playmate) else ""
             tip_head = f"闲时随机小玩伴 · {title}" if playmate else f"子代理分身 · {title}{model_line}"
             tip_hint = self._format_line(
-                "单击摸摸 · 双击玩闹 · 拖给 {host} 击掌 · 右键欢呼"
+                "单击摸摸 · 揉头蹭蹭 · 滚轮花招 · 中键送礼\n双击玩闹 · 拖给 {host} 击掌 · 拖给同伴贴贴 · 右键派对"
                 if playmate
-                else "单击打气 · 双击汇报 · 拖给 {host} 击掌 · 右键欢呼"
+                else "单击打气 · 揉头蹭蹭 · 滚轮花招 · 中键送礼\n双击汇报 · 拖给 {host} 击掌 · 拖给同伴贴贴 · 右键派对"
             )
             widget.configure(
                 pixmap=pix,
@@ -1307,10 +1724,10 @@ class SubagentCloneManager:
             )
             if info.conversation_id not in self._runtime:
                 side = -1 if idx % 2 == 0 else 1
-                self._runtime[info.conversation_id] = _CloneRuntime(spawned_at=ts, last_side=side)
+                self._runtime[info.conversation_id] = self._make_runtime(ts, side)
                 if not newly_announced and not docked:
                     newly_announced = True
-                    line = self._rng.choice(_PLAY_SUMMON_LINES if playmate else _SUMMON_LINES)
+                    line = self._format_line(self._rng.choice(_PLAY_SUMMON_LINES if playmate else _SUMMON_LINES))
                     widget.say(line, now=ts, duration=2.4)
                     widget.emit_particles("summon", reduced_motion=self._last_reduced_motion)
                     self._emit_event(
@@ -1396,11 +1813,11 @@ class SubagentCloneManager:
         candidates: list[tuple[int, int, int, bool, bool]] = []
 
         # 1. Prefer shifting cleanly to the left of the host pet.
-        for t in range(left_tier, left_tier + 4):
-            gap_x = 12 + (t % 2) * (widget_w - 10)
+        for t in range(left_tier, left_tier + 6):
+            gap_x = 12 + (t % 2) * (widget_w - 14)
             row = (t // 2) if single_side_stack else t
             lx = round(host_rect.left() - widget_w - gap_x + sway_x)
-            ly = round(host_rect.bottom() - widget_h - (18 + row * 48))
+            ly = round(host_rect.bottom() - widget_h - (18 + row * 52))
             lx, ly = clamp(lx, ly)
             if not hitting(lx, ly):
                 if overlap_area(lx, ly) == 0:
@@ -1409,8 +1826,8 @@ class SubagentCloneManager:
 
         # 2. If host itself sits near the keep-out zone, tuck just left of the keep-out.
         min_kz_left = min(kz.left() for kz in hits)
-        for t in range(4):
-            lx = min_kz_left - widget_w - 8 - (t % 2) * (widget_w - 10)
+        for t in range(6):
+            lx = min_kz_left - widget_w - 8 - (t % 2) * (widget_w - 14)
             ly = cy + (t // 2) * 52
             lx, ly = clamp(lx, ly)
             if not hitting(lx, ly):
@@ -1420,8 +1837,8 @@ class SubagentCloneManager:
 
         # 3. Otherwise drop cleanly below the keep-out zone.
         max_kz_bottom = max(kz.bottom() for kz in hits)
-        for t in range(below_tier, below_tier + 4):
-            by = max_kz_bottom + 8 + t * 48
+        for t in range(below_tier, below_tier + 6):
+            by = max_kz_bottom + 8 + t * 50
             for bx_raw in (preferred_x, host_rect.right() + 12, host_rect.left() - widget_w - 12):
                 bx, by_c = clamp(bx_raw, by)
                 if not hitting(bx, by_c):
@@ -1552,7 +1969,7 @@ class SubagentCloneManager:
         for idx in range(count):
             widget = self._widgets[idx]
             info, form_id, _badge = self._entries[idx]
-            rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=now))
+            rt = self._runtime.setdefault(info.conversation_id, self._make_runtime(now, -1 if idx % 2 == 0 else 1))
             if can_left and can_right:
                 side = -1 if idx % 2 == 0 else 1
             elif can_left:
@@ -1561,18 +1978,26 @@ class SubagentCloneManager:
                 side = 1
             else:
                 side = -1 if space_left >= space_right else 1
+            # Fan clones cleanly across up to 3 staggered tiers per side so 4-6 clones frame the host
+            col_offsets = (10, max(78, widget.width() - 22), 26)
             if side < 0:
                 tier = left_tier
-                gap_x = 12 + (tier % 2) * (widget.width() - 10)
+                gap_x = col_offsets[tier % len(col_offsets)]
                 x = host_rect.left() - widget.width() - gap_x
             else:
                 tier = right_tier
-                gap_x = 12 + (tier % 2) * (widget.width() - 10)
+                gap_x = col_offsets[tier % len(col_offsets)]
                 x = host_rect.right() + gap_x
             row = tier // 2 if single_side_stack else tier
-            base_y = host_rect.bottom() - widget.height() - (18 + row * 48)
-            sway_x = 0.0 if reduced_motion else math.sin(now * 1.9 + idx * 1.7) * 3.0
-            bob_y = 0.0 if reduced_motion else math.sin(now * 3.1 + idx * 1.35) * 5.0
+            base_y = host_rect.bottom() - widget.height() - (16 + row * 54)
+            phase = rt.motion_phase
+            spd = rt.motion_speed
+            sway_x = 0.0 if reduced_motion else (
+                math.sin(now * 1.45 * spd + phase) * 2.8 + math.sin(now * 0.72 * spd + phase * 1.6) * 1.4
+            )
+            bob_y = 0.0 if reduced_motion else (
+                math.sin(now * 2.4 * spd + phase) * 3.6 + math.sin(now * 1.15 * spd + phase * 1.7) * 1.5
+            )
 
             clamped_x, clamped_y, final_side, used_left, used_below = self._resolve_keepout_slot(
                 preferred_x=round(x + sway_x),
@@ -1600,8 +2025,12 @@ class SubagentCloneManager:
             rt.last_side = final_side
             placed_rects.append(QRect(clamped_x, clamped_y, widget.width(), widget.height()))
 
-            # Resolve active pose: fresh entrance plays SUMMON_POP arc;
-            # otherwise playmates cycle playful dance/poses and real subagents type.
+            # Resolve active pose:
+            # - Fresh entrance plays SUMMON_POP arc
+            # - Active interactions override idle until pose_until
+            # - Playmates run an independent organic idle state machine (varied poses + micro-hops + glances)
+            # - Working subagents settle into WORKING, then alternate semantic tool poses & natural micro-breaks
+            playmate = is_playmate_id(info.conversation_id)
             spawn_age = now - rt.spawned_at
             in_summon = (
                 not reduced_motion
@@ -1611,14 +2040,31 @@ class SubagentCloneManager:
             )
             if in_summon:
                 active_action = PetAction.SUMMON_POP
-            elif is_playmate_id(info.conversation_id):
-                active_action = (
-                    PetAction.HAPPY
-                    if reduced_motion
-                    else _PLAY_IDLE_POSES[int((now + idx * 1.9) / 3.8) % len(_PLAY_IDLE_POSES)]
-                )
+            elif reduced_motion:
+                active_action = PetAction.HAPPY if playmate else PetAction.WORKING
+            elif playmate:
+                if rt.idle_action is None or now >= rt.idle_until:
+                    pool = [p for p in _PLAY_IDLE_POSES if p != rt.idle_action] or list(_PLAY_IDLE_POSES)
+                    rt.idle_action = self._rng.choice(pool)
+                    rt.idle_until = now + self._rng.uniform(3.4, 6.2)
+                    if rt.idle_action in {PetAction.IDLE, PetAction.THINKING, PetAction.WAVE} and self._rng.random() < 0.28:
+                        rt.idle_glance_until = now + self._rng.uniform(1.1, 2.0)
+                active_action = rt.idle_action
             else:
-                active_action = PetAction.WORKING
+                if spawn_age < 3.5:
+                    active_action = PetAction.WORKING
+                else:
+                    if rt.idle_action is None or now >= rt.idle_until:
+                        primary_work = _work_pose_for_title(info.title)
+                        if rt.idle_action in _WORK_MICRO_BREAK_POSES or rt.idle_action is None:
+                            rt.idle_action = primary_work
+                            rt.idle_until = now + self._rng.uniform(6.0, 10.5)
+                        else:
+                            rt.idle_action = self._rng.choice(_WORK_MICRO_BREAK_POSES)
+                            rt.idle_until = now + self._rng.uniform(2.2, 3.3)
+                            if rt.idle_action == PetAction.THINKING and self._rng.random() < 0.35:
+                                rt.idle_glance_until = now + self._rng.uniform(1.0, 1.8)
+                    active_action = rt.idle_action
             if rt.pose_action is not None:
                 if now < rt.pose_until or rt.dragging:
                     active_action = rt.pose_action
@@ -1626,22 +2072,44 @@ class SubagentCloneManager:
                     rt.pose_action = None
                     rt.pose_until = 0.0
 
-            # Mirror clones on the right side (side > 0) so dual clones face symmetrically inward.
-            mirrored = final_side > 0
+            # Periodic organic micro-hop + subtle ambient particles during idle
+            if not reduced_motion and not rt.dragging and not in_summon:
+                if rt.next_hop_at > 0 and now >= rt.next_hop_at:
+                    rt.next_hop_at = now + self._rng.uniform(4.5, 9.0 if playmate else 14.0)
+                    if playmate or active_action in {PetAction.HAPPY, PetAction.WAVE, PetAction.STRETCH}:
+                        rt.hop_started_at = now
+                        rt.hop_duration = self._rng.uniform(0.36, 0.46)
+                        rt.hop_height = self._rng.uniform(6.0, 10.5) if playmate else self._rng.uniform(4.5, 7.0)
+                if playmate and rt.next_ambient_fx_at > 0 and now >= rt.next_ambient_fx_at:
+                    rt.next_ambient_fx_at = now + self._rng.uniform(6.5, 12.5)
+                    if active_action == PetAction.PLAY_DANCE:
+                        widget.emit_particles("notes", reduced_motion=False)
+                    elif active_action in {PetAction.HAPPY, PetAction.QUOTA_GIFT}:
+                        widget.emit_particles("sparkles", reduced_motion=False)
+                    elif active_action == PetAction.WAVE:
+                        widget.emit_particles("hearts", reduced_motion=False)
+
+            # Mirror clones on the right side (side > 0) so dual clones face symmetrically inward;
+            # briefly glance outward during natural idle look-arounds.
+            glancing_out = not reduced_motion and not rt.dragging and rt.pose_action is None and now < rt.idle_glance_until
+            mirrored = (final_side <= 0) if glancing_out else (final_side > 0)
             frames = self._mini_frames(form_id, mirrored=mirrored, action=active_action)
             if frames:
                 if in_summon:
                     st_f = max(0.0, min(0.999, spawn_age / SUMMON_SLIDE_SECONDS))
                     frame_idx = min(len(frames) - 1, int(st_f * len(frames)))
                 else:
+                    cadence = _ACTION_FRAME_INTERVALS.get(active_action, FRAME_INTERVAL_SECONDS)
                     frame_idx = (
                         0
                         if (reduced_motion or len(frames) <= 1)
-                        else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / FRAME_INTERVAL_SECONDS) % len(frames))
+                        else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / cadence) % len(frames))
                     )
                 widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=mirrored, action=active_action)
 
             render_scale = 1.0
+            scale_x = 1.0
+            scale_y = 1.0
             render_opacity = self._fade
             if not rt.dragging:
                 target_x, target_y = clamped_x, clamped_y
@@ -1662,6 +2130,8 @@ class SubagentCloneManager:
                     target_x = round(origin_x + (clamped_x - origin_x) * ease)
                     target_y = round(clamped_y - arc * 42.0)
                     render_scale = 0.36 + 0.64 * ease + 0.12 * arc
+                    scale_x = render_scale
+                    scale_y = render_scale
                     render_opacity = min(1.0, max(self._fade, 0.25 + st * 1.25))
                 # Smooth glide back to orbit after user drops a dragged clone (with optional high-five hold)
                 if rt.glide_from is not None:
@@ -1681,8 +2151,37 @@ class SubagentCloneManager:
                 target_y = max(area.top(), min(target_y, area.bottom() - widget.height() + 1))
                 if (target_x, target_y) != (widget.x(), widget.y()):
                     widget.move(target_x, target_y)
-            tilt_deg = 0.0 if (reduced_motion or rt.dragging) else math.sin(now * 2.1 + idx * 1.6) * 3.2
-            widget.set_bob(bob_y, render_opacity, scale=render_scale, tilt_deg=tilt_deg)
+
+            # Organic breathing squash-stretch + playful micro-hop arc
+            hop_y = 0.0
+            if not reduced_motion and not rt.dragging and not in_summon:
+                breath = math.sin(now * 2.1 * spd + phase) * 0.022
+                scale_x = render_scale * (1.0 - breath * 0.65)
+                scale_y = render_scale * (1.0 + breath)
+                if rt.hop_started_at > 0 and rt.hop_started_at <= now < rt.hop_started_at + rt.hop_duration:
+                    hp = (now - rt.hop_started_at) / max(0.05, rt.hop_duration)
+                    hop_arc = math.sin(hp * math.pi)
+                    hop_y = -hop_arc * rt.hop_height
+                    if hp < 0.18 or hp > 0.82:
+                        # Subtle landing/takeoff squash
+                        scale_x *= 1.06
+                        scale_y *= 0.94
+                    else:
+                        scale_x *= 0.96
+                        scale_y *= 1.05
+            tilt_amp = 4.2 if active_action in {PetAction.PLAY_DANCE, PetAction.HAPPY, PetAction.CELEBRATE} else 2.6
+            tilt_deg = 0.0 if (reduced_motion or rt.dragging) else (
+                math.sin(now * 1.85 * spd + phase) * tilt_amp
+                + math.sin(now * 0.92 * spd + phase * 1.4) * 0.9
+            )
+            widget.set_bob(
+                bob_y + hop_y,
+                render_opacity,
+                scale=render_scale,
+                scale_x=scale_x,
+                scale_y=scale_y,
+                tilt_deg=tilt_deg,
+            )
             widget.tick_fx(dt, now=now, reduced_motion=reduced_motion)
             if not widget.isVisible():
                 widget.show()
@@ -1691,7 +2190,7 @@ class SubagentCloneManager:
             if extra.isVisible():
                 extra.hide()
 
-        # Periodic collaborative banter / playful relay pulse
+        # Periodic collaborative banter: single clone relays to sister; 2+ clones mix chat, gift share, and relay!
         if self._next_relay_at > 0 and now >= self._next_relay_at:
             any_playmate = any(is_playmate_id(info.conversation_id) for info, _f, _b in self._entries)
             if any_playmate:
@@ -1709,8 +2208,17 @@ class SubagentCloneManager:
                 for i, (info, _f, _b) in enumerate(self._entries)
                 if not self._runtime.get(info.conversation_id, _CloneRuntime(now)).dragging
             ]
-            if free_indices:
-                self.trigger_relay(self._rng.choice(free_indices), now=now)
+            if len(free_indices) >= 2:
+                roll = self._rng.random()
+                if roll < 0.42:
+                    idx_a, idx_b = self._rng.sample(free_indices, 2)
+                    self.trigger_clone_chat(idx_a, idx_b, now=now)
+                elif roll < (0.62 if any_playmate else 0.52):
+                    self.trigger_gift_share(self._rng.choice(free_indices), now=now)
+                else:
+                    self.trigger_relay(self._rng.choice(free_indices), now=now)
+            elif free_indices:
+                self.trigger_relay(free_indices[0], now=now)
 
     def close_all(self) -> None:
         self._clear_departing()

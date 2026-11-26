@@ -286,7 +286,7 @@ class SubagentInterplayManagerTests(unittest.TestCase):
         finally:
             mgr.close_all()
 
-    def test_clone_lines_use_active_character_name_without_jargon(self) -> None:
+    def test_clone_lines_call_host_jiejie_without_jargon(self) -> None:
         mgr, _events = self._make()
         try:
             subs = [SubagentInfo("s1", "m1", "核对逻辑", "Gemini 4 Neon", "neon")]
@@ -295,15 +295,77 @@ class SubagentInterplayManagerTests(unittest.TestCase):
             mgr.sync(subs, default_form="hydergon", enabled=True, host_visible=True, now=10.0)
             mgr.position_around(host, now=10.5, screen=screen)
             w = mgr.visible_widgets[0]
-            self.assertIn("拖给小氢击掌", w.toolTip())
+            self.assertIn("拖给姐姐击掌", w.toolTip())
             self.assertNotIn("主宠", w.toolTip())
             mgr.notify_host_action(PetAction.SLEEPING, now=20.0)
-            self.assertEqual(w.bubble_text, "小氢睡着啦～")
+            self.assertEqual(w.bubble_text, "嘘，姐姐睡着啦～")
 
             mgr.sync(subs, default_form="neon", enabled=True, host_visible=True, now=25.0)
-            self.assertIn("拖给 Neon 击掌", w.toolTip())
+            self.assertIn("拖给姐姐击掌", w.toolTip())
             mgr.notify_host_action(PetAction.PERCH_SLEEP, now=30.0)
-            self.assertEqual(w.bubble_text, "Neon 打盹中～")
+            self.assertEqual(w.bubble_text, "嘘，姐姐打盹中～")
+        finally:
+            mgr.close_all()
+
+    def test_new_clone_interactions_drag_buddy_rub_trick_gift_chat_and_organic_idle(self) -> None:
+        mgr, events = self._make()
+        try:
+            subs = [
+                SubagentInfo("idle-play-a", "idle-play", "晒太阳发呆", "闲时随机玩伴", "neon"),
+                SubagentInfo("idle-play-b", "idle-play", "喝下午茶", "闲时随机玩伴", "hydergon"),
+                SubagentInfo("idle-play-c", "idle-play", "数星星", "闲时随机玩伴", "claude"),
+            ]
+            screen = _FakeScreen(QRect(0, 0, 1920, 1080))
+            host = QRect(860, 500, 180, 220)
+            mgr.sync(subs, default_form="carbon", enabled=True, host_visible=True, now=10.0)
+            mgr.position_around(host, now=11.0, screen=screen)
+            events.clear()
+
+            # 1. Head rub -> PET_PURR + pet_rub event
+            ev_rub = mgr.trigger_pet_rub(0, now=12.0)
+            assert ev_rub is not None
+            self.assertEqual(ev_rub.kind, "pet_rub")
+            mgr.position_around(host, now=12.1, screen=screen)
+            self.assertEqual(mgr.visible_widgets[0].current_action, PetAction.PET_PURR)
+
+            # 2. Wheel trick -> lively pose + trick event
+            ev_trick = mgr.trigger_spin_trick(1, now=13.0)
+            assert ev_trick is not None
+            self.assertEqual(ev_trick.kind, "trick")
+
+            # 3. Gift share -> QUOTA_GIFT + gift_share event with 姐姐 line
+            ev_gift = mgr.trigger_gift_share(2, now=14.0)
+            assert ev_gift is not None
+            self.assertEqual(ev_gift.kind, "gift_share")
+            self.assertTrue(bool(mgr.visible_widgets[2].bubble_text))
+
+            # 4. Drag clone 0 onto clone 1 (away from host) -> clone_buddy high-five!
+            w0, w1 = mgr.visible_widgets[0], mgr.visible_widgets[1]
+            mgr._handle_widget_drag_start(w0)
+            mgr._handle_widget_drag_end(w0, w1.frameGeometry().center())
+            self.assertEqual(events[-1].kind, "clone_buddy")
+
+            # 5. Clone-to-clone chat -> both clones speak
+            ev_chat = mgr.trigger_clone_chat(0, 1, now=16.0)
+            assert ev_chat is not None
+            self.assertEqual(ev_chat.kind, "clone_chat")
+            self.assertTrue(bool(w0.bubble_text))
+            self.assertTrue(bool(w1.bubble_text))
+
+            # 6. Organic playmate idle cycles across varied poses over time
+            seen_actions: set[PetAction] = set()
+            for step in range(30):
+                mgr.position_around(host, now=20.0 + step * 1.4, screen=screen)
+                seen_actions.add(mgr.visible_widgets[0].current_action)
+            self.assertGreaterEqual(len(seen_actions), 3, f"Expected varied idle poses, got {seen_actions}")
+
+            # 7. Real subagent transitions from WORKING into semantic title pose after settle
+            work_subs = [SubagentInfo("work-1", "m1", "分析慢查询日志", "Gemini 4 Argon", "argon")]
+            mgr.sync(work_subs, default_form="carbon", enabled=True, host_visible=True, now=100.0, silent_depart=True)
+            mgr.position_around(host, now=101.0, screen=screen)
+            self.assertEqual(mgr.visible_widgets[0].current_action, PetAction.WORKING)
+            mgr.position_around(host, now=104.2, screen=screen)
+            self.assertEqual(mgr.visible_widgets[0].current_action, PetAction.WORK_SEARCHING)
         finally:
             mgr.close_all()
 
@@ -421,8 +483,12 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             reduced_motion=False,
             screen=self.pet._screen_for_pet(),
         )
+        # Playmates use organic playful/idle poses (NOT WORKING typing!)
+        import pet.subagent_clones as sc
+
         for w in self.pet.subagent_clones.visible_widgets:
-            self.assertIn(w.current_action, {PetAction.PLAY_DANCE, PetAction.HAPPY, PetAction.WAVE, PetAction.IDLE})
+            self.assertIn(w.current_action, set(sc._PLAY_IDLE_POSES))
+            self.assertNotEqual(w.current_action, PetAction.WORKING)
 
         # Clicking a playmate extends playtime and emits is_playmate=True
         ev = self.pet.subagent_clones.trigger_click(0, now=210.0)
@@ -477,18 +543,48 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *sc._PLAY_HANDOFF_LINES,
             *sc._PLAY_HIGH_FIVE_LINES,
             *sc._PLAY_GROUP_CHEER_LINES,
+            *sc._PET_RUB_LINES,
+            *sc._TRICK_LINES,
+            *sc._GIFT_SHARE_LINES,
+            *sc._CLONE_BUDDY_LINES,
+            *(line for pair in sc._CLONE_CHAT_PAIRS for line in pair),
+            *(line for pair in sc._WORK_CHAT_PAIRS for line in pair),
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
         )
         for line in all_lines:
-            variants = (
-                [sc._format_host_line(line, name) for name in sc._HOST_SPEAKER_NAMES.values()]
-                if "{host}" in line
-                else [line]
-            )
-            for rendered in variants:
-                self.assertNotIn("主宠", rendered)
-                elided = fm.elidedText(rendered, Qt.TextElideMode.ElideRight, max_w)
-                self.assertEqual(elided, rendered, f"Mini bubble truncated ({widget.width()}px): {rendered!r} -> {elided!r}")
+            rendered = sc._format_host_line(line, sc.HOST_CALL_NAME)
+            self.assertNotIn("主宠", rendered)
+            elided = fm.elidedText(rendered, Qt.TextElideMode.ElideRight, max_w)
+            self.assertEqual(elided, rendered, f"Mini bubble truncated ({widget.width()}px): {rendered!r} -> {elided!r}")
+
+    def test_random_playmates_scale_up_to_six_and_window_handles_new_events(self) -> None:
+        from pet.subagent_clones import MAX_VISIBLE_CLONES
+
+        self.assertEqual(MAX_VISIBLE_CLONES, 6)
+        counts = set()
+        for idx in range(25):
+            mates = self.pet.summon_idle_playmates(now=500.0 + idx, duration=25.0, announce=False)
+            counts.add(len(mates))
+            self.assertGreaterEqual(len(mates), 2)
+            self.assertLessEqual(len(mates), 5)
+        self.assertTrue(any(c >= 4 for c in counts), f"Expected larger random squads, got {counts}")
+
+        # summon_or_add_playmates grows squad up to MAX_VISIBLE_CLONES (6)
+        self.pet.summon_idle_playmates(count=3, now=600.0, duration=25.0, announce=False)
+        self.pet.summon_or_add_playmates(now=601.0, add_count=2)
+        self.assertEqual(self.pet.subagent_clones.active_count, 5)
+        self.pet.summon_or_add_playmates(now=602.0, add_count=2)
+        self.assertEqual(self.pet.subagent_clones.active_count, MAX_VISIBLE_CLONES)
+
+        # New clone events animate PetWindow cleanly
+        self.pet.subagent_clones.trigger_gift_share(0, now=603.0)
+        self.assertEqual(self.pet.action_machine.current, PetAction.QUOTA_GIFT)
+        self.pet.subagent_clones.trigger_spin_trick(1, now=604.0)
+        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        self.pet.subagent_clones.trigger_pet_rub(2, now=605.0)
+        self.assertEqual(self.pet.action_machine.current, PetAction.HAPPY)
+        self.pet.subagent_clones.trigger_clone_buddy(0, 1, now=606.0)
+        self.assertEqual(self.pet.action_machine.current, PetAction.HAPPY)
 
     def test_cinematic_summon_pop_and_two_stage_depart_poof_animation(self) -> None:
         events: list[CloneEvent] = []

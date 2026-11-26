@@ -290,7 +290,7 @@ class PetWindow(QWidget):
             on_open_meter=self.open_token_meter,
             on_hud=self.set_hud_enabled,
             on_hud_hover_only=self.set_hud_hover_only,
-            on_playmates=lambda: self.summon_idle_playmates(count=2),
+            on_playmates=self.summon_or_add_playmates,
             on_follow_cursor=self.set_follow_cursor,
             on_autonomy=self.set_autonomy,
             on_dock=self._toggle_edge_dock,
@@ -2292,8 +2292,6 @@ class PetWindow(QWidget):
             self.renderer.speaker_accent = QColor(ACCENTS.get(form_id, "#339ad5"))
         if hasattr(self, "control_panel"):
             self.control_panel.set_title(speaker)
-        if hasattr(self, "subagent_clones"):
-            self.subagent_clones.set_host_name(speaker, form_id=form_id)
         if hasattr(self, "dialogue"):
             self.dialogue.set_form_lines(voice.get("dialogue"))
         if hasattr(self, "food_panel"):
@@ -3182,6 +3180,10 @@ class PetWindow(QWidget):
         "喝下午茶",
         "一起数星星",
         "串门聊天",
+        "围观姐姐摸鱼",
+        "分享小鱼干",
+        "叠罗汉比赛",
+        "偷偷讲悄悄话",
     )
 
     def _next_idle_play_delay(self, *, initial: bool = False, activity_level: str | None = None) -> float:
@@ -3206,7 +3208,7 @@ class PetWindow(QWidget):
         duration: float | None = None,
         announce: bool = True,
     ) -> list[SubagentInfo]:
-        """Summon 1-2 random-form mini clones during idle time to play together."""
+        """Summon 2-5 random-form mini clones during idle time to play together."""
         if (
             not hasattr(self, "subagent_clones")
             or not bool(self._agy().get("subagent_clones", True))
@@ -3215,12 +3217,14 @@ class PetWindow(QWidget):
             return []
         ts = time.monotonic() if now is None else float(now)
         all_form_ids = list(FORM_IDS)
-        desired = self.rng.choice((1, 1, 2)) if count is None else int(count)
+        desired = self.rng.choice((2, 2, 3, 3, 4, 5)) if count is None else int(count)
         desired = max(1, min(MAX_VISIBLE_CLONES, desired))
         if desired <= len(all_form_ids):
             picked_forms = self.rng.sample(all_form_ids, desired)
         else:
-            picked_forms = [self.rng.choice(all_form_ids) for _ in range(desired)]
+            picked_forms = list(all_form_ids)
+            self.rng.shuffle(picked_forms)
+            picked_forms.extend(self.rng.choice(all_form_ids) for _ in range(desired - len(all_form_ids)))
         activities = list(self._IDLE_PLAY_ACTIVITIES)
         self.rng.shuffle(activities)
         playmates: list[SubagentInfo] = []
@@ -3234,13 +3238,14 @@ class PetWindow(QWidget):
                     form_id=fid,
                 )
             )
-        play_duration = float(duration) if duration is not None else self.rng.uniform(22.0, 34.0)
+        play_duration = float(duration) if duration is not None else self.rng.uniform(26.0, 42.0)
         self._idle_play_clones = playmates
         self._idle_play_until = ts + max(3.0, play_duration)
         self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
         self._sync_subagent_clones()
         if announce and self.isVisible() and not self.isMinimized() and self._dock_side is None:
-            names = "、".join(form_by_id(item.form_id).name for item in playmates)
+            raw_names = [form_by_id(item.form_id).name for item in playmates]
+            names = "、".join(raw_names) if len(raw_names) <= 3 else f"{raw_names[0]}、{raw_names[1]} 等 {len(raw_names)} 位"
             busy = {
                 PetAction.DRAGGING,
                 PetAction.FALLING,
@@ -3269,6 +3274,69 @@ class PetWindow(QWidget):
                 finally:
                     self._handling_clone_interaction = False
         return list(playmates)
+
+    def summon_or_add_playmates(
+        self,
+        *,
+        now: float | None = None,
+        add_count: int | None = None,
+    ) -> list[SubagentInfo]:
+        """Panel action: summon a random squad, add more playmates up to cap, or party at max."""
+        if (
+            not hasattr(self, "subagent_clones")
+            or not bool(self._agy().get("subagent_clones", True))
+            or self._dock_side is not None
+        ):
+            return []
+        ts = time.monotonic() if now is None else float(now)
+        if not self._idle_play_clones:
+            return self.summon_idle_playmates(now=ts)
+        room = MAX_VISIBLE_CLONES - len(self._idle_play_clones)
+        if room <= 0:
+            self._idle_play_until = max(self._idle_play_until, ts + 22.0)
+            self.subagent_clones.trigger_group_cheer(now=ts)
+            return list(self._idle_play_clones)
+        to_add = min(room, self.rng.choice((1, 2)) if add_count is None else max(1, int(add_count)))
+        used_forms = {item.form_id for item in self._idle_play_clones}
+        fresh_forms = [fid for fid in FORM_IDS if fid not in used_forms]
+        self.rng.shuffle(fresh_forms)
+        picked: list[str] = fresh_forms[:to_add]
+        while len(picked) < to_add:
+            picked.append(self.rng.choice(FORM_IDS))
+        used_titles = {item.title for item in self._idle_play_clones}
+        activities = [a for a in self._IDLE_PLAY_ACTIVITIES if a not in used_titles] or list(self._IDLE_PLAY_ACTIVITIES)
+        self.rng.shuffle(activities)
+        added: list[SubagentInfo] = []
+        for idx, fid in enumerate(picked):
+            added.append(
+                SubagentInfo(
+                    conversation_id=f"{PLAYMATE_PREFIX}{uuid.uuid4().hex[:8]}",
+                    parent_conversation_id="idle-play",
+                    title=activities[idx % len(activities)],
+                    model_label="闲时随机玩伴",
+                    form_id=fid,
+                )
+            )
+        self._idle_play_clones = list(self._idle_play_clones) + added
+        self._idle_play_until = max(self._idle_play_until, ts + 28.0)
+        self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
+        self._sync_subagent_clones()
+        if self.isVisible() and not self.isMinimized() and self._dock_side is None and ts >= self._sulk_until:
+            names = "、".join(form_by_id(item.form_id).name for item in added)
+            self._handling_clone_interaction = True
+            try:
+                self._request_action(PetAction.HAPPY, now=ts, reason="idle_playmate_add", force=True)
+                self.emit_particles("sparkles")
+                tracker = getattr(self, "reactions", None)
+                line = (
+                    tracker._line("playmate_add", names=names)
+                    if tracker is not None and "playmate_add" in getattr(tracker, "lines", {})
+                    else f"越热闹越好！欢迎 {names} 加入派对～"
+                )
+                self.say(line, preserve_action=True)
+            finally:
+                self._handling_clone_interaction = False
+        return list(self._idle_play_clones)
 
     def dismiss_idle_playmates(self, *, now: float | None = None) -> None:
         if not self._idle_play_clones:
@@ -3369,7 +3437,16 @@ class PetWindow(QWidget):
         accent = ACCENTS.get(event.form_id, "#c084fc")
         playmate = bool(getattr(event, "is_playmate", False))
         # Extend playtime generously when the user actively plays with idle playmates
-        if playmate and self._idle_play_clones and event.kind in {"clicked", "report", "high_five", "group_cheer"}:
+        if playmate and self._idle_play_clones and event.kind in {
+            "clicked",
+            "report",
+            "high_five",
+            "group_cheer",
+            "pet_rub",
+            "trick",
+            "gift_share",
+            "clone_buddy",
+        }:
             self._idle_play_until = min(now + 60.0, max(self._idle_play_until, now + 18.0))
         busy_actions = {
             PetAction.DRAGGING,
@@ -3450,6 +3527,48 @@ class PetWindow(QWidget):
                         self._request_action(PetAction.GIFT_TOSS, now=now, reason="playmate_toss_back", force=True)
                     key = "playmate_relay" if playmate else "subagent_relay"
                     fb = "接住啦 {name}！我也回你一颗星星～" if playmate else "收到 {name} 传来的线索啦～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "pet_rub":
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._request_action(PetAction.HAPPY, now=now, reason="subagent_pet_rub", force=True)
+                    key = "playmate_pet_rub" if playmate else "subagent_pet_rub"
+                    fb = "哇，{name} 被揉得眼睛都眯起来啦～" if playmate else "哇，{name} 被揉得呼噜呼噜的～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "trick":
+                self.emit_particles("notes")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_trick", force=True)
+                    key = "playmate_trick" if playmate else "subagent_trick"
+                    fb = "拍手拍手！{name} 转圈圈超可爱～" if playmate else "拍手！{name} 这招表演满分～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "gift_share":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                self.emit_particles("fish")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.QUOTA_GIFT, now=now, reason="subagent_gift_share", force=True)
+                    key = "playmate_gift_share" if playmate else "subagent_gift_share"
+                    fb = "哇，谢谢 {name} 塞给我的小礼物！" if playmate else "哇，谢谢 {name} 送的小礼物！"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "clone_buddy":
+                self.emit_particles("hearts")
+                self.emit_particles("confetti")
+                if can_emote:
+                    self._request_action(PetAction.HAPPY, now=now, reason="subagent_clone_buddy", force=True)
+                    key = "playmate_clone_buddy" if playmate else "subagent_clone_buddy"
+                    fb = "哈哈，{name} 和同伴贴贴得好开心～" if playmate else "哈哈，{name} 和同伴配合得真默契～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "clone_chat":
+                min_gap = 7.0 if playmate else 11.0
+                if can_emote and now - self._last_clone_banter_at >= min_gap:
+                    self._last_clone_banter_at = now
+                    self.emit_particles("hearts" if playmate else "sparkles")
+                    self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_chat", force=True)
+                    key = "playmate_clone_chat" if playmate else "subagent_clone_chat"
+                    fb = "咦，我好像听到 {name} 在偷偷夸我～" if playmate else "咦，{name} 们在交流什么小秘密呀～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
         finally:
             self._handling_clone_interaction = False

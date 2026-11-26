@@ -392,6 +392,8 @@ class PetWindowCompanionV3Tests(unittest.TestCase):
             SubagentInfo("sub-3", "m1", "跑测试", "Gemini 4 Hydrogen (Low)", "hydergon"),
             SubagentInfo("sub-4", "m1", "查日志", "Gemini 4 Argon", "argon"),
             SubagentInfo("sub-5", "m1", "写单测", "Gemini 4 Carbon", "carbon"),
+            SubagentInfo("sub-6", "m1", "画草图", "Gemini 4 Neon (Low)", "neon"),
+            SubagentInfo("sub-7", "m1", "理依赖", "Gemini 4 Argon (Low)", "argon"),
         ]
         snap2 = LiveSnapshot(source="pet_live", conversation_id="m1", active_subagents=subagents[:2])
         self.pet._on_live_snapshot(snap2)
@@ -411,9 +413,9 @@ class PetWindowCompanionV3Tests(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(self.pet.subagent_clones.visible_widgets[0]._badge, "Flash Lite")
 
-        # 5 subagents -> capped at MAX_VISIBLE_CLONES with +2 overflow badge on the last visible clone
-        snap5 = LiveSnapshot(source="pet_live", conversation_id="m1", active_subagents=subagents)
-        self.pet._on_live_snapshot(snap5)
+        # MAX_VISIBLE_CLONES + 1 subagents -> capped at MAX_VISIBLE_CLONES with +2 overflow badge
+        snap_over = LiveSnapshot(source="pet_live", conversation_id="m1", active_subagents=subagents)
+        self.pet._on_live_snapshot(snap_over)
         self.application.processEvents()
         self.assertEqual(self.pet.subagent_clones.active_count, MAX_VISIBLE_CLONES)
         self.assertEqual(len(self.pet.subagent_clones.visible_widgets), MAX_VISIBLE_CLONES)
@@ -421,7 +423,7 @@ class PetWindowCompanionV3Tests(unittest.TestCase):
 
         # Disabling subagent_clones hides all clone windows
         self.pet._agy_set("subagent_clones", False)
-        self.pet._sync_subagent_clones(snap5)
+        self.pet._sync_subagent_clones(snap_over)
         self.application.processEvents()
         self.assertEqual(self.pet.subagent_clones.active_count, 0)
         self.assertEqual(len(self.pet.subagent_clones.visible_widgets), 0)

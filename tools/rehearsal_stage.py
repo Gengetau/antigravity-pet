@@ -65,24 +65,32 @@ class RehearsalStage(QWidget):
         sub_box = QGroupBox("子代理分身与玩伴互动（复用五形态素材）")
         sub_col = QVBoxLayout(sub_box)
         sub_row = QHBoxLayout()
-        for count in (0, 1, 2, 4, 5):
+        for count in (0, 1, 2, 4, 6):
             btn = QPushButton(f"{count} 个分身")
             btn.clicked.connect(lambda _c=False, n=count: self._simulate_subagents(n))
             sub_row.addWidget(btn)
         sub_col.addLayout(sub_row)
-        interplay_row = QHBoxLayout()
-        for label, fn in (
-            ("🎲 闲时随机玩伴", self._sim_idle_playmates),
-            ("💖 摸摸分身", lambda: self._sim_clone_action("click")),
-            ("📋 抛球汇报", lambda: self._sim_clone_action("report")),
-            ("🤝 双向击掌", lambda: self._sim_clone_action("high_five")),
-            ("🌟 抛星光球", lambda: self._sim_clone_action("relay")),
-            ("💃 共舞派对", lambda: self._sim_clone_action("group_cheer")),
+        interplay_grid = QGridLayout()
+        for idx, (label, fn) in enumerate(
+            (
+                ("🎲 闲时随机玩伴", self._sim_idle_playmates),
+                ("➕ 加唤玩伴", self._sim_add_playmates),
+                ("💖 摸摸分身", lambda: self._sim_clone_action("click")),
+                ("💆 揉头呼噜", lambda: self._sim_clone_action("pet_rub")),
+                ("🎡 转圈花招", lambda: self._sim_clone_action("trick")),
+                ("🎁 递小礼物", lambda: self._sim_clone_action("gift_share")),
+                ("📋 抛球汇报", lambda: self._sim_clone_action("report")),
+                ("🤝 双向击掌", lambda: self._sim_clone_action("high_five")),
+                ("👯 同伴贴贴", lambda: self._sim_clone_action("clone_buddy")),
+                ("💬 悄悄话", lambda: self._sim_clone_action("clone_chat")),
+                ("🌟 抛星光球", lambda: self._sim_clone_action("relay")),
+                ("💃 共舞派对", lambda: self._sim_clone_action("group_cheer")),
+            )
         ):
             btn = QPushButton(label)
             btn.clicked.connect(lambda _c=False, cb=fn: cb())
-            interplay_row.addWidget(btn)
-        sub_col.addLayout(interplay_row)
+            interplay_grid.addWidget(btn, idx // 4, idx % 4)
+        sub_col.addLayout(interplay_grid)
         root.addWidget(sub_box)
 
         # Particles
@@ -147,7 +155,8 @@ class RehearsalStage(QWidget):
             SubagentInfo("sub-2", "main-1", "审查安全与边界条件", "Claude 4.5 Sonnet", "claude"),
             SubagentInfo("sub-3", "main-1", "运行回归测试套件", "Gemini 4 Hydrogen (Low)", "hydergon"),
             SubagentInfo("sub-4", "main-1", "分析慢查询日志", "Gemini 4 Argon", "argon"),
-            SubagentInfo("sub-5", "main-1", "补充文档示例", "Gemini 4 Carbon", "carbon"),
+            SubagentInfo("sub-5", "main-1", "绘制界面草图", "Gemini 4 Carbon", "carbon"),
+            SubagentInfo("sub-6", "main-1", "整理上下文文档", "Gemini 4 Neon (Low)", "neon"),
         ]
         snap = LiveSnapshot(
             source="pet_live",
@@ -172,18 +181,40 @@ class RehearsalStage(QWidget):
         )
         self.pet.telemetry.last_snapshot = idle_snap
         self.pet._on_live_snapshot(idle_snap)
-        self.pet.summon_idle_playmates(count=2)
+        self.pet.summon_idle_playmates()
+
+    def _sim_add_playmates(self) -> None:
+        idle_snap = LiveSnapshot(
+            source="pet_live",
+            conversation_id="rehearsal-1",
+            title="排练舞台模拟会话",
+            status="CASCADE_RUN_STATUS_IDLE",
+            active_subagents=[],
+        )
+        self.pet.telemetry.last_snapshot = idle_snap
+        self.pet._on_live_snapshot(idle_snap)
+        self.pet.summon_or_add_playmates()
 
     def _sim_clone_action(self, kind: str) -> None:
-        if self.pet.subagent_clones.active_count == 0:
+        if self.pet.subagent_clones.active_count < 2:
             self._simulate_subagents(2)
         clones = self.pet.subagent_clones
         if kind == "click":
             clones.trigger_click(0)
+        elif kind == "pet_rub":
+            clones.trigger_pet_rub(0)
+        elif kind == "trick":
+            clones.trigger_spin_trick(0)
+        elif kind == "gift_share":
+            clones.trigger_gift_share(0)
         elif kind == "report":
             clones.trigger_report(0)
         elif kind == "high_five":
             clones.trigger_high_five(0)
+        elif kind == "clone_buddy":
+            clones.trigger_clone_buddy(0, 1)
+        elif kind == "clone_chat":
+            clones.trigger_clone_chat(0, 1)
         elif kind == "relay":
             clones.trigger_relay(0)
         elif kind == "group_cheer":
