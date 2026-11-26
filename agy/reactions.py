@@ -116,6 +116,14 @@ LINES: dict[str, tuple[str, ...]] = {
         "哇哇！被小分身们团团抱住啦，好暖和～",
         "大家贴得这么紧，姐姐瞬间满血复活！",
     ),
+    "subagent_twin_mirror": (
+        "哇！同款 {name} 双子镜面舞，同步率满分～",
+        "一模一样的 {name} 们太默契啦，效率双倍起飞！",
+    ),
+    "subagent_mini_me_mimic": (
+        "呀！迷你版 {name} 跟我摆同款姿势，太可爱啦～",
+        "大小 {name} 同框干活，姐姐干劲拉满！",
+    ),
     "playmate_summon": (
         "闲着没事，摇来 {names} 陪我玩会儿～",
         "叮！随机召唤出 {names} 来串门啦～",
@@ -190,6 +198,16 @@ LINES: dict[str, tuple[str, ...]] = {
     "playmate_group_huddle": (
         "哇哇！被小分身们团团抱住啦～",
         "好暖和呀，大家贴得这么紧好幸福～",
+    ),
+    "playmate_twin_mirror": (
+        "哇！双胞胎 {name} 跳镜面舞，姐姐眼花啦～",
+        "同步率拉满！哪只才是真正的 {name} 呀～",
+        "一模一样的 {name} 们，双倍可爱暴击！",
+    ),
+    "playmate_mini_me_mimic": (
+        "呀！迷你版我自己也太可爱了吧～",
+        "大小 {name} 同框！姐姐都忍不住想捏捏脸～",
+        "喂喂，学我摆姿势学得也太像啦！",
     ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),

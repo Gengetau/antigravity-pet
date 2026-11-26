@@ -93,6 +93,8 @@ class RehearsalStage(QWidget):
                 ("🌊 人浪接力", lambda: self._sim_clone_action("clone_wave")),
                 ("🐟 撒鱼干派对", lambda: self._sim_clone_action("snack_party")),
                 ("💞 围抱贴贴", lambda: self._sim_clone_action("group_huddle")),
+                ("🪞 双子镜面舞", lambda: self._sim_clone_action("twin_mirror")),
+                ("👯 大小姐姐秀", lambda: self._sim_clone_action("mini_me_mimic")),
             )
         ):
             btn = QPushButton(label)
@@ -244,6 +246,14 @@ class RehearsalStage(QWidget):
             clones.trigger_snack_party()
         elif kind == "group_huddle":
             clones.trigger_group_huddle()
+        elif kind == "twin_mirror":
+            if not clones._same_form_groups():
+                self.pet.summon_idle_playmates(forms=["neon", "neon", "hydergon", "claude"], manual=True)
+            clones.trigger_twin_mirror()
+        elif kind == "mini_me_mimic":
+            if not clones._host_form_clone_indices():
+                self.pet.summon_idle_playmates(forms=[self.pet.form_id, self.pet.form_id, "neon"], manual=True)
+            clones.trigger_mini_me_mimic()
 
     def _sim_waiting(self) -> None:
         snap = LiveSnapshot(

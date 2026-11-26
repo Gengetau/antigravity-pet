@@ -763,16 +763,19 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.assertTrue(any(name in self.pet.bubble.text for name in ("Neon", "Claude")))
 
     def test_idle_playmates_random_forms_playful_poses_and_real_subagent_preemption(self) -> None:
-        # Summoning multiple times picks random forms across all 5 forms (not bound to host form!)
+        # Summoning multiple times picks random forms across all 5 forms AND allows same-form twins/multiples!
         self.pet.set_form("carbon", manual=True, announce=False, persist=False)
         self.pet._request_action(PetAction.IDLE, reason="test_idle", force=True, immediate=True)
         seen_forms: set[str] = set()
-        for _ in range(15):
-            mates = self.pet.summon_idle_playmates(count=2, now=100.0, duration=20.0, announce=False)
-            self.assertEqual(len(mates), 2)
-            self.assertNotEqual(mates[0].form_id, mates[1].form_id)
+        saw_twins = False
+        for _ in range(30):
+            mates = self.pet.summon_idle_playmates(count=3, now=100.0, duration=20.0, announce=False)
+            self.assertEqual(len(mates), 3)
+            if len({m.form_id for m in mates}) < len(mates):
+                saw_twins = True
             seen_forms.update(m.form_id for m in mates)
         self.assertGreaterEqual(len(seen_forms), 4)
+        self.assertTrue(saw_twins, "Idle playmates should allow same-form twins/multiples")
 
         # Playmates use playful poses (PLAY_DANCE/HAPPY/WAVE/IDLE, NOT WORKING typing!)
         mates = self.pet.summon_idle_playmates(count=2, now=200.0, duration=15.0, announce=True)
@@ -856,6 +859,9 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *sc._SNACK_EAT_LINES,
             *sc._HUDDLE_CALL_LINES,
             *sc._HUDDLE_PURR_LINES,
+            *(line for pair in sc._TWIN_MIRROR_PAIRS for line in pair),
+            *sc._TRIPLET_CHORUS_LINES,
+            *sc._MINI_ME_LINES,
             *(line for pair in sc._CLONE_CHAT_PAIRS for line in pair),
             *(line for pair in sc._WORK_CHAT_PAIRS for line in pair),
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
@@ -1034,7 +1040,7 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             self.pet.subagent_clones.active_group_scene in {"snack_party", "group_huddle"}
             or any(
                 (
-                    r.pose_action in {PetAction.PET_PURR, PetAction.EATING}
+                    r.pose_action in {PetAction.PET_PURR, PetAction.EATING, PetAction.HIGH_FIVE, PetAction.CELEBRATE}
                     or r.roam_action_on_arrive == "host_pat"
                 )
                 for r in self.pet.subagent_clones._runtime.values()
@@ -1069,6 +1075,56 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         # 4. Mexican wave finale -> sister celebrates
         self.assertTrue(self.pet.subagent_clones.trigger_clone_wave(now=908.0))
         self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        self.assertTrue(bool(self.pet.bubble.text))
+
+    def test_two_thirds_scale_twin_mirror_drag_recognition_and_mini_me_mimic(self) -> None:
+        from pet.subagent_clones import CLONE_HOST_SCALE_RATIO
+
+        # 1. Clones scale cleanly to 2/3 of host sprite height across size presets
+        self.pet.subagent_clones.set_scale_from_host(238)
+        self.assertEqual(self.pet.subagent_clones._sprite_height, round(238 * CLONE_HOST_SCALE_RATIO))
+        self.pet.subagent_clones.set_scale_from_host(306)
+        self.assertEqual(self.pet.subagent_clones._sprite_height, round(306 * CLONE_HOST_SCALE_RATIO))
+        self.assertEqual(self.pet.subagent_clones._source_tier_height(), 238)
+        self.pet.subagent_clones.set_scale_from_host(self.pet.current_height)
+
+        # 2. Summoning explicit twins formats cute "双胞胎" announcement
+        self.pet.set_form("carbon", manual=True, announce=False, persist=False)
+        self.pet._request_action(PetAction.IDLE, reason="test_twins", force=True, immediate=True)
+        mates = self.pet.summon_idle_playmates(
+            forms=["neon", "neon", "carbon"],
+            now=1000.0,
+            duration=40.0,
+            announce=True,
+            manual=True,
+        )
+        self.assertEqual(len(mates), 3)
+        self.assertIn("双胞胎", self.pet.bubble.text)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1001.0)
+
+        # 3. Twin mirror dance: same-form Neon twins face each other in mirrored PLAY_DANCE & sister celebrates
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1002.0, reduced_motion=True)
+        res = self.pet.subagent_clones.trigger_twin_mirror(now=1003.0)
+        self.assertIsNotNone(res)
+        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        w0, w1 = self.pet.subagent_clones.visible_widgets[0], self.pet.subagent_clones.visible_widgets[1]
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1003.1)
+        self.assertEqual(w0.current_action, PetAction.PLAY_DANCE)
+        self.assertEqual(w1.current_action, PetAction.PLAY_DANCE)
+        self.assertNotEqual(w0.mirrored, w1.mirrored, "Twins should face each other in mirror symmetry")
+
+        # 4. Dragging a clone onto its same-form twin auto-upgrades to twin_mirror!
+        self.pet._request_action(PetAction.IDLE, reason="test_drag_twin", force=True, immediate=True)
+        self.pet.subagent_clones._handle_widget_drag_start(w0)
+        self.pet.subagent_clones._handle_widget_drag_end(w0, w1.frameGeometry().center())
+        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+
+        # 5. Mini-me mimic: Carbon clone matching Carbon sister strikes showcase pose & sister responds!
+        ev_mini = self.pet.subagent_clones.trigger_mini_me_mimic(now=1010.0)
+        assert ev_mini is not None
+        self.assertEqual(ev_mini.kind, "mini_me_mimic")
+        self.assertEqual(ev_mini.form_id, "carbon")
+        self.assertIn(self.pet.action_machine.current, {PetAction.HIGH_FIVE, PetAction.HAPPY})
         self.assertTrue(bool(self.pet.bubble.text))
 
 

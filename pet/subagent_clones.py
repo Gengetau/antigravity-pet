@@ -51,6 +51,7 @@ HOST_CALL_NAME = "姐姐"
 ROAM_SPEED_MIN_PX = 68.0
 ROAM_SPEED_MAX_PX = 94.0
 ROAM_CATCHUP_DISTANCE_PX = 340.0
+CLONE_HOST_SCALE_RATIO = 2.0 / 3.0
 ROAM_HOST_RADIUS_X = 260
 WORK_ROAM_RADIUS_X = 150
 HOST_PAT_DIRECT_RADIUS_PX = 135.0
@@ -58,6 +59,8 @@ WAVE_STEP_SECONDS = 0.28
 TRAIN_DURATION_SECONDS = 4.4
 SNACK_PARTY_DURATION_SECONDS = 6.2
 HUDDLE_DURATION_SECONDS = 5.6
+TWIN_MIRROR_DURATION_SECONDS = 4.6
+MINI_ME_DURATION_SECONDS = 3.2
 
 
 def is_playmate_id(conversation_id: str) -> bool:
@@ -245,6 +248,26 @@ _HUDDLE_PURR_LINES: tuple[str, ...] = (
     "和 {host} 贴贴真好",
 )
 
+_TWIN_MIRROR_PAIRS: tuple[tuple[str, str], ...] = (
+    ("咦？镜子里怎么有我", "嘿嘿，我是双胞胎！"),
+    ("猜猜哪个才是真我？", "{host} 分得清我们吗"),
+    ("左右对称，完美同步", "同步率 100% 啦～"),
+    ("双胞胎心有灵犀！", "一模一样双倍可爱～"),
+)
+
+_TRIPLET_CHORUS_LINES: tuple[str, ...] = (
+    "多胞胎同台出道啦！",
+    "同步率 100% 啦～",
+    "猜猜哪个才是真我？",
+)
+
+_MINI_ME_LINES: tuple[str, ...] = (
+    "看！我是迷你版 {host}！",
+    "大小 {host} 同框啦～",
+    "跟 {host} 一模一样哦",
+    "学 {host} 摆同款姿势！",
+)
+
 _CLONE_CHAT_PAIRS: tuple[tuple[str, str], ...] = (
     ("偷偷夸 {host} 一句～", "{host} 超厉害的！"),
     ("分你一半小鱼干～", "哇谢谢，好香呀！"),
@@ -399,7 +422,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
 class CloneEvent:
     """Structured host <-> subagent interaction event sent to PetWindow."""
 
-    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay / pet_rub / trick / gift_share / clone_buddy / clone_chat / host_pat_clone / clone_train / clone_wave / snack_party / group_huddle
+    kind: str  # summoned / handoff / clicked / report / high_five / group_cheer / relay / pet_rub / trick / gift_share / clone_buddy / clone_chat / host_pat_clone / clone_train / clone_wave / snack_party / group_huddle / twin_mirror / mini_me_mimic
     conversation_id: str
     form_id: str
     badge: str
@@ -461,7 +484,7 @@ class _DepartingClone:
 
 @dataclass(slots=True)
 class _GroupScene:
-    kind: str  # clone_train / clone_wave / snack_party / group_huddle
+    kind: str  # clone_train / clone_wave / snack_party / group_huddle / twin_mirror
     started_at: float
     ends_at: float
     order: list[str]
@@ -634,8 +657,8 @@ class SubagentCloneWidget(QWidget):
             frame_h = max(frame_h, int(min_frame_size[1]))
         self._sprite_w = max(44, frame_w)
         self._sprite_h = max(64, frame_h)
-        w = max(148, frame_w + 54)
-        h = max(124, frame_h + 34 + self.BUBBLE_TOP_PAD)
+        w = max(156, frame_w + 54)
+        h = max(140, frame_h + 34 + self.BUBBLE_TOP_PAD)
         if (self.width(), self.height()) != (w, h):
             self.setFixedSize(w, h)
         self.update()
@@ -1002,7 +1025,7 @@ class SubagentCloneManager:
         self._host_visible = True
         self._host_form = "carbon"
         self._host_name: str = HOST_CALL_NAME
-        self._sprite_height = 96
+        self._sprite_height = 148
         self._fade = 0.0
         self._last_host_rect: QRect | None = None
         self._last_area: QRect | None = None
@@ -1089,7 +1112,7 @@ class SubagentCloneManager:
             dep.widget.set_topmost(self._topmost)
 
     def set_scale_from_host(self, host_sprite_height: int) -> None:
-        target = max(72, min(124, round(host_sprite_height * 0.44)))
+        target = max(96, min(216, round(host_sprite_height * CLONE_HOST_SCALE_RATIO)))
         if abs(target - self._sprite_height) >= 4:
             self._sprite_height = target
 
@@ -1100,6 +1123,13 @@ class SubagentCloneManager:
             self._on_interaction(event)
         except Exception:
             pass
+
+    def _source_tier_height(self) -> int:
+        if self._sprite_height > 238:
+            return 306
+        if self._sprite_height > 180:
+            return 238
+        return 187
 
     def _mini_frames(
         self,
@@ -1120,18 +1150,19 @@ class SubagentCloneManager:
                 self._registries[norm] = registry
             except Exception:
                 return ()
+        src_h = self._source_tier_height()
         if action == PetAction.WALKING:
             # Keep the unified directional convention across all clone actions:
             # mirrored=False faces RIGHT (walk_side_right), mirrored=True faces LEFT (walk_side).
             right_frames: list[QPixmap] = []
             left_frames: list[QPixmap] = []
             try:
-                clip_r = registry.clip_for(PetAction.WALKING, height=187, direction="right")
+                clip_r = registry.clip_for(PetAction.WALKING, height=src_h, direction="right")
                 right_frames = [f.pixmap for f in clip_r.frames if not f.pixmap.isNull()][:MAX_ANIMATION_FRAMES]
             except Exception:
                 right_frames = []
             try:
-                clip_l = registry.clip_for(PetAction.WALKING, height=187, direction="left")
+                clip_l = registry.clip_for(PetAction.WALKING, height=src_h, direction="left")
                 left_frames = [f.pixmap for f in clip_l.frames if not f.pixmap.isNull()][:MAX_ANIMATION_FRAMES]
             except Exception:
                 left_frames = []
@@ -1176,7 +1207,7 @@ class SubagentCloneManager:
         raw_frames: list[QPixmap] = []
         for candidate in candidates:
             try:
-                clip = registry.clip_for(candidate, height=187, direction="down")
+                clip = registry.clip_for(candidate, height=src_h, direction="down")
                 valid = [frame.pixmap for frame in clip.frames if not frame.pixmap.isNull()][:MAX_ANIMATION_FRAMES]
                 if valid:
                     raw_frames = valid
@@ -1312,7 +1343,10 @@ class SubagentCloneManager:
             if rt is not None:
                 rt.glide_hold_until = now + 0.48
                 rt.glide_started_at = rt.glide_hold_until
-            self.trigger_clone_buddy(idx, nearest_other, now=now)
+            if self._entries[idx][1] == self._entries[nearest_other][1]:
+                self.trigger_twin_mirror([idx, nearest_other], now=now, immediate=True)
+            else:
+                self.trigger_clone_buddy(idx, nearest_other, now=now)
             return
         if host_dist <= HIGH_FIVE_RADIUS_PX:
             if rt is not None:
@@ -1886,6 +1920,7 @@ class SubagentCloneManager:
             return False
         tx = float(max(area.left(), min(round(dest[0]), area.right() - widget.width() + 1)))
         ty = float(max(area.top(), min(round(dest[1]), area.bottom() - widget.height() + 1)))
+        self._group_scene = None
         rt.pose_action = None
         rt.pose_until = 0.0
         rt.roam_mode = "walking"
@@ -1894,6 +1929,7 @@ class SubagentCloneManager:
         rt.roam_target_id = None
         rt.roam_action_on_arrive = None
         rt.walk_facing = 1 if tx >= widget.x() else -1
+        self._next_group_scene_at = max(self._next_group_scene_at, ts + 6.0)
         return True
 
     def start_visit_host(
@@ -1929,6 +1965,7 @@ class SubagentCloneManager:
             return True
         area = self._last_area or QRect(0, 0, 1920, 1080)
         tx, ty, _side = self._host_visit_spot(index, self._last_host_rect, area, self._last_keepouts)
+        self._group_scene = None
         rt.pose_action = None
         rt.pose_until = 0.0
         rt.roam_mode = "visit_host"
@@ -1977,6 +2014,10 @@ class SubagentCloneManager:
             return False
         widget = self._widgets[index]
         tx, ty = spot
+        self._group_scene = None
+        if rt_b is not None:
+            self._pause_roam(rt_b, ts, hold=4.5)
+            rt_b.next_roam_at = max(rt_b.next_roam_at, ts + 5.5)
         rt_a.pose_action = None
         rt_a.pose_until = 0.0
         rt_a.roam_mode = "visit_clone"
@@ -2444,6 +2485,251 @@ class SubagentCloneManager:
             )
         )
 
+    def _same_form_groups(self) -> list[list[int]]:
+        """Return groups of >= 2 free clones that share the same character form (twins / triplets)."""
+        by_form: dict[str, list[int]] = {}
+        for idx in self._free_clone_indices():
+            fid = self._entries[idx][1]
+            by_form.setdefault(fid, []).append(idx)
+        groups = [idxs for idxs in by_form.values() if len(idxs) >= 2]
+        groups.sort(key=len, reverse=True)
+        return groups
+
+    def _host_form_clone_indices(self) -> list[int]:
+        """Return free clones sharing sister's own current character form (mini-me clones)."""
+        return [idx for idx in self._free_clone_indices() if self._entries[idx][1] == self._host_form]
+
+    def _compute_twin_mirror_targets(
+        self,
+        indices: list[int],
+        host_rect: QRect,
+        area: QRect,
+        keepouts: list[QRect],
+    ) -> dict[str, tuple[float, float]]:
+        """Place 2+ same-form twins in a clean left-to-right symmetric mirror lineup."""
+        ordered = sorted(indices, key=lambda i: self._widgets[i].x())
+        if len(ordered) >= 3:
+            return self._compute_group_gather_targets(ordered, host_rect, area, keepouts)
+        idx_a, idx_b = ordered[0], ordered[1]
+        wa, wb = self._widgets[idx_a], self._widgets[idx_b]
+        vis_wa, vis_ha = wa.visual_sprite_size
+        vis_wb, vis_hb = wb.visual_sprite_size
+        gap = (vis_wa + vis_wb) // 2 + 16
+        host_vis_left, host_vis_right, host_vis_rect = self._host_visual_bounds(host_rect)
+        base_y = max(area.top(), min(host_rect.bottom() - wa.height() - 6, area.bottom() - wa.height() + 1))
+        space_left = host_vis_left - area.left()
+        space_right = area.right() - host_vis_right
+        pair_total = vis_wa + vis_wb + 28
+        if space_right >= space_left and space_right >= pair_total:
+            cx_left = host_vis_right + 14 + vis_wa // 2
+            cx_right = cx_left + gap
+        elif space_left >= pair_total:
+            cx_right = host_vis_left - 14 - vis_wb // 2
+            cx_left = cx_right - gap
+        else:
+            cx_left = host_vis_left - 10 - vis_wa // 2
+            cx_right = host_vis_right + 10 + vis_wb // 2
+        ax = max(area.left(), min(round(cx_left - wa.width() / 2.0), area.right() - wa.width() + 1))
+        bx = max(area.left(), min(round(cx_right - wb.width() / 2.0), area.right() - wb.width() + 1))
+        for kz in keepouts:
+            if QRect(ax, base_y, wa.width(), wa.height()).intersects(kz) or QRect(
+                bx, base_y, wb.width(), wb.height()
+            ).intersects(kz):
+                base_y = min(area.bottom() - wa.height() + 1, max(base_y, kz.bottom() + 6))
+        va = self._clone_visual_rect(ax, base_y, wa.width(), wa.height(), vis_wa, vis_ha)
+        vb = self._clone_visual_rect(bx, base_y, wb.width(), wb.height(), vis_wb, vis_hb)
+        if va.intersects(host_vis_rect) or vb.intersects(host_vis_rect):
+            return self._compute_group_gather_targets(ordered, host_rect, area, keepouts)
+        return {
+            self._entries[idx_a][0].conversation_id: (float(ax), float(base_y)),
+            self._entries[idx_b][0].conversation_id: (float(bx), float(base_y)),
+        }
+
+    def _fire_twin_mirror_finale(self, indices: list[int], *, ts: float, playmate: bool) -> CloneEvent | None:
+        if len(indices) < 2:
+            return None
+        ordered = sorted(indices, key=lambda i: self._widgets[i].x())
+        sync_phase = self._rng.uniform(0.0, math.tau)
+        raw_a, raw_b = self._rng.choice(_TWIN_MIRROR_PAIRS)
+        line_a = self._format_line(raw_a)
+        line_b = self._format_line(raw_b)
+        is_multi = len(ordered) >= 3
+        for rank, idx in enumerate(ordered):
+            if idx >= len(self._entries) or idx >= len(self._widgets):
+                continue
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            self._pause_roam(rt, ts, hold=3.2)
+            rt.motion_phase = sync_phase
+            rt.pose_action = PetAction.PLAY_DANCE
+            rt.pose_until = ts + 2.9
+            rt.hop_started_at = ts
+            rt.hop_duration = 0.44
+            rt.hop_height = 14.0
+            rt.face_dir_until = ts + 3.0
+            rt.face_mirrored = (rank % 2 == 1)
+            widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+            widget.emit_particles("notes", reduced_motion=self._last_reduced_motion)
+            widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+            if is_multi:
+                if rank == 0:
+                    widget.say(self._format_line(_TRIPLET_CHORUS_LINES[0]), now=ts, duration=2.7)
+                elif rank == len(ordered) - 1:
+                    widget.say(self._format_line(_TRIPLET_CHORUS_LINES[1]), now=ts, duration=2.7)
+            else:
+                widget.say(line_a if rank == 0 else line_b, now=ts, duration=2.7)
+        lead_idx = ordered[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        event = CloneEvent(
+            kind="twin_mirror",
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=f"twins:{len(ordered)}",
+            side=self._runtime[lead_info.conversation_id].last_side,
+            text=line_a,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def trigger_twin_mirror(
+        self,
+        indices: list[int] | None = None,
+        *,
+        now: float | None = None,
+        immediate: bool = False,
+    ) -> CloneEvent | bool | None:
+        """Special interaction for 2+ same-form twins/multiples: symmetric face-to-face mirror dance!"""
+        ts = time.monotonic() if now is None else float(now)
+        if indices is None:
+            groups = self._same_form_groups()
+            if not groups:
+                return None
+            chosen = self._rng.choice(groups)
+        else:
+            valid = [
+                i
+                for i in dict.fromkeys(indices)
+                if 0 <= i < len(self._entries)
+                and i < len(self._widgets)
+                and not self._runtime.get(self._entries[i][0].conversation_id, _CloneRuntime(ts)).dragging
+            ]
+            if len(valid) < 2:
+                return None
+            base_form = self._entries[valid[0]][1]
+            chosen = [i for i in valid if self._entries[i][1] == base_form]
+            if len(chosen) < 2:
+                return None
+
+        playmate = any(is_playmate_id(self._entries[i][0].conversation_id) for i in chosen)
+        if immediate or self._last_reduced_motion or self._last_host_rect is None:
+            self._group_scene = None
+            return self._fire_twin_mirror_finale(chosen, ts=ts, playmate=playmate)
+
+        area = self._last_area or QRect(0, 0, 1920, 1080)
+        targets = self._compute_twin_mirror_targets(chosen, self._last_host_rect, area, self._last_keepouts)
+        order = [self._entries[i][0].conversation_id for i in chosen]
+        scene = _GroupScene(
+            kind="twin_mirror",
+            started_at=ts,
+            ends_at=ts + TWIN_MIRROR_DURATION_SECONDS,
+            order=order,
+            targets=targets,
+            is_playmate=playmate,
+        )
+        for idx in chosen:
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            tx, ty = targets[cid]
+            if math.hypot(widget.x() - tx, widget.y() - ty) <= 34.0:
+                scene.step_fired.add(cid)
+            else:
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "walking"
+                rt.roam_pos = [float(widget.x()), float(widget.y())]
+                rt.roam_target = (tx, ty)
+                rt.walk_facing = 1 if tx >= widget.x() else -1
+
+        if len(scene.step_fired) == len(order):
+            self._group_scene = None
+            return self._fire_twin_mirror_finale(chosen, ts=ts, playmate=playmate)
+        self._group_scene = scene
+        return True
+
+    def trigger_mini_me_mimic(
+        self,
+        index: int | None = None,
+        *,
+        now: float | None = None,
+    ) -> CloneEvent | None:
+        """Special interaction when clone(s) share sister's own current form: proud mini-me showcase!"""
+        ts = time.monotonic() if now is None else float(now)
+        if index is not None:
+            if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
+                return None
+            if self._entries[index][1] != self._host_form:
+                return None
+            targets_idx = [index]
+        else:
+            matches = self._host_form_clone_indices()
+            if not matches:
+                return None
+            targets_idx = matches[:2]
+
+        playmate = any(is_playmate_id(self._entries[i][0].conversation_id) for i in targets_idx)
+        lead_line = self._format_line(self._rng.choice(_MINI_ME_LINES))
+        for rank, idx in enumerate(targets_idx):
+            info, _fid, _badge = self._entries[idx]
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                info.conversation_id,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(info.conversation_id)),
+            )
+            if rt.dragging:
+                continue
+            self._pause_roam(rt, ts, hold=MINI_ME_DURATION_SECONDS)
+            rt.pose_action = PetAction.HIGH_FIVE if rank == 0 else PetAction.CELEBRATE
+            rt.pose_until = ts + 2.6
+            rt.nudge_until = ts + 0.90
+            rt.nudge_strength = 18.0
+            rt.hop_started_at = ts
+            rt.hop_duration = 0.42
+            rt.hop_height = 12.0
+            rt.face_dir_until = ts + 2.6
+            rt.face_mirrored = rt.last_side > 0
+            widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
+            widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+            if rank == 0:
+                widget.say(lead_line, now=ts, duration=2.7)
+            else:
+                others = [self._format_line(c) for c in _MINI_ME_LINES if self._format_line(c) != lead_line]
+                widget.say(self._rng.choice(others) if others else lead_line, now=ts, duration=2.7)
+
+        lead_idx = targets_idx[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        event = CloneEvent(
+            kind="mini_me_mimic",
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=lead_info.title,
+            side=self._runtime[lead_info.conversation_id].last_side,
+            text=lead_line,
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
     def _tick_group_scene(
         self,
         host_rect: QRect,
@@ -2627,10 +2913,13 @@ class SubagentCloneManager:
                 self._group_scene = None
             return {}
 
-        if scene.kind in {"snack_party", "group_huddle"}:
+        if scene.kind in {"snack_party", "group_huddle", "twin_mirror"}:
             # Refresh targets if host moved
             active_indices = [cid_to_index[cid] for cid in active_order]
-            fresh_targets = self._compute_group_gather_targets(active_indices, host_rect, area, keepouts)
+            if scene.kind == "twin_mirror":
+                fresh_targets = self._compute_twin_mirror_targets(active_indices, host_rect, area, keepouts)
+            else:
+                fresh_targets = self._compute_group_gather_targets(active_indices, host_rect, area, keepouts)
             scene.targets.update(fresh_targets)
             for cid in active_order:
                 if cid in scene.step_fired:
@@ -2660,7 +2949,7 @@ class SubagentCloneManager:
                         widget.emit_particles("hearts", reduced_motion=False)
                         if len(scene.step_fired) <= 2:
                             widget.say(self._format_line(self._rng.choice(_SNACK_EAT_LINES)), now=now, duration=2.6)
-                    else:
+                    elif scene.kind == "group_huddle":
                         rt.pose_action = PetAction.PET_PURR
                         rt.pose_until = now + 2.8
                         rt.hop_started_at = now
@@ -2678,6 +2967,16 @@ class SubagentCloneManager:
                     walk_overrides[cid] = (nx, ny, facing)
 
             if (
+                scene.kind == "twin_mirror"
+                and not scene.finale_fired
+                and (len(scene.step_fired) >= len(active_order) or now >= scene.started_at + 2.2)
+            ):
+                scene.finale_fired = True
+                pm = scene.is_playmate
+                indices_snap = list(active_indices)
+                ts_snap = now
+                deferred_arrivals.append(lambda: self._fire_twin_mirror_finale(indices_snap, ts=ts_snap, playmate=pm))
+            elif (
                 scene.kind == "group_huddle"
                 and not scene.finale_fired
                 and (
@@ -3449,7 +3748,7 @@ class SubagentCloneManager:
                     dist = math.hypot(dx, dy)
                     if abs(dx) > 1.0:
                         rt.walk_facing = 1 if dx > 0 else -1
-                    speed_mult = 1.55 if rt.roam_mode == "returning" else 1.0
+                    speed_mult = 1.55 if rt.roam_mode == "returning" else (1.25 if rt.roam_mode in {"visit_host", "visit_clone"} else 1.0)
                     step = rt.roam_speed * speed_mult * max(0.016, dt)
                     if dist <= max(6.0, step):
                         rt.roam_pos = [tx, ty]
@@ -3464,6 +3763,7 @@ class SubagentCloneManager:
                             rt.next_roam_at = now + (
                                 self._rng.uniform(4.0, 7.6) if playmate else self._rng.uniform(12.0, 20.0)
                             )
+                            self._next_group_scene_at = max(self._next_group_scene_at, now + 2.5)
                         elif mode_done == "walking":
                             rt.roam_mode = "paused"
                             rt.roam_until = now + self._rng.uniform(2.6, 5.2)
@@ -3506,7 +3806,14 @@ class SubagentCloneManager:
                                     act: str = act_name,
                                     ts_val: float = now,
                                 ) -> None:
-                                    if act == "clone_chat":
+                                    if (
+                                        ia < len(self._entries)
+                                        and ib < len(self._entries)
+                                        and self._entries[ia][1] == self._entries[ib][1]
+                                        and act != "clone_chat"
+                                    ):
+                                        self.trigger_twin_mirror([ia, ib], now=ts_val, immediate=True)
+                                    elif act == "clone_chat":
                                         self.trigger_clone_chat(ia, ib, now=ts_val)
                                     else:
                                         self.trigger_clone_buddy(ia, ib, now=ts_val)
@@ -3720,23 +4027,34 @@ class SubagentCloneManager:
                     for i, (info, _f, _b) in enumerate(self._entries)
                     if not self._runtime.get(info.conversation_id, _CloneRuntime(now)).dragging
                     and self._runtime.get(info.conversation_id, _CloneRuntime(now)).pose_action is None
+                    and self._runtime.get(info.conversation_id, _CloneRuntime(now)).roam_mode
+                    not in {"returning", "visit_host", "visit_clone"}
                     and (now - self._runtime.get(info.conversation_id, _CloneRuntime(now)).spawned_at) >= 5.0
                 ]
                 if len(ready) >= 2:
                     self._next_group_scene_at = now + (
                         self._rng.uniform(18.0, 28.0) if any_playmate else self._rng.uniform(30.0, 46.0)
                     )
-                    pick = self._rng.choice(
-                        ("clone_train", "clone_wave", "snack_party", "group_huddle")
+                    pool = (
+                        ["clone_train", "clone_wave", "snack_party", "group_huddle"]
                         if any_playmate
-                        else ("clone_wave", "snack_party")
+                        else ["clone_wave", "snack_party"]
                     )
+                    if self._same_form_groups():
+                        pool.extend(["twin_mirror", "twin_mirror"])
+                    if any_playmate and self._host_form_clone_indices():
+                        pool.append("mini_me_mimic")
+                    pick = self._rng.choice(pool)
                     if pick == "clone_train":
                         self.trigger_clone_train(now=now)
                     elif pick == "clone_wave":
                         self.trigger_clone_wave(now=now)
                     elif pick == "snack_party":
                         self.trigger_snack_party(now=now)
+                    elif pick == "twin_mirror":
+                        self.trigger_twin_mirror(now=now)
+                    elif pick == "mini_me_mimic":
+                        self.trigger_mini_me_mimic(now=now)
                     else:
                         self.trigger_group_huddle(now=now)
         elif count < 2:

@@ -3265,6 +3265,26 @@ class PetWindow(QWidget):
         low, high = ranges.get(level, ranges["balanced"])
         return self.rng.uniform(low, high)
 
+    @staticmethod
+    def _format_playmate_names(playmates: list[SubagentInfo]) -> str:
+        counts: dict[str, int] = {}
+        for item in playmates:
+            name = form_by_id(item.form_id).name
+            counts[name] = counts.get(name, 0) + 1
+        parts: list[str] = []
+        for name, n in counts.items():
+            if n == 2:
+                parts.append(f"双胞胎 {name}")
+            elif n == 3:
+                parts.append(f"三胞胎 {name}")
+            elif n >= 4:
+                parts.append(f"{n} 只 {name}")
+            else:
+                parts.append(name)
+        if len(parts) <= 3:
+            return "、".join(parts)
+        return f"{parts[0]}、{parts[1]} 等 {len(playmates)} 位"
+
     def summon_idle_playmates(
         self,
         count: int | None = None,
@@ -3273,8 +3293,9 @@ class PetWindow(QWidget):
         duration: float | None = None,
         announce: bool = True,
         manual: bool = False,
+        forms: list[str] | None = None,
     ) -> list[SubagentInfo]:
-        """Summon 2-5 random-form mini clones during idle time to play together."""
+        """Summon 2-5 random-form mini clones during idle time (twins & multi-same-form allowed!)."""
         if (
             not hasattr(self, "subagent_clones")
             or not bool(self._agy().get("subagent_clones", True))
@@ -3283,14 +3304,16 @@ class PetWindow(QWidget):
             return []
         ts = time.monotonic() if now is None else float(now)
         all_form_ids = list(FORM_IDS)
-        desired = self.rng.choice((2, 2, 3, 3, 4, 5)) if count is None else int(count)
-        desired = max(1, min(MAX_VISIBLE_CLONES, desired))
-        if desired <= len(all_form_ids):
-            picked_forms = self.rng.sample(all_form_ids, desired)
+        if forms:
+            picked_forms = [normalize_form(f) for f in forms[:MAX_VISIBLE_CLONES]]
         else:
-            picked_forms = list(all_form_ids)
-            self.rng.shuffle(picked_forms)
-            picked_forms.extend(self.rng.choice(all_form_ids) for _ in range(desired - len(all_form_ids)))
+            desired = self.rng.choice((2, 2, 3, 3, 4, 5)) if count is None else int(count)
+            desired = max(1, min(MAX_VISIBLE_CLONES, desired))
+            picked_forms = self.rng.choices(all_form_ids, k=desired)
+            # Light twin-spark boost so adorable twins/multiples show up naturally even in 2-3 clone squads
+            if desired >= 2 and len(set(picked_forms)) == desired and self.rng.random() < 0.25:
+                src_i, dst_i = self.rng.sample(range(desired), 2)
+                picked_forms[dst_i] = picked_forms[src_i]
         activities = list(self._IDLE_PLAY_ACTIVITIES)
         self.rng.shuffle(activities)
         playmates: list[SubagentInfo] = []
@@ -3312,8 +3335,7 @@ class PetWindow(QWidget):
         self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
         self._sync_subagent_clones(silent_replace=had_existing)
         if announce and self.isVisible() and not self.isMinimized() and self._dock_side is None:
-            raw_names = [form_by_id(item.form_id).name for item in playmates]
-            names = "、".join(raw_names) if len(raw_names) <= 3 else f"{raw_names[0]}、{raw_names[1]} 等 {len(raw_names)} 位"
+            names = self._format_playmate_names(playmates)
             busy = {
                 PetAction.DRAGGING,
                 PetAction.FALLING,
@@ -3376,12 +3398,13 @@ class PetWindow(QWidget):
             self.subagent_clones.trigger_group_cheer(now=ts)
             return list(self._idle_play_clones)
         to_add = min(room, self.rng.choice((1, 2)) if add_count is None else max(1, int(add_count)))
-        used_forms = {item.form_id for item in self._idle_play_clones}
-        fresh_forms = [fid for fid in FORM_IDS if fid not in used_forms]
-        self.rng.shuffle(fresh_forms)
-        picked: list[str] = fresh_forms[:to_add]
-        while len(picked) < to_add:
-            picked.append(self.rng.choice(FORM_IDS))
+        existing_forms = [item.form_id for item in self._idle_play_clones]
+        picked: list[str] = []
+        for _ in range(to_add):
+            if existing_forms and self.rng.random() < 0.35:
+                picked.append(self.rng.choice(existing_forms))
+            else:
+                picked.append(self.rng.choice(FORM_IDS))
         used_titles = {item.title for item in self._idle_play_clones}
         activities = [a for a in self._IDLE_PLAY_ACTIVITIES if a not in used_titles] or list(self._IDLE_PLAY_ACTIVITIES)
         self.rng.shuffle(activities)
@@ -3401,7 +3424,7 @@ class PetWindow(QWidget):
         self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
         self._sync_subagent_clones()
         if self.isVisible() and not self.isMinimized() and self._dock_side is None and ts >= self._sulk_until:
-            names = "、".join(form_by_id(item.form_id).name for item in added)
+            names = self._format_playmate_names(added)
             self._handling_clone_interaction = True
             try:
                 self._request_action(PetAction.HAPPY, now=ts, reason="idle_playmate_add", force=True)
@@ -3504,6 +3527,9 @@ class PetWindow(QWidget):
         ):
             return
         if self.subagent_clones.active_group_scene is not None:
+            return
+        if self.subagent_clones._host_form_clone_indices() and self.rng.random() < 0.25:
+            self.subagent_clones.trigger_mini_me_mimic(now=now)
             return
         if self.subagent_clones.active_count >= 2:
             roll = self.rng.random()
@@ -3738,6 +3764,30 @@ class PetWindow(QWidget):
                     key = "playmate_group_huddle" if playmate else "subagent_group_huddle"
                     fb = "哇哇！被小分身们团团抱住啦～"
                     self.say(pick_line(key, fb), preserve_action=True)
+            elif event.kind == "twin_mirror":
+                self.emit_particles("sparkles")
+                self.emit_particles("hearts")
+                self.emit_particles("confetti")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_twin_mirror", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_twin_mirror" if playmate else "subagent_twin_mirror"
+                    fb = "哇！双胞胎 {name} 跳镜面舞，姐姐眼花啦～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "mini_me_mimic":
+                self.emit_relay_particles(from_side=event.side, accent=accent)
+                self.emit_particles("hearts")
+                self.emit_particles("confetti")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    mimic_pose = PetAction.HAPPY if self.surface_tracker.attached else PetAction.HIGH_FIVE
+                    self._request_action(mimic_pose, now=now, reason="subagent_mini_me_mimic", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_mini_me_mimic" if playmate else "subagent_mini_me_mimic"
+                    fb = "呀！迷你版我自己也太可爱了吧～"
+                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
         finally:
             self._handling_clone_interaction = False
 
