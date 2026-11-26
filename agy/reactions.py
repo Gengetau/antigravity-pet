@@ -68,7 +68,7 @@ LINES: dict[str, tuple[str, ...]] = {
     ),
     "subagent_group_cheer": (
         "全员干劲拉满，一起冲鸭！",
-        "主宠和小分身合体共舞，势不可挡！",
+        "我和小分身合体共舞，势不可挡！",
     ),
     "subagent_relay": (
         "收到 {name} 传来的线索啦～",

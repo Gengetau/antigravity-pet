@@ -73,9 +73,32 @@ _CLICK_LINES: tuple[str, ...] = (
     "收到打气，冲鸭！",
 )
 
+_HOST_SPEAKER_NAMES: dict[str, str] = {
+    "carbon": "Carbon",
+    "hydergon": "小氢",
+    "neon": "Neon",
+    "argon": "Argon",
+    "claude": "Claude",
+}
+
+
+def _format_host_line(template: str, host_name: str) -> str:
+    if "{host}" not in template:
+        return template
+    name = (host_name or "Carbon").strip() or "Carbon"
+    if any("\u4e00" <= ch <= "\u9fff" for ch in name):
+        return (
+            template.replace(" {host} ", name)
+            .replace(" {host}", name)
+            .replace("{host} ", name)
+            .replace("{host}", name)
+        )
+    return template.replace("{host}", name)
+
+
 _RELAY_LINES: tuple[str, ...] = (
     "发现线索啦！",
-    "进度同步主宠～",
+    "同步给 {host}～",
     "这块我兜底啦！",
     "整理好结果啦！",
 )
@@ -83,7 +106,7 @@ _RELAY_LINES: tuple[str, ...] = (
 _HANDOFF_LINES: tuple[str, ...] = (
     "搞定！交卷啦～",
     "汇报完毕，收工！",
-    "成果交给主宠啦～",
+    "交给 {host} 啦～",
 )
 
 _HIGH_FIVE_LINES: tuple[str, ...] = (
@@ -149,13 +172,13 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.HAPPY,
         2.4,
         "hearts",
-        ("也摸摸我嘛～", "主宠被夸啦～", "好羡慕，我也想！"),
+        ("也摸摸我嘛～", "{host} 被夸啦～", "好羡慕，我也想！"),
     ),
     PetAction.PET_PURR: (
         PetAction.HAPPY,
         2.8,
         "hearts",
-        ("主宠好幸福呀～", "我也要蹭蹭！"),
+        ("{host} 好幸福呀～", "我也要蹭蹭！"),
     ),
     PetAction.EATING: (
         PetAction.WAVE,
@@ -167,55 +190,55 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.CELEBRATE,
         2.2,
         "sparkles",
-        ("耶！一起庆祝～", "太棒啦主宠！"),
+        ("耶！一起庆祝～", "太棒啦 {host}！"),
     ),
     PetAction.HAPPY: (
         PetAction.HAPPY,
         1.8,
         None,
-        ("主宠开心我也开心",),
+        ("你开心我也开心～",),
     ),
     PetAction.SULK: (
         PetAction.WAVE,
         2.8,
         None,
-        ("别生气啦主宠…", "加快进度哄你！"),
+        ("别生气啦 {host}…", "加快进度哄你！"),
     ),
     PetAction.ANGRY: (
         PetAction.POKE_REACT,
         1.8,
         "sweat",
-        ("哇！主宠生气了…", "我乖乖干活去！"),
+        ("{host} 生气了…", "我乖乖干活去！"),
     ),
     PetAction.WAITING_USER: (
         PetAction.WAITING_USER,
         3.2,
         "alert",
-        ("主宠等你确认哦！", "快看看确认弹窗～"),
+        ("{host} 等你确认！", "快看看确认弹窗～"),
     ),
     PetAction.SLEEPING: (
         PetAction.WORKING,
         2.6,
         None,
-        ("嘘，主宠睡着啦～",),
+        ("{host} 睡着啦～",),
     ),
     PetAction.PERCH_SLEEP: (
         PetAction.WORKING,
         2.6,
         None,
-        ("嘘，主宠打盹中～",),
+        ("{host} 打盹中～",),
     ),
     PetAction.DRAGGING: (
         PetAction.FALLING,
         1.5,
         None,
-        ("等等我呀主宠！", "慢点飞——"),
+        ("等等我呀 {host}！", "慢点飞——"),
     ),
     PetAction.FALLING: (
         PetAction.FALLING,
         1.4,
         None,
-        ("主宠抓稳啦！", "我来接应～"),
+        ("{host} 抓稳啦！", "我来接应～"),
     ),
 }
 
@@ -695,6 +718,9 @@ class SubagentCloneManager:
         self._departing: list[_DepartingClone] = []
         self._enabled = True
         self._host_visible = True
+        self._host_form = "carbon"
+        self._host_name: str | None = None
+        self._host_name_form: str | None = None
         self._sprite_height = 96
         self._fade = 0.0
         self._last_host_rect: QRect | None = None
@@ -703,6 +729,19 @@ class SubagentCloneManager:
         self._last_tick_now: float | None = None
         self._last_mood_at: dict[PetAction, float] = {}
         self._next_relay_at = 0.0
+
+    def set_host_name(self, name: str, *, form_id: str | None = None) -> None:
+        cleaned = (name or "").strip()
+        self._host_name = cleaned or None
+        self._host_name_form = normalize_form(form_id) if form_id else None
+
+    def _host_display_name(self) -> str:
+        if self._host_name and self._host_name_form in (None, self._host_form):
+            return self._host_name
+        return _HOST_SPEAKER_NAMES.get(self._host_form, form_by_id(self._host_form).name)
+
+    def _format_line(self, template: str) -> str:
+        return _format_host_line(template, self._host_display_name())
 
     @property
     def active_count(self) -> int:
@@ -1023,7 +1062,7 @@ class SubagentCloneManager:
         rt.pose_until = ts + 1.35
         rt.nudge_until = ts + 0.72
         rt.nudge_strength = 16.0
-        line = self._rng.choice(_PLAY_RELAY_LINES if playmate else _RELAY_LINES)
+        line = self._format_line(self._rng.choice(_PLAY_RELAY_LINES if playmate else _RELAY_LINES))
         widget.say(line, now=ts, duration=2.4)
         widget.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
         event = CloneEvent(
@@ -1076,7 +1115,7 @@ class SubagentCloneManager:
                 rt.pose_action = clone_action
                 rt.pose_until = ts + duration
             if idx == speaker_idx and lines:
-                self._widgets[idx].say(self._rng.choice(lines), now=ts, duration=min(2.6, duration))
+                self._widgets[idx].say(self._format_line(self._rng.choice(lines)), now=ts, duration=min(2.6, duration))
                 if particle:
                     self._widgets[idx].emit_particles(particle, reduced_motion=reduced_motion)
         return True
@@ -1091,6 +1130,7 @@ class SubagentCloneManager:
         now: float | None = None,
         silent_depart: bool = False,
     ) -> None:
+        self._host_form = normalize_form(default_form)
         ts = time.monotonic() if now is None else float(now)
         prev_entries = list(self._entries)
         prev_ids = {info.conversation_id for info, _f, _b in prev_entries}
@@ -1134,7 +1174,7 @@ class SubagentCloneManager:
                 pix = frames[0] if frames else self._mini_pixmap(form_id, mirrored=(side > 0))
                 max_fw = max((p.width() for p in frames), default=64)
                 max_fh = max((p.height() for p in frames), default=84)
-                line = self._rng.choice(_PLAY_HANDOFF_LINES if playmate else _HANDOFF_LINES)
+                line = self._format_line(self._rng.choice(_PLAY_HANDOFF_LINES if playmate else _HANDOFF_LINES))
                 dep_widget.configure(
                     pixmap=pix,
                     badge=badge,
@@ -1249,10 +1289,10 @@ class SubagentCloneManager:
             title = info.title or ("闲时小玩伴" if playmate else f"子代理 #{idx + 1}")
             model_line = f"\n模型：{info.model_label}" if (info.model_label and not playmate) else ""
             tip_head = f"闲时随机小玩伴 · {title}" if playmate else f"子代理分身 · {title}{model_line}"
-            tip_hint = (
-                "单击摸摸 · 双击玩闹 · 拖给主宠击掌 · 右键欢呼"
+            tip_hint = self._format_line(
+                "单击摸摸 · 双击玩闹 · 拖给 {host} 击掌 · 右键欢呼"
                 if playmate
-                else "单击打气 · 双击汇报 · 拖给主宠击掌 · 右键欢呼"
+                else "单击打气 · 双击汇报 · 拖给 {host} 击掌 · 右键欢呼"
             )
             widget.configure(
                 pixmap=pix,

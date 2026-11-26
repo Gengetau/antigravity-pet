@@ -2292,6 +2292,8 @@ class PetWindow(QWidget):
             self.renderer.speaker_accent = QColor(ACCENTS.get(form_id, "#339ad5"))
         if hasattr(self, "control_panel"):
             self.control_panel.set_title(speaker)
+        if hasattr(self, "subagent_clones"):
+            self.subagent_clones.set_host_name(speaker, form_id=form_id)
         if hasattr(self, "dialogue"):
             self.dialogue.set_form_lines(voice.get("dialogue"))
         if hasattr(self, "food_panel"):

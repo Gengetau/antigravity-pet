@@ -68,7 +68,7 @@ class StageAComicBubbleAndParticlesTests(unittest.TestCase):
         # No single trailing punctuation dangling on line 2
         renderer = PetRenderer(72, 16)
         fm = QFontMetrics(renderer.bubble_font)
-        sample = "主宠和小分身合体共舞！"
+        sample = "我和小分身合体共舞！"
         max_w = fm.horizontalAdvance(sample[:-1]) + 1
         lines = renderer._wrap_text(sample, fm, max_w)
         self.assertEqual(len(lines), 1)

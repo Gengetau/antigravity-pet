@@ -286,6 +286,27 @@ class SubagentInterplayManagerTests(unittest.TestCase):
         finally:
             mgr.close_all()
 
+    def test_clone_lines_use_active_character_name_without_jargon(self) -> None:
+        mgr, _events = self._make()
+        try:
+            subs = [SubagentInfo("s1", "m1", "核对逻辑", "Gemini 4 Neon", "neon")]
+            screen = _FakeScreen(QRect(0, 0, 1920, 1080))
+            host = QRect(860, 500, 180, 220)
+            mgr.sync(subs, default_form="hydergon", enabled=True, host_visible=True, now=10.0)
+            mgr.position_around(host, now=10.5, screen=screen)
+            w = mgr.visible_widgets[0]
+            self.assertIn("拖给小氢击掌", w.toolTip())
+            self.assertNotIn("主宠", w.toolTip())
+            mgr.notify_host_action(PetAction.SLEEPING, now=20.0)
+            self.assertEqual(w.bubble_text, "小氢睡着啦～")
+
+            mgr.sync(subs, default_form="neon", enabled=True, host_visible=True, now=25.0)
+            self.assertIn("拖给 Neon 击掌", w.toolTip())
+            mgr.notify_host_action(PetAction.PERCH_SLEEP, now=30.0)
+            self.assertEqual(w.bubble_text, "Neon 打盹中～")
+        finally:
+            mgr.close_all()
+
 
 class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
     @classmethod
@@ -459,8 +480,15 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
         )
         for line in all_lines:
-            elided = fm.elidedText(line, Qt.TextElideMode.ElideRight, max_w)
-            self.assertEqual(elided, line, f"Mini bubble truncated ({widget.width()}px): {line!r} -> {elided!r}")
+            variants = (
+                [sc._format_host_line(line, name) for name in sc._HOST_SPEAKER_NAMES.values()]
+                if "{host}" in line
+                else [line]
+            )
+            for rendered in variants:
+                self.assertNotIn("主宠", rendered)
+                elided = fm.elidedText(rendered, Qt.TextElideMode.ElideRight, max_w)
+                self.assertEqual(elided, rendered, f"Mini bubble truncated ({widget.width()}px): {rendered!r} -> {elided!r}")
 
     def test_cinematic_summon_pop_and_two_stage_depart_poof_animation(self) -> None:
         events: list[CloneEvent] = []

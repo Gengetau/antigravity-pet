@@ -62,7 +62,7 @@ class RehearsalStage(QWidget):
         root.addWidget(form_box)
 
         # Subagent clones & host-subagent interplay
-        sub_box = QGroupBox("子代理迷你分身与主宠互动（复用五形态素材）")
+        sub_box = QGroupBox("子代理分身与玩伴互动（复用五形态素材）")
         sub_col = QVBoxLayout(sub_box)
         sub_row = QHBoxLayout()
         for count in (0, 1, 2, 4, 5):
