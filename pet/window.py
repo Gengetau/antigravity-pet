@@ -3154,9 +3154,9 @@ class PetWindow(QWidget):
         now = time.monotonic()
         accent = ACCENTS.get(event.form_id, "#c084fc")
         playmate = bool(getattr(event, "is_playmate", False))
-        # Extend playtime slightly when the user actively plays with idle playmates
+        # Extend playtime generously when the user actively plays with idle playmates
         if playmate and self._idle_play_clones and event.kind in {"clicked", "report", "high_five", "group_cheer"}:
-            self._idle_play_until = min(now + 45.0, max(self._idle_play_until, now + 10.0))
+            self._idle_play_until = min(now + 60.0, max(self._idle_play_until, now + 18.0))
         busy_actions = {
             PetAction.DRAGGING,
             PetAction.FALLING,

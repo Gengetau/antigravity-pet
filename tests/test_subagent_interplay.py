@@ -431,6 +431,33 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.assertEqual(self.pet.subagent_clones.active_count, 1)
         self.assertEqual(self.pet.subagent_clones._entries[0][0].conversation_id, "real-1")
 
+    def test_clone_mini_bubbles_never_elide_built_in_lines(self) -> None:
+        from PySide6.QtGui import QFontMetrics
+        import pet.subagent_clones as sc
+
+        self.pet.summon_idle_playmates(count=1, now=400.0, duration=20.0, announce=False)
+        widget = self.pet.subagent_clones.visible_widgets[0]
+        fm = QFontMetrics(widget._bubble_font)
+        max_w = max(44, widget.width() - 14)
+        all_lines = (
+            *sc._SUMMON_LINES,
+            *sc._CLICK_LINES,
+            *sc._RELAY_LINES,
+            *sc._HANDOFF_LINES,
+            *sc._HIGH_FIVE_LINES,
+            *sc._GROUP_CHEER_LINES,
+            *sc._PLAY_SUMMON_LINES,
+            *sc._PLAY_CLICK_LINES,
+            *sc._PLAY_RELAY_LINES,
+            *sc._PLAY_HANDOFF_LINES,
+            *sc._PLAY_HIGH_FIVE_LINES,
+            *sc._PLAY_GROUP_CHEER_LINES,
+            *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
+        )
+        for line in all_lines:
+            elided = fm.elidedText(line, Qt.TextElideMode.ElideRight, max_w)
+            self.assertEqual(elided, line, f"Mini bubble truncated ({widget.width()}px): {line!r} -> {elided!r}")
+
 
 if __name__ == "__main__":
     unittest.main()

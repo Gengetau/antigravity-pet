@@ -67,17 +67,17 @@ _SUMMON_LINES: tuple[str, ...] = (
 )
 
 _CLICK_LINES: tuple[str, ...] = (
-    "谢谢夸奖～干劲满满！",
-    "被摸头了！效率翻倍～",
+    "谢谢夸奖！干劲满格",
+    "被摸头了！效率翻倍",
     "嘿嘿，继续努力！",
     "收到打气，冲鸭！",
 )
 
 _RELAY_LINES: tuple[str, ...] = (
-    "发现线索，传给主宠！",
-    "进度同步给主宠～",
-    "这块我先兜底啦！",
-    "整理好一批结果！",
+    "发现线索啦！",
+    "进度同步主宠～",
+    "这块我兜底啦！",
+    "整理好结果啦！",
 )
 
 _HANDOFF_LINES: tuple[str, ...] = (
@@ -87,54 +87,54 @@ _HANDOFF_LINES: tuple[str, ...] = (
 )
 
 _HIGH_FIVE_LINES: tuple[str, ...] = (
-    "击掌成功！合作无间～",
+    "击掌！合作无间～",
     "贴贴！配合满分！",
     "耶！最佳拍档～",
 )
 
 _GROUP_CHEER_LINES: tuple[str, ...] = (
-    "全员出击，效率起飞！",
+    "全员出击，起飞！",
     "小队干劲拉满～",
     "一起冲鸭！",
 )
 
 _PLAY_SUMMON_LINES: tuple[str, ...] = (
     "嘿！来找你玩啦～",
-    "摸鱼时间到，一起玩吧！",
-    "随机小分身前来串门～",
-    "闲着也是闲着，一起嗨！",
+    "摸鱼时间，一起玩！",
+    "随机分身来串门～",
+    "闲着也是闲着，嗨！",
 )
 
 _PLAY_CLICK_LINES: tuple[str, ...] = (
     "嘿嘿，好痒呀～",
     "再来摸一下嘛！",
     "开心到转圈圈～",
-    "贴贴！今天超快乐～",
+    "贴贴！今天超开心",
 )
 
 _PLAY_RELAY_LINES: tuple[str, ...] = (
     "接招！星光球～",
-    "主宠来比比谁跳得高！",
-    "一起晒太阳好舒服～",
-    "给你发射一颗爱心球！",
+    "比比谁跳得高！",
+    "晒太阳好舒服～",
+    "发射一颗爱心球！",
 )
 
 _PLAY_HANDOFF_LINES: tuple[str, ...] = (
-    "玩得好开心，下次再约～",
-    "先回口袋啦，拜拜～",
-    "下次闲了再叫我玩哦～",
+    "超开心，下次再约～",
+    "先回口袋啦，拜拜！",
+    "闲了再叫我玩哦～",
 )
 
 _PLAY_HIGH_FIVE_LINES: tuple[str, ...] = (
-    "击掌！最喜欢一起玩啦～",
-    "贴贴！玩伴默契满分～",
-    "耶！今天玩得超开心～",
+    "击掌！最爱一起玩",
+    "贴贴！玩伴满分～",
+    "耶！玩得超开心～",
 )
 
 _PLAY_GROUP_CHEER_LINES: tuple[str, ...] = (
     "闲时派对开场啦～",
     "一起蹦蹦跳跳！",
-    "摸鱼小队开心万岁～",
+    "摸鱼小队万岁～",
 )
 
 _PLAY_IDLE_POSES: tuple[PetAction, ...] = (
@@ -148,7 +148,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.HAPPY,
         2.4,
         "hearts",
-        ("也摸摸我嘛～", "主宠被夸啦～", "好羡慕，我也想要！"),
+        ("也摸摸我嘛～", "主宠被夸啦～", "好羡慕，我也想！"),
     ),
     PetAction.PET_PURR: (
         PetAction.HAPPY,
@@ -160,7 +160,7 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.WAVE,
         2.4,
         "sparkles",
-        ("好香！给我留一口～", "干完活我也想吃！"),
+        ("好香！留一口嘛～", "干完活我也想吃！"),
     ),
     PetAction.CELEBRATE: (
         PetAction.CELEBRATE,
@@ -172,31 +172,31 @@ _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[
         PetAction.HAPPY,
         1.8,
         None,
-        ("主宠开心我也开心～",),
+        ("主宠开心我也开心",),
     ),
     PetAction.SULK: (
         PetAction.WAVE,
         2.8,
         None,
-        ("别生气啦主宠…", "我加快进度哄你！"),
+        ("别生气啦主宠…", "加快进度哄你！"),
     ),
     PetAction.ANGRY: (
         PetAction.POKE_REACT,
         1.8,
         "sweat",
-        ("哇！主宠生气了…", "我马上乖乖干活！"),
+        ("哇！主宠生气了…", "我乖乖干活去！"),
     ),
     PetAction.WAITING_USER: (
         PetAction.WAITING_USER,
         3.2,
         "alert",
-        ("主宠在等你确认哦！", "快看看确认弹窗吧～"),
+        ("主宠等你确认哦！", "快看看确认弹窗～"),
     ),
     PetAction.SLEEPING: (
         PetAction.WORKING,
         2.6,
         None,
-        ("嘘，主宠睡了，我值班～",),
+        ("嘘，主宠睡着啦～",),
     ),
     PetAction.PERCH_SLEEP: (
         PetAction.WORKING,
@@ -383,7 +383,7 @@ class SubagentCloneWidget(QWidget):
         if min_frame_size is not None:
             frame_w = max(frame_w, int(min_frame_size[0]))
             frame_h = max(frame_h, int(min_frame_size[1]))
-        w = max(92, frame_w + 30)
+        w = max(148, frame_w + 54)
         h = max(124, frame_h + 34 + self.BUBBLE_TOP_PAD)
         if (self.width(), self.height()) != (w, h):
             self.setFixedSize(w, h)
