@@ -75,6 +75,36 @@ LINES: dict[str, tuple[str, ...]] = {
         "干得漂亮 {name}，我来整合！",
         "信号同步完毕，继续推进～",
     ),
+    "playmate_summon": (
+        "闲着没事，摇来 {names} 陪我玩会儿～",
+        "叮！随机召唤出 {names} 来串门啦～",
+        "摸鱼时间！叫来 {names} 一起玩～",
+    ),
+    "playmate_done": (
+        "拜拜啦 {name}，下次闲了再一起玩～",
+        "今天和 {name} 玩得好开心，回见！",
+        "{name} 回口袋休息啦，下次再约～",
+    ),
+    "playmate_cheer": (
+        "喂，摸完 {name} 也要顺手摸摸我呀～",
+        "哈哈，{name} 被你逗得好开心！",
+    ),
+    "playmate_report": (
+        "好呀好呀，和 {name} 一起{title}！",
+        "嗯嗯，我也喜欢和 {name} {title}～",
+    ),
+    "playmate_high_five": (
+        "和 {name} 击掌贴贴！摸鱼搭子满分～",
+        "耶！和 {name} 玩得超开心～",
+    ),
+    "playmate_group_cheer": (
+        "闲时小派对！大家一起蹦起来～",
+        "和随机小分身们开趴体啦！",
+    ),
+    "playmate_relay": (
+        "接住啦 {name}！我也回你一颗星星～",
+        "哈哈 {name} 好调皮，再来一次！",
+    ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),
     "quota_critical": ("限额快见底了（{quota}%），{reset}。", "只剩 {quota}% 限额！{reset}"),

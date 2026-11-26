@@ -375,6 +375,62 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.assertEqual(self.pet.action_machine.current, PetAction.WAVE)
         self.assertTrue(any(name in self.pet.bubble.text for name in ("Neon", "Claude")))
 
+    def test_idle_playmates_random_forms_playful_poses_and_real_subagent_preemption(self) -> None:
+        # Summoning multiple times picks random forms across all 5 forms (not bound to host form!)
+        self.pet.set_form("carbon", manual=True, announce=False, persist=False)
+        self.pet._request_action(PetAction.IDLE, reason="test_idle", force=True, immediate=True)
+        seen_forms: set[str] = set()
+        for _ in range(15):
+            mates = self.pet.summon_idle_playmates(count=2, now=100.0, duration=20.0, announce=False)
+            self.assertEqual(len(mates), 2)
+            self.assertNotEqual(mates[0].form_id, mates[1].form_id)
+            seen_forms.update(m.form_id for m in mates)
+        self.assertGreaterEqual(len(seen_forms), 4)
+
+        # Playmates use playful poses (HAPPY/WAVE/IDLE, NOT WORKING typing!) and playful host replies
+        mates = self.pet.summon_idle_playmates(count=2, now=200.0, duration=15.0, announce=True)
+        self.assertEqual(self.pet.subagent_clones.active_count, 2)
+        self.pet.subagent_clones.position_around(
+            self.pet._sprite_rect(),
+            now=200.5,
+            reduced_motion=False,
+            screen=self.pet._screen_for_pet(),
+        )
+        for w in self.pet.subagent_clones.visible_widgets:
+            self.assertIn(w.current_action, {PetAction.HAPPY, PetAction.WAVE, PetAction.IDLE})
+
+        # Clicking a playmate extends playtime and emits is_playmate=True
+        ev = self.pet.subagent_clones.trigger_click(0, now=210.0)
+        self.assertIsNotNone(ev)
+        self.assertTrue(ev.is_playmate)
+        self.assertGreaterEqual(self.pet._idle_play_until, 215.0)
+
+        # Autonomous tick summons playmates when idle & due, and dismisses when expired or when AGY runs
+        self.pet.dismiss_idle_playmates(now=220.0)
+        self.assertEqual(self.pet.subagent_clones.active_count, 0)
+        self.pet._request_action(PetAction.IDLE, reason="test_idle_auto", force=True, immediate=True)
+        self.pet.telemetry.last_snapshot = LiveSnapshot(
+            source="pet_live",
+            conversation_id="main",
+            status="CASCADE_RUN_STATUS_IDLE",
+        )
+        self.pet._idle_play_next_at = 300.0
+        self.pet._tick_idle_playmates(301.0)
+        self.assertGreaterEqual(self.pet.subagent_clones.active_count, 1)
+
+        # Real subagent arriving immediately preempts idle playmates cleanly
+        real_snap = LiveSnapshot(
+            source="pet_live",
+            conversation_id="main",
+            status="CASCADE_RUN_STATUS_RUNNING",
+            active_subagents=[SubagentInfo("real-1", "main", "跑单测", "Gemini 4 Neon", "neon")],
+        )
+        self.pet.telemetry.last_snapshot = real_snap
+        self.pet._sync_subagent_clones(real_snap)
+        self.assertEqual(self.pet._idle_play_clones, [])
+        self.assertEqual(self.pet.subagent_clones.active_count, 1)
+        self.assertEqual(self.pet.subagent_clones._entries[0][0].conversation_id, "real-1")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -41,8 +41,15 @@ HIGH_FIVE_RADIUS_PX = 140.0
 GLIDE_RETURN_SECONDS = 0.36
 RELAY_INTERVAL_MIN_SECONDS = 14.0
 RELAY_INTERVAL_MAX_SECONDS = 22.0
+PLAY_RELAY_INTERVAL_MIN_SECONDS = 6.5
+PLAY_RELAY_INTERVAL_MAX_SECONDS = 11.0
 DRAG_THRESHOLD_PX = 6
 CLICK_DEBOUNCE_MS = 240
+PLAYMATE_PREFIX = "idle-play-"
+
+
+def is_playmate_id(conversation_id: str) -> bool:
+    return str(conversation_id or "").startswith(PLAYMATE_PREFIX)
 
 _ACCENTS: dict[str, str] = {
     "carbon": "#4b5563",
@@ -89,6 +96,51 @@ _GROUP_CHEER_LINES: tuple[str, ...] = (
     "全员出击，效率起飞！",
     "小队干劲拉满～",
     "一起冲鸭！",
+)
+
+_PLAY_SUMMON_LINES: tuple[str, ...] = (
+    "嘿！来找你玩啦～",
+    "摸鱼时间到，一起玩吧！",
+    "随机小分身前来串门～",
+    "闲着也是闲着，一起嗨！",
+)
+
+_PLAY_CLICK_LINES: tuple[str, ...] = (
+    "嘿嘿，好痒呀～",
+    "再来摸一下嘛！",
+    "开心到转圈圈～",
+    "贴贴！今天超快乐～",
+)
+
+_PLAY_RELAY_LINES: tuple[str, ...] = (
+    "接招！星光球～",
+    "主宠来比比谁跳得高！",
+    "一起晒太阳好舒服～",
+    "给你发射一颗爱心球！",
+)
+
+_PLAY_HANDOFF_LINES: tuple[str, ...] = (
+    "玩得好开心，下次再约～",
+    "先回口袋啦，拜拜～",
+    "下次闲了再叫我玩哦～",
+)
+
+_PLAY_HIGH_FIVE_LINES: tuple[str, ...] = (
+    "击掌！最喜欢一起玩啦～",
+    "贴贴！玩伴默契满分～",
+    "耶！今天玩得超开心～",
+)
+
+_PLAY_GROUP_CHEER_LINES: tuple[str, ...] = (
+    "闲时派对开场啦～",
+    "一起蹦蹦跳跳！",
+    "摸鱼小队开心万岁～",
+)
+
+_PLAY_IDLE_POSES: tuple[PetAction, ...] = (
+    PetAction.HAPPY,
+    PetAction.WAVE,
+    PetAction.IDLE,
 )
 
 _HOST_MOOD_RESPONSES: dict[PetAction, tuple[PetAction, float, str | None, tuple[str, ...]]] = {
@@ -178,6 +230,7 @@ class CloneEvent:
     title: str
     side: int  # -1 left of host, +1 right of host
     text: str = ""
+    is_playmate: bool = False
 
 
 @dataclass(slots=True)
@@ -773,7 +826,8 @@ class SubagentCloneManager:
             if rt is not None:
                 rt.pose_action = PetAction.WAVE
                 rt.pose_until = now + 1.0
-            widget.say("回来继续干活啦～", now=now, duration=1.8)
+            back_line = "跑回来继续玩啦～" if is_playmate_id(info.conversation_id) else "回来继续干活啦～"
+            widget.say(back_line, now=now, duration=1.8)
 
     # ----- Direct / programmatic host <-> subagent interaction triggers ---------
 
@@ -784,12 +838,13 @@ class SubagentCloneManager:
         ts = time.monotonic() if now is None else float(now)
         info, form_id, badge = self._entries[index]
         widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
         rt.pose_action = PetAction.HEAD_PAT
         rt.pose_until = ts + 2.0
         rt.nudge_until = ts + 0.55
         rt.nudge_strength = 8.0
-        line = self._rng.choice(_CLICK_LINES)
+        line = self._rng.choice(_PLAY_CLICK_LINES if playmate else _CLICK_LINES)
         widget.say(line, now=ts, duration=2.4)
         widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
         event = CloneEvent(
@@ -800,24 +855,26 @@ class SubagentCloneManager:
             title=info.title,
             side=rt.last_side,
             text=line,
+            is_playmate=playmate,
         )
         self._emit_event(event)
         return event
 
     def trigger_report(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
-        """Clone nudges inward toward the host pet and reports its current task."""
+        """Clone nudges inward toward the host pet and reports its current task or play activity."""
         if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
             return None
         ts = time.monotonic() if now is None else float(now)
         info, form_id, badge = self._entries[index]
         widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
         rt.pose_action = PetAction.WAVE
         rt.pose_until = ts + 2.1
         rt.nudge_until = ts + 0.95
         rt.nudge_strength = 24.0
-        short_title = _compact_text(info.title or "处理任务中", 10)
-        line = f"汇报：{short_title}"
+        short_title = _compact_text(info.title or ("晒太阳发呆" if playmate else "处理任务中"), 10)
+        line = f"正在{short_title}～" if playmate else f"汇报：{short_title}"
         widget.say(line, now=ts, duration=2.6)
         widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
         event = CloneEvent(
@@ -828,6 +885,7 @@ class SubagentCloneManager:
             title=info.title,
             side=rt.last_side,
             text=line,
+            is_playmate=playmate,
         )
         self._emit_event(event)
         return event
@@ -839,12 +897,13 @@ class SubagentCloneManager:
         ts = time.monotonic() if now is None else float(now)
         info, form_id, badge = self._entries[index]
         widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
         rt.pose_action = PetAction.CELEBRATE
         rt.pose_until = ts + 2.2
         rt.nudge_until = ts + 0.85
         rt.nudge_strength = 22.0
-        line = self._rng.choice(_HIGH_FIVE_LINES)
+        line = self._rng.choice(_PLAY_HIGH_FIVE_LINES if playmate else _HIGH_FIVE_LINES)
         widget.say(line, now=ts, duration=2.6)
         widget.emit_particles("hearts", reduced_motion=self._last_reduced_motion)
         widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
@@ -856,6 +915,7 @@ class SubagentCloneManager:
             title=info.title,
             side=rt.last_side,
             text=line,
+            is_playmate=playmate,
         )
         self._emit_event(event)
         return event
@@ -866,11 +926,13 @@ class SubagentCloneManager:
             return None
         ts = time.monotonic() if now is None else float(now)
         lead_idx = max(0, min(source_index, len(self._entries) - 1))
-        lead_line = self._rng.choice(_GROUP_CHEER_LINES)
-        for idx, (info, _fid, _badge) in enumerate(self._entries):
+        info, form_id, badge = self._entries[lead_idx]
+        playmate = is_playmate_id(info.conversation_id)
+        lead_line = self._rng.choice(_PLAY_GROUP_CHEER_LINES if playmate else _GROUP_CHEER_LINES)
+        for idx, (entry_info, _fid, _badge) in enumerate(self._entries):
             if idx >= len(self._widgets):
                 break
-            rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
+            rt = self._runtime.setdefault(entry_info.conversation_id, _CloneRuntime(spawned_at=ts))
             rt.pose_action = PetAction.CELEBRATE
             rt.pose_until = ts + 2.0
             rt.nudge_until = ts + 0.65
@@ -878,7 +940,6 @@ class SubagentCloneManager:
             self._widgets[idx].emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
             if idx == lead_idx:
                 self._widgets[idx].say(lead_line, now=ts, duration=2.4)
-        info, form_id, badge = self._entries[lead_idx]
         rt_lead = self._runtime[info.conversation_id]
         event = CloneEvent(
             kind="group_cheer",
@@ -888,25 +949,27 @@ class SubagentCloneManager:
             title=info.title,
             side=rt_lead.last_side,
             text=lead_line,
+            is_playmate=playmate,
         )
         self._emit_event(event)
         return event
 
     def trigger_relay(self, index: int = 0, *, now: float | None = None) -> CloneEvent | None:
-        """Clone sends a collaborative clue / energy relay pulse to the host pet."""
+        """Clone sends a collaborative clue / playful energy pulse to the host pet."""
         if not (0 <= index < len(self._entries)) or index >= len(self._widgets):
             return None
         ts = time.monotonic() if now is None else float(now)
         info, form_id, badge = self._entries[index]
         widget = self._widgets[index]
+        playmate = is_playmate_id(info.conversation_id)
         rt = self._runtime.setdefault(info.conversation_id, _CloneRuntime(spawned_at=ts))
         if rt.dragging:
             return None
         rt.nudge_until = ts + 0.72
         rt.nudge_strength = 16.0
-        line = self._rng.choice(_RELAY_LINES)
+        line = self._rng.choice(_PLAY_RELAY_LINES if playmate else _RELAY_LINES)
         widget.say(line, now=ts, duration=2.4)
-        widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+        widget.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
         event = CloneEvent(
             kind="relay",
             conversation_id=info.conversation_id,
@@ -915,6 +978,7 @@ class SubagentCloneManager:
             title=info.title,
             side=rt.last_side,
             text=line,
+            is_playmate=playmate,
         )
         self._emit_event(event)
         return event
@@ -969,6 +1033,7 @@ class SubagentCloneManager:
         enabled: bool,
         host_visible: bool,
         now: float | None = None,
+        silent_depart: bool = False,
     ) -> None:
         ts = time.monotonic() if now is None else float(now)
         prev_entries = list(self._entries)
@@ -1004,20 +1069,22 @@ class SubagentCloneManager:
         # Spawn celebratory handoff clones for subagents that just finished!
         docked = (self._last_dock_edge or "").strip().lower() in ("left", "right")
         finished_ids = [cid for cid in prev_positions if cid not in new_ids]
-        if finished_ids and not docked and self._last_host_rect is not None:
+        if finished_ids and not silent_depart and not docked and self._last_host_rect is not None:
             for cid in finished_ids[:2]:
                 start_pos, side, form_id, badge, title = prev_positions[cid]
+                playmate = is_playmate_id(cid)
                 dep_widget = SubagentCloneWidget(topmost=self._topmost, rng=self._rng)
-                frames = self._mini_frames(form_id, mirrored=(side > 0), action=PetAction.CELEBRATE)
+                dep_action = PetAction.WAVE if playmate else PetAction.CELEBRATE
+                frames = self._mini_frames(form_id, mirrored=(side > 0), action=dep_action)
                 pix = frames[0] if frames else self._mini_pixmap(form_id, mirrored=(side > 0))
                 max_fw = max((p.width() for p in frames), default=64)
                 max_fh = max((p.height() for p in frames), default=84)
-                line = self._rng.choice(_HANDOFF_LINES)
+                line = self._rng.choice(_PLAY_HANDOFF_LINES if playmate else _HANDOFF_LINES)
                 dep_widget.configure(
                     pixmap=pix,
                     badge=badge,
                     accent=_ACCENTS.get(form_id, "#8b5cf6"),
-                    tooltip=f"子代理交卷 · {title or badge}",
+                    tooltip=f"{'闲时玩伴道别' if playmate else '子代理交卷'} · {title or badge}",
                     opacity=max(0.75, self._fade),
                     min_frame_size=(max_fw, max_fh),
                     frame_index=0,
@@ -1025,7 +1092,7 @@ class SubagentCloneManager:
                 )
                 dep_widget.move(start_pos)
                 dep_widget.say(line, now=ts, duration=HANDOFF_DURATION_SECONDS)
-                dep_widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+                dep_widget.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
                 dep_widget.show()
                 duration = 0.25 if self._last_reduced_motion else HANDOFF_DURATION_SECONDS
                 self._departing.append(
@@ -1050,6 +1117,7 @@ class SubagentCloneManager:
                         title=title,
                         side=side,
                         text=line,
+                        is_playmate=playmate,
                     )
                 )
 
@@ -1098,8 +1166,18 @@ class SubagentCloneManager:
             self._attach_widget_handlers(w)
             self._widgets.append(w)
 
+        any_playmate = any(is_playmate_id(info.conversation_id) for info, _f, _b in entries)
         if not prev_ids:
-            self._next_relay_at = ts + self._rng.uniform(RELAY_INTERVAL_MIN_SECONDS, RELAY_INTERVAL_MAX_SECONDS)
+            if any_playmate:
+                self._next_relay_at = ts + self._rng.uniform(
+                    PLAY_RELAY_INTERVAL_MIN_SECONDS,
+                    PLAY_RELAY_INTERVAL_MAX_SECONDS,
+                )
+            else:
+                self._next_relay_at = ts + self._rng.uniform(
+                    RELAY_INTERVAL_MIN_SECONDS,
+                    RELAY_INTERVAL_MAX_SECONDS,
+                )
 
         newly_announced = False
         for idx, widget in enumerate(self._widgets):
@@ -1107,17 +1185,25 @@ class SubagentCloneManager:
                 widget.hide()
                 continue
             info, form_id, badge = entries[idx]
-            frames = self._mini_frames(form_id, mirrored=False)
+            playmate = is_playmate_id(info.conversation_id)
+            base_action = PetAction.HAPPY if playmate else PetAction.WORKING
+            frames = self._mini_frames(form_id, mirrored=False, action=base_action)
             pix = frames[0] if frames else QPixmap()
             max_fw = max((p.width() for p in frames), default=64)
             max_fh = max((p.height() for p in frames), default=84)
-            title = info.title or f"子代理 #{idx + 1}"
-            model_line = f"\n模型：{info.model_label}" if info.model_label else ""
+            title = info.title or ("闲时小玩伴" if playmate else f"子代理 #{idx + 1}")
+            model_line = f"\n模型：{info.model_label}" if (info.model_label and not playmate) else ""
+            tip_head = f"闲时随机小玩伴 · {title}" if playmate else f"子代理分身 · {title}{model_line}"
+            tip_hint = (
+                "单击摸摸 · 双击玩闹 · 拖给主宠击掌 · 右键欢呼"
+                if playmate
+                else "单击打气 · 双击汇报 · 拖给主宠击掌 · 右键欢呼"
+            )
             widget.configure(
                 pixmap=pix,
                 badge=badge,
                 accent=_ACCENTS.get(form_id, "#8b5cf6"),
-                tooltip=f"子代理分身 · {title}{model_line}\n单击打气 · 双击汇报 · 拖给主宠击掌 · 右键欢呼",
+                tooltip=f"{tip_head}\n{tip_hint}",
                 opacity=self._fade,
                 min_frame_size=(max_fw, max_fh),
                 frame_index=0,
@@ -1129,9 +1215,9 @@ class SubagentCloneManager:
                 self._runtime[info.conversation_id] = _CloneRuntime(spawned_at=ts, last_side=side)
                 if not newly_announced and not docked:
                     newly_announced = True
-                    line = self._rng.choice(_SUMMON_LINES)
-                    widget.say(line, now=ts, duration=2.2)
-                    widget.emit_particles("sparkles", reduced_motion=self._last_reduced_motion)
+                    line = self._rng.choice(_PLAY_SUMMON_LINES if playmate else _SUMMON_LINES)
+                    widget.say(line, now=ts, duration=2.4)
+                    widget.emit_particles("hearts" if playmate else "sparkles", reduced_motion=self._last_reduced_motion)
                     self._emit_event(
                         CloneEvent(
                             kind="summoned",
@@ -1141,6 +1227,7 @@ class SubagentCloneManager:
                             title=title,
                             side=side,
                             text=line,
+                            is_playmate=playmate,
                         )
                     )
 
@@ -1279,10 +1366,11 @@ class SubagentCloneManager:
                 ny = round(dep.start_pos.y() + (target_y - dep.start_pos.y()) * ease - math.sin(t * math.pi) * 18.0)
                 dep.widget.move(nx, ny)
             opacity = 1.0 if t < 0.65 else max(0.0, (1.0 - t) / 0.35)
-            frames = self._mini_frames(dep.form_id, mirrored=(dep.side > 0), action=PetAction.CELEBRATE)
+            dep_action = PetAction.WAVE if is_playmate_id(dep.conversation_id) else PetAction.CELEBRATE
+            frames = self._mini_frames(dep.form_id, mirrored=(dep.side > 0), action=dep_action)
             if frames:
                 frame_idx = 0 if (reduced_motion or len(frames) <= 1) else (int(elapsed / 0.16) % len(frames))
-                dep.widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=(dep.side > 0), action=PetAction.CELEBRATE)
+                dep.widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=(dep.side > 0), action=dep_action)
             dep.widget.set_bob(0.0 if reduced_motion else -abs(math.sin(elapsed * 8.0)) * 5.0, opacity)
             dep.widget.tick_fx(dt, now=now, reduced_motion=reduced_motion)
             if not dep.widget.isVisible():
@@ -1386,8 +1474,16 @@ class SubagentCloneManager:
             rt.last_side = final_side
             placed_rects.append(QRect(clamped_x, clamped_y, widget.width(), widget.height()))
 
-            # Resolve active pose override (falls back to WORKING typing once expired)
-            active_action = PetAction.WORKING
+            # Resolve active pose: playmates alternate playful poses when idle,
+            # while real subagents type diligently unless emoting.
+            if is_playmate_id(info.conversation_id):
+                active_action = (
+                    PetAction.HAPPY
+                    if reduced_motion
+                    else _PLAY_IDLE_POSES[int((now + idx * 1.9) / 3.8) % len(_PLAY_IDLE_POSES)]
+                )
+            else:
+                active_action = PetAction.WORKING
             if rt.pose_action is not None:
                 if now < rt.pose_until or rt.dragging:
                     active_action = rt.pose_action
@@ -1448,9 +1544,19 @@ class SubagentCloneManager:
             if extra.isVisible():
                 extra.hide()
 
-        # Periodic collaborative banter / relay pulse while subagents work
+        # Periodic collaborative banter / playful relay pulse
         if self._next_relay_at > 0 and now >= self._next_relay_at:
-            self._next_relay_at = now + self._rng.uniform(RELAY_INTERVAL_MIN_SECONDS, RELAY_INTERVAL_MAX_SECONDS)
+            any_playmate = any(is_playmate_id(info.conversation_id) for info, _f, _b in self._entries)
+            if any_playmate:
+                self._next_relay_at = now + self._rng.uniform(
+                    PLAY_RELAY_INTERVAL_MIN_SECONDS,
+                    PLAY_RELAY_INTERVAL_MAX_SECONDS,
+                )
+            else:
+                self._next_relay_at = now + self._rng.uniform(
+                    RELAY_INTERVAL_MIN_SECONDS,
+                    RELAY_INTERVAL_MAX_SECONDS,
+                )
             free_indices = [
                 i
                 for i, (info, _f, _b) in enumerate(self._entries)

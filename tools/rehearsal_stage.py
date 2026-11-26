@@ -72,6 +72,7 @@ class RehearsalStage(QWidget):
         sub_col.addLayout(sub_row)
         interplay_row = QHBoxLayout()
         for label, fn in (
+            ("🎲 闲时随机玩伴", self._sim_idle_playmates),
             ("💖 摸摸分身", lambda: self._sim_clone_action("click")),
             ("📋 分身汇报", lambda: self._sim_clone_action("report")),
             ("🤝 击掌贴贴", lambda: self._sim_clone_action("high_five")),
@@ -144,6 +145,18 @@ class RehearsalStage(QWidget):
         )
         self.pet.telemetry.last_snapshot = snap
         self.pet._on_live_snapshot(snap)
+
+    def _sim_idle_playmates(self) -> None:
+        # Clear any simulated work subagents so idle random playmates take the stage.
+        idle_snap = LiveSnapshot(
+            source="pet_live",
+            conversation_id="rehearsal-1",
+            title="排练舞台模拟会话",
+            status="CASCADE_RUN_STATUS_IDLE",
+            active_subagents=[],
+        )
+        self.pet.telemetry.last_snapshot = idle_snap
+        self.pet.summon_idle_playmates(count=2)
 
     def _sim_clone_action(self, kind: str) -> None:
         if self.pet.subagent_clones.active_count == 0:
