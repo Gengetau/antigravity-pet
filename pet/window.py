@@ -293,6 +293,7 @@ class PetWindow(QWidget):
             on_hud=self.set_hud_enabled,
             on_hud_hover_only=self.set_hud_hover_only,
             on_playmates=lambda _checked=False: self.summon_or_add_playmates(),
+            on_scene=self.start_desktop_scene,
             on_follow_cursor=self.set_follow_cursor,
             on_autonomy=self.set_autonomy,
             on_dock=self._toggle_edge_dock,
@@ -1661,6 +1662,9 @@ class PetWindow(QWidget):
 
     def _poll_surface(self) -> None:
         ignored = {int(self.winId()), int(self.control_panel.winId()), int(self.food_panel.winId())}
+        prop = getattr(getattr(self, "subagent_clones", None), "scene_prop_widget", None)
+        if prop is not None:
+            ignored.add(int(prop.winId()))
         self.surface_tracker.observe_foreground(ignored_handles=ignored)
 
     def _poll_context(self) -> None:
@@ -3440,6 +3444,42 @@ class PetWindow(QWidget):
                 self._handling_clone_interaction = False
         return list(self._idle_play_clones)
 
+    def start_desktop_scene(
+        self,
+        scene_kind: str | None = None,
+        *,
+        now: float | None = None,
+        hour: int | None = None,
+    ) -> CloneEvent | None:
+        """Manually launch a themed desktop prop scene (tea / campfire / art / cloud nap)."""
+        if not hasattr(self, "subagent_clones"):
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        if not bool(self._agy().get("subagent_clones", True)):
+            self._agy_set("subagent_clones", True)
+        if self._dock_side is not None:
+            self.undock_from_edge()
+        quiet_states = {PetAction.SLEEPING, PetAction.PERCH_SLEEP, PetAction.DOCK_SLEEP, PetAction.SULK}
+        if ts < self._sulk_until or self.action_machine.current in quiet_states:
+            self._sulk_until = 0.0
+            self._request_action(PetAction.HAPPY, now=ts, reason="manual_scene_wake", force=True, immediate=True)
+        snap = getattr(getattr(self, "telemetry", None), "last_snapshot", None)
+        has_real_subs = bool(getattr(snap, "active_subagents", None))
+        if not has_real_subs and self.subagent_clones.active_count < 2:
+            self.summon_idle_playmates(count=3, now=ts, duration=36.0, announce=False, manual=True)
+        elif self._idle_play_clones:
+            self._idle_play_manual = True
+            self._idle_play_until = max(self._idle_play_until, ts + 32.0)
+        self.subagent_clones.position_around(
+            self._sprite_rect(),
+            now=ts,
+            reduced_motion=self.renderer.reduced_motion,
+            screen=self._screen_for_pet(),
+            dock_edge=self._dock_edge,
+            perched_window_rect=self._attached_window_qrect(),
+        )
+        return self.subagent_clones.trigger_desktop_scene(scene_kind, now=ts, hour=hour)
+
     def dismiss_idle_playmates(self, *, now: float | None = None) -> None:
         if not self._idle_play_clones:
             return
@@ -3458,6 +3498,8 @@ class PetWindow(QWidget):
         agy_running = bool(snap is not None and getattr(snap, "running", False))
         clones_enabled = bool(self._agy().get("subagent_clones", True))
         quiet_states = {PetAction.SLEEPING, PetAction.PERCH_SLEEP, PetAction.DOCK_SLEEP, PetAction.SULK}
+        active_scene = self.subagent_clones.active_group_scene
+        in_prop_scene = active_scene in {"tea_party", "campfire_night", "art_studio", "cloud_nap"}
 
         if self._idle_play_clones:
             should_dismiss = (
@@ -3468,8 +3510,8 @@ class PetWindow(QWidget):
                 or not self.isVisible()
                 or self.isMinimized()
                 or now < self._sulk_until
-                or self.action_machine.current in quiet_states
-                or now >= self._idle_play_until
+                or (self.action_machine.current in quiet_states and active_scene != "cloud_nap")
+                or (now >= self._idle_play_until and not in_prop_scene)
             )
             if should_dismiss:
                 self.dismiss_idle_playmates(now=now)
@@ -3590,6 +3632,10 @@ class PetWindow(QWidget):
             "trick",
             "gift_share",
             "clone_buddy",
+            "tea_party_interact",
+            "campfire_night_interact",
+            "art_studio_interact",
+            "cloud_nap_interact",
         }:
             self._idle_play_until = min(now + 60.0, max(self._idle_play_until, now + 18.0))
         busy_actions = {
@@ -3788,6 +3834,72 @@ class PetWindow(QWidget):
                     key = "playmate_mini_me_mimic" if playmate else "subagent_mini_me_mimic"
                     fb = "呀！迷你版我自己也太可爱了吧～"
                     self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+            elif event.kind == "tea_party":
+                self.emit_particles("steam")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.EATING, now=now, reason="scene_tea_party", force=True)
+                    key = "playmate_tea_party" if playmate else "subagent_tea_party"
+                    self.say(pick_line(key, "叮～桌面下午茶会开张，大家快围坐喝茶！"), preserve_action=True)
+            elif event.kind == "tea_party_interact":
+                self.emit_particles("steam")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.HAPPY, now=now, reason="scene_tea_interact", force=True)
+                    key = "playmate_tea_party_interact" if playmate else "subagent_tea_party_interact"
+                    self.say(pick_line(key, "再来一杯热花果茶，点心管够哦～"), preserve_action=True)
+            elif event.kind == "campfire_night":
+                self.emit_particles("sparkles")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.HAPPY, now=now, reason="scene_campfire", force=True)
+                    key = "playmate_campfire_night" if playmate else "subagent_campfire_night"
+                    self.say(pick_line(key, "点起暖暖小篝火，今晚一起烤棉花糖聊八卦吧～"), preserve_action=True)
+            elif event.kind == "campfire_night_interact":
+                self.emit_particles("sparkles")
+                self.emit_particles("steam")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="scene_campfire_interact", force=True)
+                    key = "playmate_campfire_night_interact" if playmate else "subagent_campfire_night_interact"
+                    self.say(pick_line(key, "火苗更旺啦，小心棉花糖别烤焦哦～"), preserve_action=True)
+            elif event.kind == "art_studio":
+                self.emit_particles("notes")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.WAVE, now=now, reason="scene_art_studio", force=True)
+                    key = "playmate_art_studio" if playmate else "subagent_art_studio"
+                    self.say(pick_line(key, "诶？大家支起小画架要给我画肖像吗，那我摆好姿势！"), preserve_action=True)
+            elif event.kind == "art_studio_interact":
+                self.emit_particles("hearts")
+                self.emit_particles("sparkles")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.PET_PURR, now=now, reason="scene_art_interact", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
+                    key = "playmate_art_studio_interact" if playmate else "subagent_art_studio_interact"
+                    self.say(pick_line(key, "哇画得超像我！姐姐要贴在最显眼的地方～"), preserve_action=True)
+            elif event.kind == "cloud_nap":
+                self.emit_particles("sleep_z")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.PET_PURR, now=now, reason="scene_cloud_nap", force=True)
+                    key = "playmate_cloud_nap" if playmate else "subagent_cloud_nap"
+                    self.say(pick_line(key, "软乎乎云朵午睡窝铺好啦，大家团在一起打个盹吧～"), preserve_action=True)
+            elif event.kind == "cloud_nap_interact":
+                self.emit_particles("sleep_z")
+                self.emit_particles("hearts")
+                if can_emote:
+                    self._set_direction("left" if event.side < 0 else "right")
+                    self._request_action(PetAction.PET_PURR, now=now, reason="scene_cloud_interact", force=True)
+                    key = "playmate_cloud_nap_interact" if playmate else "subagent_cloud_nap_interact"
+                    self.say(pick_line(key, "帮大家把星星小被盖严实啦，做个甜梦哦～"), preserve_action=True)
         finally:
             self._handling_clone_interaction = False
 

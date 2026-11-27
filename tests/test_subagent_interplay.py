@@ -657,7 +657,20 @@ class SubagentInterplayManagerTests(unittest.TestCase):
                 rt.next_roam_at = t + 30.0
             mgr._next_group_scene_at = t + 0.02
             mgr.position_around(host, now=t + 0.05, screen=screen)
-            self.assertIn(mgr.active_group_scene, {"clone_train", "clone_wave", "snack_party", "group_huddle"})
+            self.assertIn(
+                mgr.active_group_scene,
+                {
+                    "clone_train",
+                    "clone_wave",
+                    "snack_party",
+                    "group_huddle",
+                    "twin_mirror",
+                    "tea_party",
+                    "campfire_night",
+                    "art_studio",
+                    "cloud_nap",
+                },
+            )
 
             # 6. reduced_motion cleanly ends active group scene and executes calm fallbacks
             mgr.position_around(host, now=t + 0.10, reduced_motion=True, screen=screen)
@@ -862,6 +875,14 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             *(line for pair in sc._TWIN_MIRROR_PAIRS for line in pair),
             *sc._TRIPLET_CHORUS_LINES,
             *sc._MINI_ME_LINES,
+            *sc._TEA_PARTY_LINES,
+            *sc._TEA_CLICK_LINES,
+            *sc._CAMPFIRE_LINES,
+            *sc._CAMPFIRE_CLICK_LINES,
+            *sc._ART_STUDIO_LINES,
+            *sc._ART_CLICK_LINES,
+            *sc._CLOUD_NAP_LINES,
+            *sc._CLOUD_CLICK_LINES,
             *(line for pair in sc._CLONE_CHAT_PAIRS for line in pair),
             *(line for pair in sc._WORK_CHAT_PAIRS for line in pair),
             *(line for _a, _d, _p, lines in sc._HOST_MOOD_RESPONSES.values() for line in lines),
@@ -1126,6 +1147,88 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         self.assertEqual(ev_mini.form_id, "carbon")
         self.assertIn(self.pet.action_machine.current, {PetAction.HIGH_FIVE, PetAction.HAPPY})
         self.assertTrue(bool(self.pet.bubble.text))
+
+    def test_desktop_prop_scenes_time_of_day_painting_click_interact_and_cleanup(self) -> None:
+        from PySide6.QtGui import QImage
+        from pet.scene_props import DESKTOP_SCENE_KINDS, SCENE_SPECS, pick_scene_for_hour
+
+        # 1. Time-of-day automatic scene picker favors afternoon tea & night campfire
+        rng = random.Random(42)
+        afternoon_picks = [pick_scene_for_hour(15, rng) for _ in range(120)]
+        self.assertGreater(afternoon_picks.count("tea_party"), 45)
+        night_picks = [pick_scene_for_hour(22, rng) for _ in range(120)]
+        self.assertGreater(night_picks.count("campfire_night"), 50)
+        morning_picks = set(pick_scene_for_hour(10, rng) for _ in range(120))
+        self.assertTrue({"art_studio", "cloud_nap", "tea_party"}.issubset(morning_picks))
+
+        # 2. Control panel exposes all 4 compact scene launch buttons
+        for kind in DESKTOP_SCENE_KINDS:
+            self.assertIn(kind, self.pet.control_panel.scene_buttons)
+
+        # 3. Manual tea_party launch auto-summons playmates, spawns non-overlapping prop, and responds to clicks!
+        self.pet.dismiss_idle_playmates(now=1100.0)
+        ev_tea = self.pet.start_desktop_scene("tea_party", now=1105.0)
+        assert ev_tea is not None
+        self.assertEqual(ev_tea.kind, "tea_party")
+        self.assertGreaterEqual(self.pet.subagent_clones.active_count, 2)
+        prop = self.pet.subagent_clones.scene_prop_widget
+        assert prop is not None
+        self.assertTrue(prop.isVisible())
+        self.assertEqual(prop.scene_kind, "tea_party")
+        self.assertEqual(self.pet.action_machine.current, PetAction.EATING)
+        # Click prop -> refills tea, increments interact_count, extends duration, updates sister!
+        prev_end = self.pet.subagent_clones._group_scene.ends_at
+        ev_click = self.pet.subagent_clones.interact_scene_prop(now=1112.0)
+        assert ev_click is not None
+        self.assertEqual(ev_click.kind, "tea_party_interact")
+        self.assertEqual(prop.interact_count, 1)
+        self.assertGreater(self.pet.subagent_clones._group_scene.ends_at, prev_end)
+        self.assertTrue(bool(prop.bubble_text))
+        self.assertEqual(self.pet.action_machine.current, PetAction.HAPPY)
+
+        # 4. Render all 4 themed vector props cleanly onto QImage (normal + hovered + reduced_motion)
+        for kind in DESKTOP_SCENE_KINDS:
+            ev_s = self.pet.start_desktop_scene(kind, now=1120.0)
+            assert ev_s is not None
+            self.assertEqual(ev_s.kind, kind)
+            self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1120.2)
+            prop = self.pet.subagent_clones.scene_prop_widget
+            assert prop is not None
+            img = QImage(prop.size(), QImage.Format.Format_ARGB32_Premultiplied)
+            img.fill(0)
+            prop.render(img)
+            # Confirm non-empty rendered vector pixels!
+            self.assertGreater(img.pixelColor(prop.width() // 2, prop.height() - 32).alpha(), 0, kind)
+            self.assertIn(kind, SCENE_SPECS)
+
+        # 5. Art studio uses WORK_DRAWING / WORK_READING; Cloud nap uses SLEEPING / PET_PURR without dismissing playmates!
+        self.pet.start_desktop_scene("art_studio", now=1140.0)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1140.1, reduced_motion=True)
+        art_actions = {w.current_action for w in self.pet.subagent_clones.visible_widgets}
+        self.assertTrue(bool(art_actions & {PetAction.WORK_DRAWING, PetAction.WORK_READING}))
+
+        self.pet.start_desktop_scene("cloud_nap", now=1150.0)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1150.1, reduced_motion=True)
+        nap_actions = {w.current_action for w in self.pet.subagent_clones.visible_widgets}
+        self.assertTrue(bool(nap_actions & {PetAction.SLEEPING, PetAction.PET_PURR}))
+        self.pet._tick_idle_playmates(1150.5)
+        self.assertGreaterEqual(self.pet.subagent_clones.active_count, 2)
+
+        # 6. All scene prop click lines render cleanly without elision inside the prop bubble width
+        from PySide6.QtGui import QFontMetrics
+
+        assert prop is not None
+        pfm = QFontMetrics(prop._bubble_font)
+        prop_max_w = prop.width() - 18
+        for spec in SCENE_SPECS.values():
+            for line in spec.click_lines:
+                self.assertEqual(pfm.elidedText(line, Qt.TextElideMode.ElideRight, prop_max_w), line)
+
+        # 7. Early right-click dismiss hides prop cleanly
+        self.pet.subagent_clones.dismiss_desktop_scene(now=1155.0)
+        self.assertIsNone(self.pet.subagent_clones.active_group_scene)
+        assert self.pet.subagent_clones.scene_prop_widget is not None
+        self.assertFalse(self.pet.subagent_clones.scene_prop_widget.isVisible())
 
 
 if __name__ == "__main__":

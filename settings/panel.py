@@ -57,6 +57,7 @@ class PetControlPanel(QWidget):
         on_hud: Callable[[bool], None] | None = None,
         on_hud_hover_only: Callable[[bool], None] | None = None,
         on_playmates: Callable[[], None] | None = None,
+        on_scene: Callable[[str], None] | None = None,
         on_follow_cursor: Callable[[bool], None] | None = None,
         on_autonomy: Callable[[bool], None] | None = None,
         on_dock: Callable[[], None] | None = None,
@@ -169,6 +170,26 @@ class PetControlPanel(QWidget):
         spatial_row.addWidget(self.perch_button, 2)
         spatial_row.addWidget(self.recall_button, 3)
         layout.addLayout(spatial_row)
+
+        scene_row = QHBoxLayout()
+        scene_row.setSpacing(4)
+        self.scene_buttons: dict[str, QToolButton] = {}
+        for label, kind, tip in (
+            ("茶会", "tea_party", "🫖 摆开奶油下午茶会（左键茶桌续杯，右键收起）"),
+            ("篝火", "campfire_night", "🏕️ 升起暖光小篝火烤棉花糖（左键添柴，右键熄火）"),
+            ("画室", "art_studio", "🎨 支起小画架给姐姐画肖像（左键换新作，右键收起）"),
+            ("午睡", "cloud_nap", "☁️ 铺开云朵午睡窝一起打盹（左键盖小被，右键收起）"),
+        ):
+            btn = self._quick_button(label)
+            btn.setToolTip(tip)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            if on_scene is not None:
+                btn.clicked.connect(lambda _c=False, k=kind: on_scene(k))
+            else:
+                btn.clicked.connect(lambda _c=False: on_action("HAPPY"))
+            self.scene_buttons[kind] = btn
+            scene_row.addWidget(btn)
+        layout.addLayout(scene_row)
 
         layout.addWidget(self._divider())
         mode_row = QHBoxLayout()

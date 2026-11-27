@@ -30,6 +30,7 @@ from agy.telemetry import SubagentInfo
 from animation.asset_registry import AssetRegistry
 from animation.clip import PetAction
 from pet.particles import ParticleSystem
+from pet.scene_props import DESKTOP_SCENE_KINDS, DesktopScenePropWidget, pick_scene_for_hour
 
 MAX_VISIBLE_CLONES = 6
 MAX_ANIMATION_FRAMES = 4
@@ -61,6 +62,9 @@ SNACK_PARTY_DURATION_SECONDS = 6.2
 HUDDLE_DURATION_SECONDS = 5.6
 TWIN_MIRROR_DURATION_SECONDS = 4.6
 MINI_ME_DURATION_SECONDS = 3.2
+DESKTOP_SCENE_DURATION_SECONDS = 14.0
+DESKTOP_SCENE_EXTEND_SECONDS = 8.0
+DESKTOP_SCENE_MAX_DURATION_SECONDS = 28.0
 
 
 def is_playmate_id(conversation_id: str) -> bool:
@@ -268,6 +272,58 @@ _MINI_ME_LINES: tuple[str, ...] = (
     "学 {host} 摆同款姿势！",
 )
 
+_TEA_PARTY_LINES: tuple[str, ...] = (
+    "红茶配草莓超绝！",
+    "{host} 尝尝这块蛋糕",
+    "下午茶最幸福啦～",
+    "花果茶好香呀！",
+)
+
+_TEA_CLICK_LINES: tuple[str, ...] = (
+    "谢谢续杯！好香呀",
+    "哇！又添新点心啦",
+    "草莓蛋糕超甜的～",
+)
+
+_CAMPFIRE_LINES: tuple[str, ...] = (
+    "篝火暖烘烘的～",
+    "棉花糖烤软啦！",
+    "今晚星星真亮呀",
+    "听 {host} 讲故事～",
+)
+
+_CAMPFIRE_CLICK_LINES: tuple[str, ...] = (
+    "好暖和！火更旺啦",
+    "棉花糖烤金黄咯～",
+    "暖呼呼超安心！",
+)
+
+_ART_STUDIO_LINES: tuple[str, ...] = (
+    "画一张 {host} 肖像！",
+    "眼睛画亮晶晶～",
+    "涂上闪亮星光色！",
+    "{host} 别动，快画好",
+)
+
+_ART_CLICK_LINES: tuple[str, ...] = (
+    "锵锵！新作完成～",
+    "这幅 {host} 超可爱",
+    "再来画一幅吧！",
+)
+
+_CLOUD_NAP_LINES: tuple[str, ...] = (
+    "云朵好软…呼呼",
+    "和 {host} 一起打盹",
+    "盖好小被子 Zzz",
+    "软绵绵好舒服呀～",
+)
+
+_CLOUD_CLICK_LINES: tuple[str, ...] = (
+    "被子暖暖的，呼噜",
+    "谢谢盖小被子～",
+    "好软，再睡五分钟",
+)
+
 _CLONE_CHAT_PAIRS: tuple[tuple[str, str], ...] = (
     ("偷偷夸 {host} 一句～", "{host} 超厉害的！"),
     ("分你一半小鱼干～", "哇谢谢，好香呀！"),
@@ -326,6 +382,7 @@ _ACTION_FRAME_INTERVALS: dict[PetAction, float] = {
     PetAction.WORKING: 0.18,
     PetAction.WALKING: 0.16,
     PetAction.EATING: 0.24,
+    PetAction.SLEEPING: 0.34,
 }
 
 
@@ -484,7 +541,7 @@ class _DepartingClone:
 
 @dataclass(slots=True)
 class _GroupScene:
-    kind: str  # clone_train / clone_wave / snack_party / group_huddle / twin_mirror
+    kind: str  # clone_train / clone_wave / snack_party / group_huddle / twin_mirror / tea_party / campfire_night / art_studio / cloud_nap
     started_at: float
     ends_at: float
     order: list[str]
@@ -496,6 +553,7 @@ class _GroupScene:
     finale_fired: bool = False
     next_fx_at: float = 0.0
     is_playmate: bool = False
+    prop_side: int = 1
 
 
 def _compact_text(text: str, max_chars: int = 16) -> str:
@@ -1009,12 +1067,14 @@ class SubagentCloneManager:
         topmost: bool = True,
         on_interaction: Callable[[CloneEvent], None] | None = None,
         rng: random.Random | None = None,
+        hour_provider: Callable[[], int] | None = None,
     ) -> None:
         self._characters_root = Path(characters_root)
         self._base_manifest = Path(base_manifest)
         self._topmost = bool(topmost)
         self._on_interaction = on_interaction
         self._rng = rng or random.Random()
+        self._hour_provider = hour_provider or (lambda: time.localtime().tm_hour)
         self._registries: dict[str, AssetRegistry] = {}
         self._frame_cache: dict[tuple[str, int, bool, PetAction], tuple[QPixmap, ...]] = {}
         self._widgets: list[SubagentCloneWidget] = []
@@ -1037,6 +1097,7 @@ class SubagentCloneManager:
         self._next_relay_at = 0.0
         self._group_scene: _GroupScene | None = None
         self._next_group_scene_at = 0.0
+        self._scene_prop: DesktopScenePropWidget | None = None
 
     def set_host_name(self, name: str, *, form_id: str | None = None) -> None:
         cleaned = (name or "").strip()
@@ -1104,12 +1165,29 @@ class SubagentCloneManager:
     def active_group_scene(self) -> str | None:
         return self._group_scene.kind if self._group_scene is not None else None
 
+    @property
+    def scene_prop_widget(self) -> DesktopScenePropWidget | None:
+        return self._scene_prop
+
+    def _hide_scene_prop(self) -> None:
+        if self._scene_prop is not None and self._scene_prop.isVisible():
+            self._scene_prop.hide()
+
+    def _close_scene_prop(self) -> None:
+        if self._scene_prop is not None:
+            self._scene_prop.hide()
+            self._scene_prop.close()
+            self._scene_prop.deleteLater()
+            self._scene_prop = None
+
     def set_topmost(self, topmost: bool) -> None:
         self._topmost = bool(topmost)
         for widget in self._widgets:
             widget.set_topmost(self._topmost)
         for dep in self._departing:
             dep.widget.set_topmost(self._topmost)
+        if self._scene_prop is not None:
+            self._scene_prop.set_topmost(self._topmost)
 
     def set_scale_from_host(self, host_sprite_height: int) -> None:
         target = max(96, min(216, round(host_sprite_height * CLONE_HOST_SCALE_RATIO)))
@@ -1303,6 +1381,7 @@ class SubagentCloneManager:
         rt = self._runtime.get(info.conversation_id)
         if rt is not None:
             self._group_scene = None
+            self._hide_scene_prop()
             self._clear_roam(rt)
             rt.dragging = True
             rt.pose_action = PetAction.FALLING
@@ -2730,6 +2809,302 @@ class SubagentCloneManager:
         self._emit_event(event)
         return event
 
+    # ----- Interactive desktop prop mini-scenes (tea / campfire / art / cloud nap) --
+
+    def _current_hour(self) -> int:
+        try:
+            return int(self._hour_provider()) % 24
+        except Exception:
+            return time.localtime().tm_hour
+
+    def _ensure_scene_prop(self) -> DesktopScenePropWidget:
+        if self._scene_prop is None:
+            self._scene_prop = DesktopScenePropWidget(
+                topmost=self._topmost,
+                on_click=self._handle_scene_prop_click,
+                on_dismiss=self.dismiss_desktop_scene,
+                rng=self._rng,
+            )
+        return self._scene_prop
+
+    def _handle_scene_prop_click(self, _scene_kind: str) -> None:
+        self.interact_scene_prop()
+
+    def _place_scene_prop(
+        self,
+        host_rect: QRect,
+        area: QRect,
+        keepouts: list[QRect],
+    ) -> tuple[int, int, int, QRect]:
+        prop = self._ensure_scene_prop()
+        pw, ph = prop.width(), prop.height()
+        vis_w, vis_h = prop.visual_size
+        host_vis_left, host_vis_right, _host_vis = self._host_visual_bounds(host_rect)
+        space_left = host_vis_left - area.left()
+        space_right = area.right() - host_vis_right
+        preferred = 1 if space_right >= space_left else -1
+        base_y = max(area.top(), min(host_rect.bottom() - ph - 2, area.bottom() - ph + 1))
+
+        def candidate(side: int) -> tuple[int, int]:
+            if side > 0:
+                cx = host_vis_right + 12 + vis_w // 2
+            else:
+                cx = host_vis_left - 12 - vis_w // 2
+            px = max(area.left(), min(round(cx - pw / 2.0), area.right() - pw + 1))
+            return px, base_y
+
+        chosen_x, chosen_y, chosen_side = 0, base_y, preferred
+        placed = False
+        for side in (preferred, -preferred):
+            px, py = candidate(side)
+            if not any(QRect(px, py, pw, ph).intersects(kz) for kz in keepouts):
+                chosen_x, chosen_y = px, py
+                chosen_side = 1 if (px + pw // 2) >= host_rect.center().x() else -1
+                placed = True
+                break
+        if not placed:
+            chosen_x, chosen_y = candidate(preferred)
+            if keepouts:
+                chosen_y = max(area.top(), min(max(kz.bottom() for kz in keepouts) + 8, area.bottom() - ph + 1))
+            chosen_side = 1 if (chosen_x + pw // 2) >= host_rect.center().x() else -1
+        vis_rect = QRect(
+            chosen_x + (pw - vis_w) // 2 - 4,
+            chosen_y + ph - vis_h - 16,
+            vis_w + 8,
+            vis_h + 12,
+        )
+        return chosen_x, chosen_y, chosen_side, vis_rect
+
+    def _compute_prop_scene_targets(
+        self,
+        indices: list[int],
+        host_rect: QRect,
+        prop_vis_rect: QRect,
+        prop_side: int,
+        area: QRect,
+        keepouts: list[QRect],
+    ) -> dict[str, tuple[float, float]]:
+        """Seat clones right across the scene prop from sister and flanking sister with zero overlap."""
+        host_vis_left, host_vis_right, host_vis_rect = self._host_visual_bounds(host_rect)
+        placed: list[QRect] = [prop_vis_rect]
+        targets: dict[str, tuple[float, float]] = {}
+        remaining: list[int] = list(indices)
+
+        if remaining:
+            first_idx = remaining[0]
+            w0 = self._widgets[first_idx]
+            vis_w, vis_h = w0.visual_sprite_size
+            cx = (prop_vis_rect.right() + 10 + vis_w // 2) if prop_side > 0 else (prop_vis_rect.left() - 10 - vis_w // 2)
+            px = max(area.left(), min(round(cx - w0.width() / 2.0), area.right() - w0.width() + 1))
+            py = max(area.top(), min(host_rect.bottom() - w0.height() - 6, area.bottom() - w0.height() + 1))
+            vr = self._clone_visual_rect(px, py, w0.width(), w0.height(), vis_w, vis_h)
+            if (
+                not any(QRect(px, py, w0.width(), w0.height()).intersects(kz) for kz in keepouts)
+                and not vr.intersects(host_vis_rect)
+                and not vr.intersects(prop_vis_rect)
+            ):
+                placed.append(vr)
+                targets[self._entries[first_idx][0].conversation_id] = (float(px), float(py))
+                remaining = remaining[1:]
+
+        for slot_idx, idx in enumerate(remaining):
+            widget = self._widgets[idx]
+            info = self._entries[idx][0]
+            vis_w, vis_h = widget.visual_sprite_size
+            px, py, _side, vrect = self._place_clone_slot(
+                idx=slot_idx,
+                widget_w=widget.width(),
+                widget_h=widget.height(),
+                vis_w=vis_w,
+                vis_h=vis_h,
+                host_rect=host_rect,
+                host_vis_left=host_vis_left,
+                host_vis_right=host_vis_right,
+                host_vis_rect=host_vis_rect,
+                area=area,
+                keepouts=keepouts,
+                placed_visual_rects=placed,
+                sway_x=0.0,
+            )
+            placed.append(vrect)
+            targets[info.conversation_id] = (float(px), float(py))
+        return targets
+
+    def _scene_clone_pose_and_fx(self, scene_kind: str, rank: int) -> tuple[PetAction, str, tuple[str, ...]]:
+        if scene_kind == "tea_party":
+            pose = PetAction.EATING if rank % 2 == 0 else PetAction.HAPPY
+            return pose, "steam", _TEA_PARTY_LINES
+        if scene_kind == "campfire_night":
+            pose = PetAction.HAPPY if rank % 2 == 0 else PetAction.EATING
+            return pose, "sparkles", _CAMPFIRE_LINES
+        if scene_kind == "art_studio":
+            pose = PetAction.WORK_DRAWING if rank != 1 else PetAction.WORK_READING
+            return pose, "notes", _ART_STUDIO_LINES
+        pose = PetAction.SLEEPING if rank % 2 == 0 else PetAction.PET_PURR
+        return pose, "sleep_z", _CLOUD_NAP_LINES
+
+    def trigger_desktop_scene(
+        self,
+        scene_kind: str | None = None,
+        *,
+        now: float | None = None,
+        hour: int | None = None,
+    ) -> CloneEvent | None:
+        """Spawn a themed interactive desktop prop scene (tea / campfire / art / cloud nap)."""
+        free = self._free_clone_indices()
+        if not free:
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        chosen_kind = (
+            scene_kind
+            if scene_kind in DESKTOP_SCENE_KINDS
+            else pick_scene_for_hour(self._current_hour() if hour is None else int(hour), self._rng)
+        )
+        host_rect = self._last_host_rect or QRect(860, 500, 180, 220)
+        area = self._last_area or QRect(0, 0, 1920, 1080)
+        keepouts = self._last_keepouts
+        px, py, prop_side, prop_vis_rect = self._place_scene_prop(host_rect, area, keepouts)
+        prop = self._ensure_scene_prop()
+        prop.configure(
+            chosen_kind,
+            accent=_ACCENTS.get(self._host_form, "#c084fc"),
+            now=ts,
+            reduced_motion=self._last_reduced_motion,
+        )
+        prop.move(px, py)
+        if self._enabled and self._host_visible and (self._last_dock_edge or "").strip().lower() not in ("left", "right"):
+            prop.show()
+
+        targets = self._compute_prop_scene_targets(free, host_rect, prop_vis_rect, prop_side, area, keepouts)
+        order = [self._entries[i][0].conversation_id for i in free]
+        playmate = any(is_playmate_id(cid) for cid in order)
+        scene = _GroupScene(
+            kind=chosen_kind,
+            started_at=ts,
+            ends_at=ts + DESKTOP_SCENE_DURATION_SECONDS,
+            order=order,
+            targets=targets,
+            next_fx_at=ts + 2.4,
+            is_playmate=playmate,
+            prop_side=prop_side,
+        )
+        prop_cx = px + prop.width() / 2.0
+        speakers = 0
+        for rank, idx in enumerate(free):
+            cid = self._entries[idx][0].conversation_id
+            widget = self._widgets[idx]
+            rt = self._runtime.setdefault(
+                cid,
+                self._make_runtime(ts, -1 if idx % 2 == 0 else 1, playmate=is_playmate_id(cid)),
+            )
+            tx, ty = targets[cid]
+            dist = math.hypot(widget.x() - tx, widget.y() - ty)
+            pose, particle, lines = self._scene_clone_pose_and_fx(chosen_kind, rank)
+            if self._last_reduced_motion or dist <= 28.0:
+                scene.step_fired.add(cid)
+                self._pause_roam(rt, ts, hold=DESKTOP_SCENE_DURATION_SECONDS)
+                rt.roam_pos = [tx, ty]
+                if not self._last_reduced_motion:
+                    widget.move(round(tx), round(ty))
+                rt.pose_action = pose
+                rt.pose_until = scene.ends_at
+                rt.face_dir_until = scene.ends_at
+                rt.face_mirrored = (tx + widget.width() / 2.0) > prop_cx
+                widget.emit_particles(particle, reduced_motion=self._last_reduced_motion)
+                if speakers < 2:
+                    speakers += 1
+                    widget.say(self._format_line(lines[rank % len(lines)]), now=ts, duration=3.0)
+            else:
+                rt.pose_action = None
+                rt.pose_until = 0.0
+                rt.roam_mode = "walking"
+                rt.roam_pos = [float(widget.x()), float(widget.y())]
+                rt.roam_target = (tx, ty)
+                rt.walk_facing = 1 if tx >= widget.x() else -1
+                widget.emit_particles("sparkles", reduced_motion=False)
+
+        self._group_scene = scene
+        self._next_group_scene_at = max(self._next_group_scene_at, scene.ends_at + 14.0)
+        lead_idx = free[0]
+        lead_info, lead_form, lead_badge = self._entries[lead_idx]
+        event = CloneEvent(
+            kind=chosen_kind,
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=chosen_kind,
+            side=prop_side,
+            text=self._format_line(self._scene_clone_pose_and_fx(chosen_kind, 0)[2][0]),
+            is_playmate=playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def interact_scene_prop(self, *, now: float | None = None) -> CloneEvent | None:
+        """Handle user left-clicking the active desktop scene prop (refill tea / stoke fire / new portrait / tuck blanket)."""
+        scene = self._group_scene
+        if scene is None or scene.kind not in DESKTOP_SCENE_KINDS or self._scene_prop is None:
+            return None
+        ts = time.monotonic() if now is None else float(now)
+        prop_line = self._scene_prop.trigger_interact(now=ts)
+        max_end = scene.started_at + DESKTOP_SCENE_MAX_DURATION_SECONDS
+        scene.ends_at = min(max_end, max(scene.ends_at, ts + DESKTOP_SCENE_EXTEND_SECONDS))
+        self._next_group_scene_at = max(self._next_group_scene_at, scene.ends_at + 14.0)
+
+        click_pools: dict[str, tuple[PetAction, str, tuple[str, ...]]] = {
+            "tea_party": (PetAction.HAPPY, "hearts", _TEA_CLICK_LINES),
+            "campfire_night": (PetAction.CELEBRATE, "sparkles", _CAMPFIRE_CLICK_LINES),
+            "art_studio": (PetAction.CELEBRATE, "notes", _ART_CLICK_LINES),
+            "cloud_nap": (PetAction.PET_PURR, "sleep_z", _CLOUD_CLICK_LINES),
+        }
+        pose, particle, lines = click_pools.get(scene.kind, click_pools["tea_party"])
+        free = self._free_clone_indices()
+        if not free:
+            return None
+        speaker_idx = self._rng.choice(free)
+        for idx in free:
+            cid = self._entries[idx][0].conversation_id
+            rt = self._runtime.get(cid)
+            widget = self._widgets[idx]
+            if rt is not None and not rt.dragging:
+                rt.pose_action = pose
+                rt.pose_until = max(rt.pose_until, min(scene.ends_at, ts + 3.2))
+                rt.hop_started_at = ts
+                rt.hop_duration = 0.38
+                rt.hop_height = 6.5 if scene.kind == "cloud_nap" else 11.0
+            widget.emit_particles(particle, reduced_motion=self._last_reduced_motion)
+            if idx == speaker_idx:
+                widget.say(self._format_line(self._rng.choice(lines)), now=ts, duration=2.6)
+
+        lead_info, lead_form, lead_badge = self._entries[speaker_idx]
+        event = CloneEvent(
+            kind=f"{scene.kind}_interact",
+            conversation_id=lead_info.conversation_id,
+            form_id=lead_form,
+            badge=lead_badge,
+            title=str(self._scene_prop.interact_count),
+            side=scene.prop_side,
+            text=prop_line,
+            is_playmate=scene.is_playmate,
+        )
+        self._emit_event(event)
+        return event
+
+    def dismiss_desktop_scene(self, *, now: float | None = None) -> None:
+        """Pack up the active desktop scene prop early (right-click or external cancel)."""
+        ts = time.monotonic() if now is None else float(now)
+        scene = self._group_scene
+        self._hide_scene_prop()
+        if scene is not None and scene.kind in DESKTOP_SCENE_KINDS:
+            for cid in scene.order:
+                rt = self._runtime.get(cid)
+                if rt is not None and not rt.dragging:
+                    rt.pose_action = PetAction.WAVE
+                    rt.pose_until = ts + 1.1
+                    rt.next_roam_at = ts + self._rng.uniform(4.5, 8.0)
+            self._group_scene = None
+            self._next_group_scene_at = max(self._next_group_scene_at, ts + 16.0)
+
     def _tick_group_scene(
         self,
         host_rect: QRect,
@@ -3000,6 +3375,92 @@ class SubagentCloneManager:
                 self._group_scene = None
             return walk_overrides
 
+        if scene.kind in DESKTOP_SCENE_KINDS:
+            if now >= scene.ends_at:
+                self.dismiss_desktop_scene(now=now)
+                return {}
+            px, py, prop_side, prop_vis_rect = self._place_scene_prop(host_rect, area, keepouts)
+            scene.prop_side = prop_side
+            prop = self._ensure_scene_prop()
+            if (prop.x(), prop.y()) != (px, py):
+                prop.move(px, py)
+            age = max(0.0, now - scene.started_at)
+            rem = max(0.0, scene.ends_at - now)
+            if reduced_motion:
+                prop_scale = 1.0
+                prop_opacity = 1.0
+            elif age < 0.42:
+                st = age / 0.42
+                prop_scale = 0.45 + 0.55 * (1.0 - (1.0 - st) ** 3) + 0.08 * math.sin(st * math.pi)
+                prop_opacity = min(1.0, 0.25 + st * 1.1)
+            elif rem < 0.45:
+                prop_scale = 0.86 + 0.14 * (rem / 0.45)
+                prop_opacity = max(0.0, rem / 0.45)
+            else:
+                prop_scale = 1.0
+                prop_opacity = 1.0
+            prop.tick(dt, now=now, opacity=prop_opacity, scale=prop_scale, reduced_motion=reduced_motion)
+            if not prop.isVisible() and self._enabled and self._host_visible:
+                prop.show()
+
+            active_indices = [cid_to_index[cid] for cid in active_order]
+            fresh_targets = self._compute_prop_scene_targets(
+                active_indices, host_rect, prop_vis_rect, prop_side, area, keepouts
+            )
+            scene.targets.update(fresh_targets)
+            prop_cx = px + prop.width() / 2.0
+            for rank, cid in enumerate(active_order):
+                idx = cid_to_index[cid]
+                widget = self._widgets[idx]
+                rt = self._runtime[cid]
+                pose, particle, lines = self._scene_clone_pose_and_fx(scene.kind, rank)
+                if cid in scene.step_fired:
+                    if rt.pose_action is None or now >= rt.pose_until:
+                        rt.pose_action = pose
+                        rt.pose_until = scene.ends_at
+                    rt.face_dir_until = scene.ends_at
+                    rt.face_mirrored = (widget.x() + widget.width() / 2.0) > prop_cx
+                    continue
+                if rt.roam_pos is None:
+                    rt.roam_pos = [float(widget.x()), float(widget.y())]
+                tx, ty = scene.targets[cid]
+                dx = tx - rt.roam_pos[0]
+                dy = ty - rt.roam_pos[1]
+                dist = math.hypot(dx, dy)
+                step = rt.roam_speed * 1.55 * max(0.016, dt)
+                if reduced_motion or dist <= max(8.0, step):
+                    scene.step_fired.add(cid)
+                    cx, cy = clamp_step(tx, ty, widget.width(), widget.height())
+                    rt.roam_pos = [cx, cy]
+                    rt.roam_mode = "paused"
+                    rt.roam_until = scene.ends_at
+                    rt.pose_action = pose
+                    rt.pose_until = scene.ends_at
+                    rt.face_dir_until = scene.ends_at
+                    rt.face_mirrored = (cx + widget.width() / 2.0) > prop_cx
+                    widget.emit_particles(particle, reduced_motion=reduced_motion)
+                    if len(scene.step_fired) <= 2:
+                        widget.say(self._format_line(lines[rank % len(lines)]), now=now, duration=3.0)
+                else:
+                    facing = 1 if dx >= 0 else -1
+                    nx, ny = clamp_step(
+                        rt.roam_pos[0] + (dx / dist) * step,
+                        rt.roam_pos[1] + (dy / dist) * step,
+                        widget.width(),
+                        widget.height(),
+                    )
+                    walk_overrides[cid] = (nx, ny, facing)
+
+            if not reduced_motion and now >= scene.next_fx_at and active_order:
+                scene.next_fx_at = now + self._rng.uniform(2.8, 4.4)
+                pick_rank = self._rng.randrange(len(active_order))
+                pick_idx = cid_to_index[active_order[pick_rank]]
+                _pose, particle, lines = self._scene_clone_pose_and_fx(scene.kind, pick_rank)
+                self._widgets[pick_idx].emit_particles(particle, reduced_motion=False)
+                if self._rng.random() < 0.65:
+                    self._widgets[pick_idx].say(self._format_line(self._rng.choice(lines)), now=now, duration=2.8)
+            return walk_overrides
+
         return {}
 
     def notify_host_action(
@@ -3082,6 +3543,7 @@ class SubagentCloneManager:
         self._host_visible = bool(host_visible)
         if not self._enabled or not self._host_visible:
             self._group_scene = None
+            self._hide_scene_prop()
             self._entries = []
             self._runtime.clear()
             self._fade = 0.0
@@ -3150,6 +3612,7 @@ class SubagentCloneManager:
 
         if not shown:
             self._group_scene = None
+            self._hide_scene_prop()
             self._entries = []
             self._runtime.clear()
             self._fade = 0.0
@@ -3499,6 +3962,7 @@ class SubagentCloneManager:
 
         if (dock_edge or "").strip().lower() in ("left", "right"):
             self._group_scene = None
+            self._hide_scene_prop()
             self._fade = 0.0
             self._clear_departing()
             for widget in self._widgets:
@@ -3509,6 +3973,7 @@ class SubagentCloneManager:
         self._tick_departing(host_rect, now=now, dt=dt, reduced_motion=reduced_motion)
         if not self._entries:
             self._group_scene = None
+            self._hide_scene_prop()
             return
 
         self._fade = 1.0 if reduced_motion else min(1.0, max(0.22, self._fade + 0.14))
@@ -4035,30 +4500,37 @@ class SubagentCloneManager:
                     self._next_group_scene_at = now + (
                         self._rng.uniform(18.0, 28.0) if any_playmate else self._rng.uniform(30.0, 46.0)
                     )
-                    pool = (
-                        ["clone_train", "clone_wave", "snack_party", "group_huddle"]
-                        if any_playmate
-                        else ["clone_wave", "snack_party"]
-                    )
-                    if self._same_form_groups():
-                        pool.extend(["twin_mirror", "twin_mirror"])
-                    if any_playmate and self._host_form_clone_indices():
-                        pool.append("mini_me_mimic")
-                    pick = self._rng.choice(pool)
-                    if pick == "clone_train":
-                        self.trigger_clone_train(now=now)
-                    elif pick == "clone_wave":
-                        self.trigger_clone_wave(now=now)
-                    elif pick == "snack_party":
-                        self.trigger_snack_party(now=now)
-                    elif pick == "twin_mirror":
-                        self.trigger_twin_mirror(now=now)
-                    elif pick == "mini_me_mimic":
-                        self.trigger_mini_me_mimic(now=now)
+                    if any_playmate and self._rng.random() < 0.42:
+                        self.trigger_desktop_scene(now=now)
                     else:
-                        self.trigger_group_huddle(now=now)
+                        pool = (
+                            ["clone_train", "clone_wave", "snack_party", "group_huddle"]
+                            if any_playmate
+                            else ["clone_wave", "snack_party"]
+                        )
+                        if self._same_form_groups():
+                            pool.extend(["twin_mirror", "twin_mirror"])
+                        if any_playmate and self._host_form_clone_indices():
+                            pool.append("mini_me_mimic")
+                        pick = self._rng.choice(pool)
+                        if pick == "clone_train":
+                            self.trigger_clone_train(now=now)
+                        elif pick == "clone_wave":
+                            self.trigger_clone_wave(now=now)
+                        elif pick == "snack_party":
+                            self.trigger_snack_party(now=now)
+                        elif pick == "twin_mirror":
+                            self.trigger_twin_mirror(now=now)
+                        elif pick == "mini_me_mimic":
+                            self.trigger_mini_me_mimic(now=now)
+                        else:
+                            self.trigger_group_huddle(now=now)
         elif count < 2:
             self._next_group_scene_at = 0.0
+
+        # Keep prop hidden whenever no desktop prop scene is running
+        if self._group_scene is None or self._group_scene.kind not in DESKTOP_SCENE_KINDS:
+            self._hide_scene_prop()
 
         # Periodic collaborative banter (paused while a choreographed multi-pet scene is running)
         if self._group_scene is None and self._next_relay_at > 0 and now >= self._next_relay_at:
@@ -4095,6 +4567,7 @@ class SubagentCloneManager:
     def close_all(self) -> None:
         self._group_scene = None
         self._next_group_scene_at = 0.0
+        self._close_scene_prop()
         self._clear_departing()
         for widget in self._widgets:
             widget.hide()

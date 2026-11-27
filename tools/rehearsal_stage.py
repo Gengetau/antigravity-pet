@@ -103,6 +103,24 @@ class RehearsalStage(QWidget):
         sub_col.addLayout(interplay_grid)
         root.addWidget(sub_box)
 
+        # Desktop interactive scene props (clickable!)
+        scene_box = QGroupBox("桌面互动场景（左键点道具互动 · 右键收起）")
+        scene_grid = QGridLayout(scene_box)
+        for idx, (label, fn) in enumerate(
+            (
+                ("🫖 下午茶会", lambda: self.pet.start_desktop_scene("tea_party")),
+                ("🏕️ 篝火夜话", lambda: self.pet.start_desktop_scene("campfire_night")),
+                ("🎨 桌面小画室", lambda: self.pet.start_desktop_scene("art_studio")),
+                ("☁️ 云朵午睡窝", lambda: self.pet.start_desktop_scene("cloud_nap")),
+                ("🕒 按时段开一场", lambda: self.pet.start_desktop_scene(None)),
+                ("👆 点道具互动", lambda: self.pet.subagent_clones.interact_scene_prop()),
+            )
+        ):
+            btn = QPushButton(label)
+            btn.clicked.connect(lambda _c=False, cb=fn: cb())
+            scene_grid.addWidget(btn, idx // 3, idx % 3)
+        root.addWidget(scene_box)
+
         # Particles
         fx_box = QGroupBox("矢量粒子特效")
         fx_grid = QGridLayout(fx_box)
