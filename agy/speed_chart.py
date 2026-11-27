@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import tr
 from . import speed_stats
 from .speed_stats import SpeedGroup, TrendPoint
 
@@ -103,7 +104,7 @@ class SpeedBarChart(QWidget):
         self._row_rects = []
         if not self._groups:
             painter.setPen(text_muted)
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "当前筛选范围内暂无可用速度数据")
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, tr("speed.empty_bar"))
             return
 
         w = float(self.width())
@@ -160,7 +161,7 @@ class SpeedBarChart(QWidget):
                 painter.setBrush(badge_bg)
                 painter.drawRoundedRect(badge_rect, 5, 5)
                 painter.setPen(badge_fg)
-                painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, "样本少")
+                painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, tr("speed.low_sample"))
                 painter.setFont(font)
                 painter.setPen(text_main)
                 painter.drawText(
@@ -183,12 +184,14 @@ class SpeedBarChart(QWidget):
         for idx, (rect, group) in enumerate(self._row_rects):
             if rect.contains(pos):
                 hit = idx
-                tip = (
-                    f"{group.label}\n"
-                    f"样本数: {group.sample_count}{'（样本少）' if group.low_sample else ''}\n"
-                    f"时间范围: {_format_span(group.first_ms, group.last_ms)}\n"
-                    f"输出 tokens 中位数: {group.median_output_tokens:,}\n"
-                    f"输入 tokens 中位数: {group.median_input_tokens:,}"
+                tip = tr(
+                    "speed.tip_bar",
+                    label=group.label,
+                    count=group.sample_count,
+                    low=tr("speed.tip_low_suffix") if group.low_sample else "",
+                    span=_format_span(group.first_ms, group.last_ms),
+                    out=group.median_output_tokens,
+                    inp=group.median_input_tokens,
                 )
                 QToolTip.showText(event.globalPosition().toPoint(), tip, self)
                 break
@@ -252,7 +255,7 @@ class SpeedTrendChart(QWidget):
         self._coords = []
         if not self._points:
             painter.setPen(text_muted)
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "选择上方模型后显示最近请求趋势")
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, tr("speed.empty_trend"))
             return
 
         left, right, top, bottom = 54.0, 18.0, 18.0, 28.0
@@ -353,7 +356,7 @@ class SpeedTrendChart(QWidget):
         if best_idx >= 0:
             _coord, pt = self._coords[best_idx]
             ts = datetime.fromtimestamp(pt.created_ms / 1000.0).strftime("%m-%d %H:%M:%S") if pt.created_ms else "—"
-            tip = f"{ts}\n{_format_metric(self._metric, pt.value)}\n输出 {pt.output_tokens:,} · 输入 {pt.input_tokens:,}"
+            tip = tr("speed.tip_trend", ts=ts, val=_format_metric(self._metric, pt.value), out=pt.output_tokens, inp=pt.input_tokens)
             QToolTip.showText(event.globalPosition().toPoint(), tip, self)
         else:
             QToolTip.hideText()
@@ -392,13 +395,15 @@ class SpeedComparisonView(QScrollArea):
         win_layout.setContentsMargins(3, 3, 3, 3)
         win_layout.setSpacing(2)
         self.window_group = QButtonGroup(self)
-        for key, label in ((7, "近 7 天"), (30, "近 30 天"), (0, "全部")):
-            btn = QPushButton(label)
+        self._win_buttons: dict[int, QPushButton] = {}
+        for key in (7, 30, 0):
+            btn = QPushButton(tr(f"speed.win.{key}"))
             btn.setCheckable(True)
             btn.setObjectName("modeButton")
             btn.setProperty("windowDays", key)
             self.window_group.addButton(btn)
             win_layout.addWidget(btn)
+            self._win_buttons[key] = btn
             if key == 7:
                 btn.setChecked(True)
         filters.addWidget(win_pill)
@@ -410,13 +415,15 @@ class SpeedComparisonView(QScrollArea):
         src_layout.setContentsMargins(3, 3, 3, 3)
         src_layout.setSpacing(2)
         self.source_group = QButtonGroup(self)
-        for key, label in (("all", "全部来源"), ("main", "主对话"), ("subagent", "子代理")):
-            btn = QPushButton(label)
+        self._src_buttons: dict[str, QPushButton] = {}
+        for key in ("all", "main", "subagent"):
+            btn = QPushButton(tr(f"speed.src.{key}"))
             btn.setCheckable(True)
             btn.setObjectName("modeButton")
             btn.setProperty("sourceFilter", key)
             self.source_group.addButton(btn)
             src_layout.addWidget(btn)
+            self._src_buttons[key] = btn
             if key == "all":
                 btn.setChecked(True)
         filters.addWidget(src_pill)
@@ -429,7 +436,7 @@ class SpeedComparisonView(QScrollArea):
         c_layout.setContentsMargins(16, 14, 16, 14)
         c_layout.setSpacing(10)
         c_head = QHBoxLayout()
-        self.compare_title = QLabel("输出速度对比")
+        self.compare_title = QLabel(tr("speed.title.speed"))
         self.compare_title.setObjectName("sectionTitle")
         c_head.addWidget(self.compare_title)
         c_head.addStretch(1)
@@ -440,13 +447,15 @@ class SpeedComparisonView(QScrollArea):
         m_layout.setContentsMargins(3, 3, 3, 3)
         m_layout.setSpacing(2)
         self.metric_group = QButtonGroup(self)
-        for key, label in (("speed", "输出速度"), ("ttft", "首字延迟"), ("duration", "总耗时")):
-            btn = QPushButton(label)
+        self._metric_buttons: dict[str, QPushButton] = {}
+        for key in ("speed", "ttft", "duration"):
+            btn = QPushButton(tr(f"speed.metric.{key}"))
             btn.setCheckable(True)
             btn.setObjectName("modeButton")
             btn.setProperty("metricKey", key)
             self.metric_group.addButton(btn)
             m_layout.addWidget(btn)
+            self._metric_buttons[key] = btn
             if key == "speed":
                 btn.setChecked(True)
         c_head.addWidget(metric_pill)
@@ -454,7 +463,7 @@ class SpeedComparisonView(QScrollArea):
 
         self.bar_chart = SpeedBarChart()
         c_layout.addWidget(self.bar_chart)
-        self.compare_note = QLabel("以各模型与档位的中位数统计；不足 3 条标注“样本少”。总耗时受输出长度影响，条件相近时才可比较。")
+        self.compare_note = QLabel(tr("speed.note"))
         self.compare_note.setObjectName("muted")
         self.compare_note.setWordWrap(True)
         c_layout.addWidget(self.compare_note)
@@ -467,11 +476,11 @@ class SpeedComparisonView(QScrollArea):
         t_layout.setContentsMargins(16, 14, 16, 14)
         t_layout.setSpacing(10)
         t_head = QHBoxLayout()
-        trend_title = QLabel("单模型速度趋势")
-        trend_title.setObjectName("sectionTitle")
+        self._trend_title = QLabel(tr("speed.trend_title"))
+        self._trend_title.setObjectName("sectionTitle")
         self.model_combo = QComboBox()
         self.model_combo.setMinimumWidth(240)
-        t_head.addWidget(trend_title)
+        t_head.addWidget(self._trend_title)
         t_head.addStretch(1)
         t_head.addWidget(self.model_combo)
         t_layout.addLayout(t_head)
@@ -487,6 +496,17 @@ class SpeedComparisonView(QScrollArea):
         self.metric_group.buttonClicked.connect(lambda _b: self._refresh())
         self.model_combo.currentIndexChanged.connect(lambda _i: self._refresh_trend())
         self.bar_chart.model_selected.connect(self._select_model)
+
+    def retranslate(self) -> None:
+        for key, btn in self._win_buttons.items():
+            btn.setText(tr(f"speed.win.{key}"))
+        for key, btn in self._src_buttons.items():
+            btn.setText(tr(f"speed.src.{key}"))
+        for key, btn in self._metric_buttons.items():
+            btn.setText(tr(f"speed.metric.{key}"))
+        self.compare_note.setText(tr("speed.note"))
+        self._trend_title.setText(tr("speed.trend_title"))
+        self._refresh()
 
     def _on_source_clicked(self, button: QPushButton) -> None:
         self._refresh()
@@ -528,8 +548,7 @@ class SpeedComparisonView(QScrollArea):
 
     def _refresh(self) -> None:
         metric = self._metric()
-        titles = {"speed": "输出速度对比", "ttft": "首字延迟对比", "duration": "总耗时对比"}
-        self.compare_title.setText(titles.get(metric, "输出速度对比"))
+        self.compare_title.setText(tr(f"speed.title.{metric}"))
         groups = speed_stats.compute_speed_groups(
             self._conversations,
             metric=metric,

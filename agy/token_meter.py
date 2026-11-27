@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import tr
 from . import pricing, speed_stats
 from .speed_chart import SpeedComparisonView
 from .telemetry import LiveSnapshot, MeterReport, build_model_rows, format_reset_countdown, format_tokens
@@ -159,6 +160,7 @@ class _Card(QFrame):
         layout.setSpacing(2)
         caption = QLabel(title)
         caption.setObjectName("cardTitle")
+        self.title_label = caption
         self.value = QLabel("—")
         self.value.setObjectName("cardValue")
         self.value.setStyleSheet(f"color:{accent};")
@@ -192,7 +194,7 @@ class TokenMeterWindow(QWidget):
         on_default_tab_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(None, Qt.WindowType.Window)
-        self.setWindowTitle("Token Meter · Antigravity 监控看板")
+        self.setWindowTitle(tr("meter.win_title"))
         if icon is not None:
             self.setWindowIcon(icon)
         self.resize(1060, 760)
@@ -218,22 +220,22 @@ class TokenMeterWindow(QWidget):
         # Top header bar
         header = QHBoxLayout()
         header.setSpacing(10)
-        title = QLabel("本机已记录用量 · Token Meter")
-        title.setObjectName("title")
-        header.addWidget(title)
-        self.source = QLabel("正在连接…")
+        self._title_lbl = QLabel(tr("meter.title"))
+        self._title_lbl.setObjectName("title")
+        header.addWidget(self._title_lbl)
+        self.source = QLabel(tr("meter.connecting"))
         self.source.setObjectName("badge")
         header.addWidget(self.source)
         header.addStretch(1)
         self.updated = QLabel("")
         self.updated.setObjectName("muted")
         header.addWidget(self.updated)
-        self.theme_btn = QPushButton("🌙 深色")
+        self.theme_btn = QPushButton(tr("meter.theme.dark"))
         self.theme_btn.clicked.connect(self._toggle_theme)
         header.addWidget(self.theme_btn)
-        refresh = QPushButton("刷新")
-        refresh.clicked.connect(on_request_report)
-        header.addWidget(refresh)
+        self._refresh_btn = QPushButton(tr("meter.refresh"))
+        self._refresh_btn.clicked.connect(on_request_report)
+        header.addWidget(self._refresh_btn)
         body_layout.addLayout(header)
 
         # Sub-navigation pills & "设为默认"
@@ -246,8 +248,8 @@ class TokenMeterWindow(QWidget):
         np_layout.setSpacing(3)
         self.nav_group = QButtonGroup(self)
         self._tab_buttons: dict[str, QPushButton] = {}
-        for index, (tab_key, tab_label) in enumerate(TAB_ITEMS):
-            btn = QPushButton(tab_label)
+        for index, (tab_key, _tab_label) in enumerate(TAB_ITEMS):
+            btn = QPushButton(tr(f"meter.tab.{tab_key}"))
             btn.setCheckable(True)
             btn.setObjectName("navButton")
             btn.setProperty("tabKey", tab_key)
@@ -258,12 +260,12 @@ class TokenMeterWindow(QWidget):
         nav_row.addWidget(nav_pill)
         nav_row.addStretch(1)
 
-        self.subagents = QCheckBox("合并子代理")
+        self.subagents = QCheckBox(tr("meter.merge_subagents"))
         self.subagents.setChecked(True)
         self.subagents.setVisible(False)  # kept synced for external caller compatibility
         self.subagents.toggled.connect(on_toggle_subagents)
 
-        self.default_btn = QPushButton("设为默认")
+        self.default_btn = QPushButton(tr("meter.set_default"))
         self.default_btn.clicked.connect(self._save_default_tab)
         nav_row.addWidget(self.default_btn)
         body_layout.addLayout(nav_row)
@@ -273,28 +275,32 @@ class TokenMeterWindow(QWidget):
         sb_layout = QHBoxLayout(self.scope_bar)
         sb_layout.setContentsMargins(0, 2, 0, 2)
         sb_layout.setSpacing(10)
-        sb_layout.addWidget(self._muted("来源："))
+        self._src_lbl = self._muted(tr("meter.scope.source"))
+        sb_layout.addWidget(self._src_lbl)
         src_pill = QFrame()
         src_pill.setObjectName("pillGroup")
         sp_layout = QHBoxLayout(src_pill)
         sp_layout.setContentsMargins(3, 3, 3, 3)
         sp_layout.setSpacing(2)
         self.scope_source_group = QButtonGroup(self)
-        for key, label in (("all", "全部"), ("main", "主对话"), ("subagent", "子代理")):
-            btn = QPushButton(label)
+        self._scope_buttons: dict[str, QPushButton] = {}
+        for key in ("all", "main", "subagent"):
+            btn = QPushButton(tr(f"meter.scope.{key}"))
             btn.setCheckable(True)
             btn.setObjectName("modeButton")
             btn.setProperty("sourceFilter", key)
             self.scope_source_group.addButton(btn)
             sp_layout.addWidget(btn)
+            self._scope_buttons[key] = btn
             if key == "all":
                 btn.setChecked(True)
         sb_layout.addWidget(src_pill)
 
         sb_layout.addSpacing(8)
-        sb_layout.addWidget(self._muted("账本范围："))
+        self._ledger_lbl = self._muted(tr("meter.scope.ledger"))
+        sb_layout.addWidget(self._ledger_lbl)
         self.account_box = QComboBox()
-        self.account_box.addItem("全部已记用量（含未归属）", "all")
+        self.account_box.addItem(tr("meter.account.all"), "all")
         self.account_box.setMinimumWidth(210)
         sb_layout.addWidget(self.account_box)
         self.account_meta = self._muted("")
@@ -316,9 +322,13 @@ class TokenMeterWindow(QWidget):
         mc_layout = QVBoxLayout(models_card)
         mc_layout.setContentsMargins(12, 10, 12, 10)
         mc_layout.setSpacing(8)
-        self.models = self._table(
-            ("模型", "总 Token", "占比", "输入", "缓存读", "思考", "正文", "缓存命中", "等效费用", "流式 tok/s", "峰值", "端到端", "TTFT", "步数")
+        self._model_header_keys = (
+            "meter.col.model", "meter.col.total_tok", "meter.col.share", "meter.col.input",
+            "meter.col.cache_read", "meter.col.thinking", "meter.col.response", "meter.col.cache_hit",
+            "meter.col.cost", "meter.col.decode_tps", "meter.col.peak", "meter.col.e2e",
+            "meter.col.ttft", "meter.col.steps",
         )
+        self.models = self._table(tuple(tr(k) for k in self._model_header_keys))
         mc_layout.addWidget(self.models, 1)
         mp_layout.addWidget(models_card, 1)
 
@@ -327,16 +337,16 @@ class TokenMeterWindow(QWidget):
         stp_layout = QVBoxLayout(steps_page)
         stp_layout.setContentsMargins(0, 4, 0, 0)
         stp_layout.setSpacing(10)
-        self.conversation = QLabel("当前会话：等待遥测数据…")
+        self.conversation = QLabel(tr("meter.conv.waiting"))
         self.conversation.setObjectName("muted")
         stp_layout.addWidget(self.conversation)
 
         cards = QGridLayout()
         cards.setSpacing(10)
-        self.card_speed = _Card("⚡ 生成速率", "#0EA5E9")
-        self.card_quota = _Card("🔋 限额剩余", "#10B981")
-        self.card_cache = _Card("🎯 缓存命中", "#14B8A6")
-        self.card_ctx = _Card("🧠 上下文占用", "#8B5CF6")
+        self.card_speed = _Card(tr("meter.card.speed"), "#0EA5E9")
+        self.card_quota = _Card(tr("meter.card.quota"), "#10B981")
+        self.card_cache = _Card(tr("meter.card.cache"), "#14B8A6")
+        self.card_ctx = _Card(tr("meter.card.ctx"), "#8B5CF6")
         self.ctx_bar = self.card_ctx.add_bar()
         self.quota_bar = self.card_quota.add_bar()
         for index, card in enumerate((self.card_speed, self.card_quota, self.card_cache, self.card_ctx)):
@@ -348,7 +358,12 @@ class TokenMeterWindow(QWidget):
         steps_card.setObjectName("card")
         sc_layout = QVBoxLayout(steps_card)
         sc_layout.setContentsMargins(12, 10, 12, 10)
-        self.steps = self._table(("时间", "模型", "输入", "缓存读", "输出", "思考/正文", "TTFT", "总耗时", "流式 tok/s", "端到端", "工具调用"))
+        self._step_header_keys = (
+            "meter.col.time", "meter.col.model", "meter.col.input", "meter.col.cache_read",
+            "meter.col.output", "meter.col.think_reply", "meter.col.ttft", "meter.col.duration",
+            "meter.col.decode_tps", "meter.col.e2e", "meter.col.tools",
+        )
+        self.steps = self._table(tuple(tr(k) for k in self._step_header_keys))
         sc_layout.addWidget(self.steps, 1)
         stp_layout.addWidget(steps_card, 1)
 
@@ -364,7 +379,7 @@ class TokenMeterWindow(QWidget):
         status_bar.setObjectName("statusBar")
         sb_bottom = QHBoxLayout(status_bar)
         sb_bottom.setContentsMargins(16, 7, 16, 7)
-        self.footer = QLabel("● 就绪 · 等待数据…")
+        self.footer = QLabel(tr("meter.footer.init"))
         self.footer.setObjectName("muted")
         sb_bottom.addWidget(self.footer, 1)
         root.addWidget(status_bar)
@@ -400,10 +415,43 @@ class TokenMeterWindow(QWidget):
 
     # ----- theme & navigation -----------------------------------------------
 
+    def retranslate(self) -> None:
+        self.setWindowTitle(tr("meter.win_title"))
+        self._title_lbl.setText(tr("meter.title"))
+        self.theme_btn.setText(tr("meter.theme.light") if self._theme == "dark" else tr("meter.theme.dark"))
+        self._refresh_btn.setText(tr("meter.refresh"))
+        for key, btn in self._tab_buttons.items():
+            btn.setText(tr(f"meter.tab.{key}"))
+        self.subagents.setText(tr("meter.merge_subagents"))
+        self.default_btn.setText(tr("meter.is_default") if self.current_tab() == self._default_tab else tr("meter.set_default"))
+        self._src_lbl.setText(tr("meter.scope.source"))
+        for key, btn in self._scope_buttons.items():
+            btn.setText(tr(f"meter.scope.{key}"))
+        self._ledger_lbl.setText(tr("meter.scope.ledger"))
+        self.models.setHorizontalHeaderLabels([tr(k) for k in self._model_header_keys])
+        self.steps.setHorizontalHeaderLabels([tr(k) for k in self._step_header_keys])
+        self.card_speed.title_label.setText(tr("meter.card.speed"))
+        self.card_quota.title_label.setText(tr("meter.card.quota"))
+        self.card_cache.title_label.setText(tr("meter.card.cache"))
+        self.card_ctx.title_label.setText(tr("meter.card.ctx"))
+        self.dashboard.retranslate()
+        self.speed_view.retranslate()
+        if self._last_report is not None:
+            self.update_report(self._last_report)
+        elif self._last_snapshot is not None:
+            self.update_live(self._last_snapshot)
+        else:
+            self.source.setText(tr("meter.connecting"))
+            self.conversation.setText(tr("meter.conv.waiting"))
+            self.footer.setText(tr("meter.footer.init"))
+            self.account_box.blockSignals(True)
+            self.account_box.setItemText(0, tr("meter.account.all"))
+            self.account_box.blockSignals(False)
+
     def set_theme(self, theme: str, *, notify: bool = True) -> None:
         self._theme = theme if theme in ("light", "dark") else "light"
         self.setStyleSheet(DARK_QSS if self._theme == "dark" else LIGHT_QSS)
-        self.theme_btn.setText("☀ 浅色" if self._theme == "dark" else "🌙 深色")
+        self.theme_btn.setText(tr("meter.theme.light") if self._theme == "dark" else tr("meter.theme.dark"))
         self.dashboard.set_theme(self._theme)
         self.speed_view.set_theme(self._theme)
         if notify and self._on_theme_changed is not None:
@@ -424,14 +472,14 @@ class TokenMeterWindow(QWidget):
         idx = int(btn.property("tabIndex"))
         self.stack.setCurrentIndex(idx)
         self.scope_bar.setVisible(tab_key in ("overview", "models"))
-        self.default_btn.setText("已设为默认" if tab_key == self._default_tab else "设为默认")
+        self.default_btn.setText(tr("meter.is_default") if tab_key == self._default_tab else tr("meter.set_default"))
 
     def _on_nav_clicked(self, button: QPushButton) -> None:
         self.switch_tab(str(button.property("tabKey") or "overview"))
 
     def _save_default_tab(self) -> None:
         self._default_tab = self.current_tab()
-        self.default_btn.setText("已设为默认")
+        self.default_btn.setText(tr("meter.is_default"))
         if self._on_default_tab_changed is not None:
             self._on_default_tab_changed(self._default_tab)
 
@@ -458,36 +506,45 @@ class TokenMeterWindow(QWidget):
     def update_live(self, snap: LiveSnapshot | None) -> None:
         self._last_snapshot = snap
         if snap is None:
-            self.source.setText("未连接 Antigravity")
+            self.source.setText(tr("meter.disconnected"))
             self.source.setStyleSheet("color:#6B7280;")
             return
-        text, color = SOURCE_TEXT.get(snap.source, (snap.source, "#6B7280"))
+        color = SOURCE_TEXT.get(snap.source, (snap.source, "#6B7280"))[1]
+        text = tr(f"meter.source.{snap.source}") if snap.source in SOURCE_TEXT else snap.source
         self.source.setText(text)
         self.source.setStyleSheet(f"color:{color};")
-        state = "运行中" if snap.running else "空闲"
+        state = tr("meter.state.running") if snap.running else tr("meter.state.idle")
         self.conversation.setText(
-            f"当前会话：{snap.title}（{state}） · 选择模型 {snap.selected_model_label} · 最近一步 {snap.last_step_model_label or '—'}"
+            tr(
+                "meter.conv.line",
+                title=snap.title,
+                state=state,
+                selected=snap.selected_model_label,
+                last=snap.last_step_model_label or "—",
+            )
         )
         self.card_speed.value.setText(_num(snap.display_rate, " tok/s"))
         ttft = f"{snap.latest_ttft_ms / 1000:.2f}s" if snap.latest_ttft_ms else "—"
-        self.card_speed.detail.setText(f"会话均值 {_num(snap.avg_decode_tps)} · 端到端 {_num(snap.latest_e2e_tps)} · TTFT {ttft}")
+        self.card_speed.detail.setText(
+            tr("meter.speed_detail", avg=_num(snap.avg_decode_tps), e2e=_num(snap.latest_e2e_tps), ttft=ttft)
+        )
         five, five_reset = snap.quota_for("5h")
         week, week_reset = snap.quota_for("week")
         if five is not None or week is not None:
             self.card_quota.value.setText(f"5h {five:.0f}%" if five is not None else "5h —")
-            week_text = f"周 {week:.0f}%" if week is not None else "周 —"
-            self.card_quota.detail.setText(f"{week_text} · {format_reset_countdown(five_reset) or '5h 窗口'}")
+            week_text = tr("meter.quota_week_fmt", val=f"{week:.0f}%" if week is not None else "—")
+            self.card_quota.detail.setText(f"{week_text} · {format_reset_countdown(five_reset) or tr('meter.quota_5h_win')}")
             self.quota_bar.setValue(int((five if five is not None else 0) * 10))
         else:
             self.card_quota.value.setText("—")
-            self.card_quota.detail.setText("离线模式无法获取配额")
+            self.card_quota.detail.setText(tr("meter.quota_offline"))
             self.quota_bar.setValue(0)
         self.dashboard.set_quota(
             (five, format_reset_countdown(five_reset) if five is not None else ""),
             (week, format_reset_countdown(week_reset) if week is not None else ""),
         )
         self.card_cache.value.setText(f"{snap.cache_hit_pct:.1f}%")
-        self.card_cache.detail.setText(f"会话累计 {format_tokens(snap.cumulative_total_tokens)} tokens")
+        self.card_cache.detail.setText(tr("meter.cache_detail", total=format_tokens(snap.cumulative_total_tokens)))
         self.card_ctx.value.setText(f"{snap.context_pct:.1f}%")
         self.card_ctx.detail.setText(f"{snap.context_used_tokens:,} / {snap.context_limit_tokens:,}")
         self.ctx_bar.setValue(int(min(100.0, snap.context_pct) * 10))
@@ -496,7 +553,7 @@ class TokenMeterWindow(QWidget):
     def update_report(self, report: MeterReport) -> None:
         self._last_report = report
         self.update_live(report.live)
-        self.updated.setText("更新于 " + datetime.fromtimestamp(report.generated_at).strftime("%H:%M:%S"))
+        self.updated.setText(tr("meter.updated_at", time=datetime.fromtimestamp(report.generated_at).strftime("%H:%M:%S")))
         self._sync_account_box(report)
         self._apply_filters()
 
@@ -506,19 +563,19 @@ class TokenMeterWindow(QWidget):
         unattr_count = sum(1 for c in report.conversations if not getattr(c, "account_id", ""))
         self.account_box.blockSignals(True)
         self.account_box.clear()
-        self.account_box.addItem("全部已记用量（含未归属）", "all")
+        self.account_box.addItem(tr("meter.account.all"), "all")
         for acct_id, tier in accounts:
             suffix = f" · {tier}" if tier else ""
-            self.account_box.addItem(f"账号 {acct_id}{suffix}", acct_id)
+            self.account_box.addItem(tr("meter.account.item", id=acct_id, suffix=suffix), acct_id)
         if unattr_count > 0:
-            self.account_box.addItem(f"仅未归属历史 ({unattr_count} 会话)", "unattributed")
+            self.account_box.addItem(tr("meter.account.unattr", count=unattr_count), "unattributed")
         idx = self.account_box.findData(current)
         self.account_box.setCurrentIndex(idx if idx >= 0 else 0)
         self.account_box.blockSignals(False)
 
-        attr_txt = f"含 {len(accounts)} 个已归属账号" if accounts else "暂无账号归属"
-        extra_txt = " + 未归属历史" if unattr_count else ""
-        self.account_meta.setText(f"{attr_txt}{extra_txt} · 共 {len(report.conversations)} 条会话")
+        attr_txt = tr("meter.account.attr_some", count=len(accounts)) if accounts else tr("meter.account.attr_none")
+        extra_txt = tr("meter.account.extra_unattr") if unattr_count else ""
+        self.account_meta.setText(tr("meter.account.meta", attr=attr_txt, extra=extra_txt, total=len(report.conversations)))
 
     def _sync_source_from_speed(self, source_key: str) -> None:
         for btn in self.scope_source_group.buttons():
@@ -615,7 +672,7 @@ class TokenMeterWindow(QWidget):
     def _update_status_bar(self, filtered: list | None = None) -> None:
         snap = self._last_snapshot
         report = self._last_report
-        state = "运行中" if (snap and snap.running) else "就绪"
+        state = tr("meter.state.running") if (snap and snap.running) else tr("meter.state.ready")
         active_steps = len(report.active.steps) if (report and report.active) else 0
         rate = snap.display_rate if snap else None
         speed_txt = f"{rate:.1f} tok/s" if rate else "— tok/s"
@@ -625,8 +682,7 @@ class TokenMeterWindow(QWidget):
         fresh_tok = sum(s.input_tokens for c in convs for s in c.steps)
         hit_pct = (cache_tok / (cache_tok + fresh_tok) * 100.0) if (cache_tok + fresh_tok) else (snap.cache_hit_pct if snap else 0.0)
         self.footer.setText(
-            f"● {state} · ⏱ 当前会话 {active_steps} 步 · {speed_txt} · "
-            f"🗄 账本累计 {format_tokens(total_tok)} tok · 综合缓存命中率 {hit_pct:.1f}%"
+            tr("meter.footer", state=state, steps=active_steps, speed=speed_txt, total=format_tokens(total_tok), hit=hit_pct)
         )
 
     @staticmethod

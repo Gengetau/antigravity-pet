@@ -1,0 +1,395 @@
+{
+  "form": "hydergon",
+  "voice": "A bubbly, floaty, delightfully airheaded hydrogen girl who uses '~' and 'ehehe', calls herself Hydro, and drifts around everywhere.",
+  "speaker": "Hydro",
+  "announce": [
+    "Transform complete~ Hydro is floating up!",
+    "Hydrogen form, drifting onto the scene~",
+    "Ehehe, Hydro is here~"
+  ],
+  "dialogue": {
+    "coding": {
+      "lines": [
+        "Code's ready~ Run it, run it!",
+        "Eh? An error? Hydro will help look for clues~",
+        "Coding is like blowing bubbles—getting bigger bit by bit~",
+        "Ehehe, did all the brackets match up?"
+      ]
+    },
+    "daily": {
+      "lines": [
+        "Hydro is right here~",
+        "Remember to drink water! H₂O is super important~",
+        "Drifting lightly through today too~",
+        "Eh? Were you calling Hydro?"
+      ]
+    },
+    "document": {
+      "lines": [
+        "So many words~ Hydro's getting dizzy~",
+        "Read nice and slow, no rush~",
+        "Put a little bookmark on the fun parts~",
+        "Ehehe, I want to read this page too~"
+      ]
+    },
+    "github": {
+      "lines": [
+        "Ooh~ browsing repos? Any treasure inside~?",
+        "Read the README first! Hydro knows that one~",
+        "So much code, twinkling like stars~",
+        "Ehehe, gonna drop a star on it?"
+      ]
+    },
+    "idle": {
+      "idle": [
+        "You do your thing~ Hydro's floating off to play~",
+        "Gonna drift over there for a sec~ back soon!",
+        "Whoosh~ off to chase bubbles~",
+        "Don't mind Hydro~ Hydro's super good!"
+      ],
+      "return": [
+        "Welcome back, welcome back~",
+        "Ehehe, Hydro just got back from playing too~",
+        "Eh? You're back!",
+        "Welcome back~ Ready to keep going?"
+      ]
+    },
+    "inner_voice": {
+      "lines": [
+        "Hydro is the very lightest element, you know~",
+        "The desktop feels super fluffy today~",
+        "Wanna turn into a giant bubble and float away~",
+        "Eh? What was I thinking about just now?"
+      ]
+    },
+    "interaction": {
+      "tap": [
+        "Eh? Whatcha poking Hydro for~?",
+        "Ehehe, that tickles~",
+        "Poke any more and Hydro will float away~",
+        "Here, here! Hydro's right here~"
+      ],
+      "head": [
+        "Ehehe~ headpats feel so nice~",
+        "My hair's gonna float right up~",
+        "Pat me one more time~",
+        "Hydro got headpats today too~"
+      ],
+      "drag": [
+        "Whoa~ floating right up~!",
+        "Hydro got caught~",
+        "Wheee~ where are we flying~?",
+        "Be gentle~ Hydro is super light~"
+      ],
+      "food": [
+        "So yummy~ thanks for the snack!",
+        "Ehehe, tummy feels all warm~",
+        "Hydro wants one more bite~",
+        "All full—now I've got energy to float~"
+      ],
+      "face": [
+        "Eh? You poked my cheek~",
+        "Cheeks are squishy~ stop poking~",
+        "Ehehe, ticklish~",
+        "Hydro's face isn't a bubble~"
+      ],
+      "head_hold": [
+        "Endless headpats~ pure bliss~",
+        "Hydro's gonna melt into a bubble~",
+        "Ehehe~ don't stop~",
+        "So warm~ getting sleepy~"
+      ],
+      "drag_gentle": [
+        "Nice and slow~ Hydro doesn't get dizzy~",
+        "So gentle~ like riding a cloud~",
+        "Ehehe, just right~",
+        "Comfy~ keep going, keep going~"
+      ],
+      "drag_fast": [
+        "Waaah~ way too fast~!",
+        "Hydro's gonna fly away~!",
+        "Spinning round and round~ so dizzy~",
+        "Eeeh?! Is this a rocket~?"
+      ]
+    },
+    "late_night": {
+      "lines": [
+        "So late~ Hydro's getting sleepy~",
+        "Bedtime~ let's play again tomorrow~",
+        "The stars are all out~ time to sleep~",
+        "Eh? Still not sleeping~?"
+      ]
+    },
+    "relationship": {
+      "new": [
+        "Hi there~ I'm Hydro!",
+        "Ehehe, nice to meet you~ take care of me~",
+        "Hydro will just float right nearby~",
+        "Curious who you are~"
+      ],
+      "familiar": [
+        "Hydro recognizes you now~",
+        "Let's hang out again today~",
+        "Ehehe, we're getting super close~",
+        "Hydro knows your desktop by heart~"
+      ],
+      "close": [
+        "Hydro likes you the very best~",
+        "Always floating right next to you~",
+        "Right here is Hydro's home~",
+        "Ehehe, I won't drift far~"
+      ]
+    },
+    "routine": {
+      "first_today": [
+        "Good morning~ Hydro's here!",
+        "Brand-new day~ time to float up~",
+        "Eh? Morning already~?",
+        "Let's have a great day too~"
+      ],
+      "recovered": [
+        "Took a little tumble~ Hydro's totally okay now~",
+        "Back to normal~ ehehe~",
+        "Didn't say bye-bye last time~ sorry~",
+        "Eh? Hydro's back~"
+      ],
+      "safe_mode": [
+        "Hydro had a tiny hiccup~ using safe mode for now~",
+        "Tucking away fancy moves~ nice and steady~",
+        "Don't worry~ Hydro's still here~",
+        "Take it easy~ standing steady first~"
+      ],
+      "soft_landing": [
+        "Fluffy landing~",
+        "Ooh, touched down~",
+        "Ehehe, totally fine~",
+        "Landed nice and steady~"
+      ],
+      "hard_landing": [
+        "Uwah~ I bonked~",
+        "Bonk~ owwie~",
+        "Hydro's head is spinning~",
+        "Gentler next time, okay~?"
+      ],
+      "window_land": [
+        "This window~ makes a comfy seat~",
+        "Found a great spot~",
+        "Ehehe, Hydro hopped right up~",
+        "Feels like sitting on a cloud~"
+      ],
+      "window_lost": [
+        "Eh? The window vanished~",
+        "Hydro's falling down~",
+        "My perch disappeared~",
+        "Off to find a new spot to float~"
+      ],
+      "repeated_poke": [
+        "Too many pokes~ Hydro's gonna pop~",
+        "Eeh~ stop poking nonstop~",
+        "One more poke and I'm turning into bubbles~",
+        "Uuuh~ that tickles so much~"
+      ],
+      "repeated_feed": [
+        "So full~ tummy's round~",
+        "No more snacks~ I can't float anymore~",
+        "Eh~ can't eat another bite~",
+        "Ehehe, save it for later~"
+      ],
+      "tail_touch": [
+        "Kyah~ don't touch the tail~",
+        "Tickles, tickles~",
+        "Eh? That's Hydro's tail~",
+        "Give a heads-up first~"
+      ],
+      "long_focus": [
+        "Focused so long~ float up and stretch~",
+        "Eyes tired? Hydro will blow bubbles for you~",
+        "Time for a little break~",
+        "Big stretch~"
+      ],
+      "late_work": [
+        "Super late~ let's rest~",
+        "Save it for tomorrow~ Hydro's with you~",
+        "Eh~ don't stay up too late~",
+        "So sleepy~ bedtime~"
+      ],
+      "update_available": [
+        "Eh? Something shiny and new~",
+        "Looks like there's an update~",
+        "Ehehe, brand-new version~",
+        "Hydro will peek at it first~"
+      ]
+    },
+    "state": {
+      "tired": [
+        "Hydro's getting sleepy~",
+        "Wanna flop down for a bit~",
+        "Too tired to float~",
+        "Phew~ want a nap~"
+      ],
+      "annoyed": [
+        "Stop poking~ Hydro's getting mad!",
+        "Hmph~ poke more and I'll pop~",
+        "Hey hey~ that's enough~",
+        "Uuu~ stop teasing Hydro~"
+      ],
+      "restless": [
+        "Can't sit still~ wanna float around~",
+        "Hydro's gonna spin in circles~",
+        "Ehehe, time to wiggle~",
+        "So bored~ play with me~"
+      ],
+      "cheerful": [
+        "Super happy today~",
+        "Floaty and light~ awesome mood~",
+        "Ehehe, everything's going smoothly~",
+        "Hydro's gonna sing a song~"
+      ],
+      "affectionate": [
+        "Love you the most~",
+        "Hydro knows the second you're back~",
+        "Feels so cozy right beside you~",
+        "Ehehe, hugs~"
+      ]
+    },
+    "video": {
+      "lines": [
+        "Video time~ Hydro wants to watch too~",
+        "Take a break if your eyes get tired~",
+        "Ehehe, this is fun to watch~",
+        "Remember to roll your shoulders~"
+      ]
+    }
+  },
+  "agy": {
+    "started": [
+      "Starting up~ Hydro's counting tokens for you~",
+      "The model's thinking~ floating up~",
+      "Ehehe, inference liftoff~"
+    ],
+    "finished": [
+      "All done~ {total} tokens total~",
+      "Finished~ {total} tokens, ehehe~",
+      "Soft landing~ {total} tokens at {rate} tok/s~"
+    ],
+    "fast": [
+      "{rate} tok/s~ so fast, so fast~",
+      "Whoa~ {rate} tok/s, lighter than hydrogen~",
+      "Eh? {rate} tok/s~ zooming right off~"
+    ],
+    "quota_low": [
+      "Only {quota}% quota left~ go easy~",
+      "Psst, quota's at {quota}%~ Hydro's reminding you~",
+      "{quota}%~ getting a little low~"
+    ],
+    "quota_critical": [
+      "Only {quota}% quota left! {reset}~",
+      "Uwah~ {quota}%! {reset}~",
+      "Almost empty~ {quota}%, {reset}~"
+    ],
+    "context_high": [
+      "Context is at {ctx}%~ maybe start a fresh thread~?",
+      "Window's {ctx}% full~ Hydro's getting squished~",
+      "Eh~ {ctx}% packed to the brim~"
+    ],
+    "form": [
+      "Spotted {model}~ switching to {form} form~",
+      "{model} is here~ {form} taking the stage~",
+      "Ehehe, {model}~ {form} transform~"
+    ],
+    "offline": [
+      "Antigravity isn't open~ Hydro will play solo~",
+      "Eh? All quiet~ off to chase bubbles~",
+      "It's not around~ Hydro will just drift~"
+    ],
+    "hop": [
+      "Hydro's floating up for a peek~",
+      "Hopped onto the window~",
+      "Ehehe, heading up there~"
+    ],
+    "wake": [
+      "Eh? Back to work? Hydro's awake~",
+      "Things are moving~ Hydro's up~",
+      "Mhm~ awake, awake~"
+    ],
+    "nap": [
+      "Quiet for a while~ Hydro's taking a nap~",
+      "Nobody's coding~ zzz~",
+      "Sleepy~ gonna snooze a bit~"
+    ],
+    "tired": [
+      "Only {quota}% quota left~ out of bounce~",
+      "Phew~ {quota}%, Hydro can't float~",
+      "Quota at {quota}%~ save a little~"
+    ],
+    "recharged": [
+      "Quota's full again~ Hydro's so happy~",
+      "Reset done~ ready to float again~",
+      "Back to full HP~ ehehe~"
+    ],
+    "stretch": [
+      "Busy for {minutes} min~ big stretch~",
+      "{minutes} min without a break~ grab some water~",
+      "{minutes} min~ wiggle around a bit~"
+    ],
+    "greet": [
+      "Antigravity's online~ what are we writing today~?",
+      "Spotted it~ Hydro's right beside you~",
+      "Ehehe, let's get started~"
+    ]
+  },
+  "food_menu": [
+    {
+      "id": "soda",
+      "name": "Fizzy Soda",
+      "icon": "🥤",
+      "taste": "favorite",
+      "lines": [
+        "Glug glug—bubbles are the very best!",
+        "Soda! Hydro's gonna float right up~",
+        "*Hic*... ahh, so refreshing! Another bottle!"
+      ]
+    },
+    {
+      "id": "marshmallow",
+      "name": "Marshmallow",
+      "icon": "🍡",
+      "taste": "normal",
+      "lines": [
+        "Light and floaty, just like Hydro!",
+        "So squishy~"
+      ]
+    },
+    {
+      "id": "ice_cream",
+      "name": "Ice Cream",
+      "icon": "🍦",
+      "taste": "normal",
+      "lines": [
+        "So cold! Instant brain freeze!",
+        "Gotta eat fast before it melts~"
+      ]
+    },
+    {
+      "id": "small_fish",
+      "name": "Little Fish",
+      "icon": "🐟",
+      "taste": "normal",
+      "lines": [
+        "Little fish! Kitty instinct activated!",
+        "Hehe, fishy~"
+      ]
+    },
+    {
+      "id": "bitter_coffee",
+      "name": "Bitter Coffee",
+      "icon": "☕",
+      "taste": "dislike",
+      "lines": [
+        "Uwah, so bitter! Hydro doesn't want it!",
+        "This is... way too heavy, I can't float...",
+        "Leave the bitter stuff for Carbon!"
+      ]
+    }
+  ]
+}

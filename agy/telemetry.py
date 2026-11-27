@@ -438,11 +438,15 @@ def format_reset_countdown(iso: str | None, *, now_ms: int | None = None) -> str
     except (OSError, OverflowError, ValueError):
         return ""
     if minutes <= 0:
-        return "即将重置"
+        from app.i18n import tr
+
+        return tr("reset.soon")
     rounded = int(minutes + 0.999)
+    from app.i18n import tr
+
     if rounded >= 60:
-        return f"{rounded // 60}h {rounded % 60}m 后重置 ({clock})"
-    return f"{rounded}m 后重置 ({clock})"
+        return tr("reset.hm", h=rounded // 60, m=rounded % 60, clock=clock)
+    return tr("reset.m", m=rounded, clock=clock)
 
 
 # --------------------------------------------------------------------------

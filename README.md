@@ -1,13 +1,16 @@
 # AGY 桌宠 · Antigravity Desktop Pet
 
-一个陪你用 Antigravity 写代码的桌面宠物与原生 Antigravity 插件。行为框架仿照 [QCYTSN/ds-local-pet](https://github.com/QCYTSN/ds-local-pet)（MIT），完整保留散步、分区互动、抛掷物理、窗口落脚、本地感知和崩溃恢复；在此基础上新增五种模型主题形态（**Carbon、Hydrogen、Neon、Argon、Claude**），并内置 **Token Meter 面板**、**HUD 实时悬浮条（agy-hud-bar）** 以及 Antigravity 侧边栏控制台插件（**`agy-pet`**）。
+**简体中文** | [English](README.en.md) | [日本語](README.ja.md)
+
+一个陪你用 Antigravity 写代码的桌面宠物与原生 Antigravity 插件。行为框架仿照 [QCYTSN/ds-local-pet](https://github.com/QCYTSN/ds-local-pet)（MIT），完整保留散步、分区互动、抛掷物理、窗口落脚、本地感知和崩溃恢复；在此基础上新增五种模型主题形态（**Carbon、Hydrogen、Neon、Argon、Claude**），并内置 **Token Meter 面板**、**HUD 实时悬浮条（agy-hud-bar）**、Antigravity 侧边栏控制台插件（**`agy-pet`**）以及 **中 / 英 / 日三语实时切换**。
 
 ![五种形态](docs/forms_preview.png)
 
 ### 核心亮点
 
 - **五形态模型拟人化陪伴**：Carbon、Hydrogen、Neon、Argon、Claude 五套独立运行时立绘与动作帧 + 专属形态台词，开启「跟随模型」后随 Antigravity 当前使用的模型自动换装。
-- **标准 Antigravity 原生插件架构**：仓库根目录即插件包（含 `plugin.json`、`hooks.json`、`sidecars/pet-bridge/`、`skills/agy-pet/`），侧边栏直接查看状态、切形态、置顶会话与一键拉起桌宠。
+- **中 / 英 / 日三语完整适配与免重启热切**：默认 `auto` 自动识别系统/浏览器语言，支持在侧边栏、右键控制面板与托盘菜单即时切换 `中文 / English / 日本語`，覆盖全部 UI、HUD、Token Meter、分身互动、AI 实时吐槽以及 5 形态 + 12 套通用台词包。
+- **标准 Antigravity 原生插件架构**：仓库根目录即插件包（含 `plugin.json`、`hooks.json`、`sidecars/pet-bridge/`、`skills/agy-pet/`），侧边栏直接查看状态、切形态、切语言、置顶会话与一键拉起桌宠。
 - **精确上下文与双窗口限额 HUD**：结合语言服务 RPC、Hooks、`annotations/*.pbtxt` 与项目切换实时锁定当前焦点会话（空白新会话自动归零），剔除单步思考 token 虚高统计，头顶实时显示 `tok/s`、5h/每周双窗口限额与缓存命中率。
 - **内置独立桌面 Token Meter 与费用看板**：支持全球模型榜单、逐步速率/TTFT、热力图用量日历与按 Gemini API 标价折算的等效费用统计，不开启 IDE 侧边栏也能独立查看。
 - **懂事的自主行为与纯本机隐私**：支持陪着干活爬窗/坐窗沿、闲置小睡、低限额打哈欠与恢复庆祝；所有数据只读本机进程与日志文件，不主动联网、不写入 token 到磁盘。
@@ -157,6 +160,7 @@ Carbon、Hydrogen、Neon 沿用原来的猫娘外形，Argon 是新画的淡紫�
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
+| `language` | `auto` | 界面与台词语言：`auto`（跟随系统/浏览器）/ `zh` / `en` / `ja`（也支持 `AGY_PET_LANG` 环境变量覆盖） |
 | `form` | `carbon` | 当前形态 |
 | `follow_model` | `false` | 是否跟随模型自动切换形态 |
 | `telemetry_enabled` | `true` | 是否读取 Antigravity 遥测数据 |

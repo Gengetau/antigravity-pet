@@ -1,8 +1,8 @@
 {
   "name": "agy-pet",
-  "displayName": "AGY 桌宠",
+  "displayName": "AGY Pet · 桌宠",
   "version": "0.2.0",
-  "description": "陪伴式 Antigravity 桌面宠物（Carbon / Hydrogen / Neon / Argon / Claude 五形态），支持精确追踪当前会话上下文、5h/周双窗口限额、实时 tok/s 悬浮条及侧边栏控制台。",
+  "description": "Companion Antigravity desktop pet (Carbon / Hydrogen / Neon / Argon / Claude) with exact context tracking, 5h/weekly quota HUD, sidebar console, and ZH/EN/JA localization. 支持中/英/日三语切换与五形态陪伴。",
   "author": {
     "name": "Gengetau",
     "url": "https://github.com/Gengetau"
@@ -11,8 +11,8 @@
   "repository": "https://github.com/Gengetau/antigravity-pet",
   "logo": "assets/logo.png",
   "suggestedPrompts": [
-    "打开 AGY 桌宠侧边栏控制台查看状态或切换形态",
-    "启动或唤醒桌面上的 AGY 桌宠并开启跟随模型切换形态",
-    "查看当前会话的精确上下文占用与 5h/周限额剩余"
+    "打开 AGY 桌宠侧边栏控制台查看状态、切换形态或切换语言",
+    "Open the AGY Pet sidebar to switch forms, change language (EN/JA/ZH), or launch the pet",
+    "AGY ペットのサイドバーを開いて形態切替・言語切替・現在のクォータを確認して"
   ]
 }

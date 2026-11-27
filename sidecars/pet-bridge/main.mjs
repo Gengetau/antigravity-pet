@@ -15,7 +15,7 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync,
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { AiCommentEngine } from './ai_comment.mjs';
+import { AiCommentEngine, normalizeLanguageSetting, resolveAiLang } from './ai_comment.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,6 +55,7 @@ const PET_FORMS = [
 const VALID_FORM_IDS = new Set(PET_FORMS.map((f) => f.id));
 const VALID_HUD_MODES = new Set(['attached', 'floating']);
 const VALID_HUD_APPEARANCES = new Set(['dialog', 'capsule', 'seamless', 'glass']);
+const VALID_LANGUAGES = new Set(['auto', 'zh', 'en', 'ja']);
 
 function findAppDataDirs() {
   const execDataDir = process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR;
@@ -1140,13 +1141,16 @@ const DEFAULT_AGY_CONFIG = {
   hud_x: null,
   hud_y: null,
   pinned_conversation: '',
+  language: 'auto',
 };
 
 function readPetConfig() {
   const cfgPath = join(PET_ROOT, 'config.json');
   try {
     const raw = JSON.parse(readFileSync(cfgPath, 'utf-8'));
-    return { ...DEFAULT_AGY_CONFIG, ...(raw?.agy && typeof raw.agy === 'object' ? raw.agy : {}) };
+    const merged = { ...DEFAULT_AGY_CONFIG, ...(raw?.agy && typeof raw.agy === 'object' ? raw.agy : {}) };
+    merged.language = normalizeLanguageSetting(merged.language);
+    return merged;
   } catch {
     return { ...DEFAULT_AGY_CONFIG };
   }
@@ -1188,6 +1192,12 @@ function updatePetConfig(patch) {
   if (typeof patch.pinned_conversation === 'string') {
     agy.pinned_conversation = patch.pinned_conversation.slice(0, 128);
   }
+  if (typeof patch.language === 'string') {
+    const normLang = normalizeLanguageSetting(patch.language);
+    if (VALID_LANGUAGES.has(normLang)) {
+      agy.language = normLang;
+    }
+  }
 
   raw.agy = agy;
   atomicWriteJson(cfgPath, raw);
@@ -1220,13 +1230,13 @@ function launchPet() {
   return new Promise((resolve) => {
     const mainPy = join(PET_ROOT, 'main.py');
     if (!existsSync(mainPy)) {
-      resolve({ ok: false, error: `未找到桌宠入口文件: ${mainPy}` });
+      resolve({ ok: false, errorKey: 'launchMissingMain', errorParams: { path: mainPy }, error: `未找到桌宠入口文件: ${mainPy}` });
       return;
     }
     const candidates = resolveLaunchCandidates();
     const attempt = (idx) => {
       if (idx >= candidates.length) {
-        resolve({ ok: false, error: '未找到可用的 Python 桌宠运行环境（需 Python 3.13+ 与 PySide6）' });
+        resolve({ ok: false, errorKey: 'launchMissingPython', error: '未找到可用的 Python 桌宠运行环境（需 Python 3.13+ 与 PySide6）' });
         return;
       }
       const [cmd, args] = candidates[idx];
@@ -1800,6 +1810,7 @@ async function updatePetLiveFile() {
             },
             modelState,
             privacyLevel: bridge.aiPrivacy,
+            lang: resolveAiLang(petCfg.language),
           })
           .catch(() => {});
       }
@@ -2054,7 +2065,7 @@ app.api(
   async () => {
     if (!existsSync(join(PET_ROOT, '.git'))) {
       openExternalRepoUrl('/releases');
-      return { ok: false, openedBrowser: true, message: '当前目录非 Git 仓库，已打开 GitHub 页面手动下载' };
+      return { ok: false, openedBrowser: true, messageKey: 'updNotGit', message: '当前目录非 Git 仓库，已打开 GitHub 页面手动下载' };
     }
     try {
       const dirtyOut = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
@@ -2064,7 +2075,7 @@ app.api(
       }).trim();
       if (dirtyOut) {
         openExternalRepoUrl('');
-        return { ok: false, dirty: true, openedBrowser: true, message: '本地有未提交改动，为保护代码未覆盖，已打开 GitHub 页面' };
+        return { ok: false, dirty: true, openedBrowser: true, messageKey: 'updDirty', message: '本地有未提交改动，为保护代码未覆盖，已打开 GitHub 页面' };
       }
       const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: PET_ROOT,
@@ -2072,7 +2083,7 @@ app.api(
         timeout: 5000,
       }).trim();
       if (branch !== 'main') {
-        return { ok: false, branch, message: `当前处于分支 ${branch}，请切回 main 后再一键更新` };
+        return { ok: false, branch, messageKey: 'updWrongBranch', messageParams: { branch }, message: `当前处于分支 ${branch}，请切回 main 后再一键更新` };
       }
       execFileSync('git', ['pull', '--ff-only', 'origin', 'main'], {
         cwd: PET_ROOT,
@@ -2092,13 +2103,16 @@ app.api(
         repoUrl: GITHUB_REPO_URL,
         error: '',
       });
-      return { ok: true, version: newVer, message: `已拉取 v${newVer}，重开桌宠并开关一次插件即可生效` };
+      return { ok: true, version: newVer, messageKey: 'updSuccess', messageParams: { version: newVer }, message: `已拉取 v${newVer}，重开桌宠并开关一次插件即可生效` };
     } catch (err) {
       openExternalRepoUrl('/releases');
+      const detail = String(err?.message || 'git error').slice(0, 60);
       return {
         ok: false,
         openedBrowser: true,
-        message: `自动更新失败（${String(err?.message || 'git error').slice(0, 60)}），已打开 GitHub 页面`,
+        messageKey: 'updFailed',
+        messageParams: { detail },
+        message: `自动更新失败（${detail}），已打开 GitHub 页面`,
       };
     }
   },

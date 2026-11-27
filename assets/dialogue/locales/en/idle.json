@@ -1,0 +1,38 @@
+{
+  "idle": {
+    "standard": [
+      "Go handle your stuff—I'll take a little stroll nearby.",
+      "I'll behave! Call me when you're back."
+    ],
+    "sharp": [
+      "Where'd you run off to? Fine, solo patrol it is.",
+      "Leaving without notice? Penalty: one headpat upon return."
+    ],
+    "gentle": [
+      "Take your time; I'll wait right here for you.",
+      "No hurry—I'll still be here when you get back."
+    ],
+    "community": [
+      "AGY entering house-sitting mode.",
+      "Desktop unattended, but AGY remains online."
+    ]
+  },
+  "return": {
+    "standard": [
+      "Welcome back! I just finished my little stroll.",
+      "You're back—ready to continue?"
+    ],
+    "sharp": [
+      "Finally back! I nearly finished patrolling the whole desktop.",
+      "Missing user recovered. Back to work!"
+    ],
+    "gentle": [
+      "Glad you're back—ease right back into it.",
+      "Been right here the whole time. No rush."
+    ],
+    "community": [
+      "AGY report: user has returned to workstation.",
+      "Patrol complete. Companion mode resumed."
+    ]
+  }
+}

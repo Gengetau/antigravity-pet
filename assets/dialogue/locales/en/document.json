@@ -1,0 +1,24 @@
+{
+  "lines": {
+    "standard": [
+      "Dense page—take your time reading.",
+      "Drop a small note wherever something useful pops up.",
+      "Look away into the distance when your eyes get tired."
+    ],
+    "sharp": [
+      "Reading the title doesn't count—the real point is further down.",
+      "This page is dense enough for me to swim three laps.",
+      "Don't just highlight—write one sentence in your own words."
+    ],
+    "gentle": [
+      "Take it slow; understanding beats speed.",
+      "It's okay to pause if a paragraph feels heavy.",
+      "No rush from me—read as far as feels comfortable."
+    ],
+    "community": [
+      "Entering knowledge waters—AGY reducing cruising speed.",
+      "Huge paper! I'm here to read along, not memorize it.",
+      "Flip pages gently—I just found a comfy perch."
+    ]
+  }
+}

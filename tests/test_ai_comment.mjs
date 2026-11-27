@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 
 import {
   AiCommentEngine,
   BudgetGuard,
   cleanAiReply,
+  normalizeLanguageSetting,
   pickCheapestModel,
+  resolveAiLang,
   scrubText,
 } from '../sidecars/pet-bridge/ai_comment.mjs';
 
@@ -210,5 +213,128 @@ test('AiCommentEngine enforces disabled, quota floor, dedupe, prompt isolation, 
     assert.equal(engine.failures, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('normalizeLanguageSetting and resolveAiLang handle auto, explicit codes, and invalid values', () => {
+  assert.equal(normalizeLanguageSetting('auto'), 'auto');
+  assert.equal(normalizeLanguageSetting('system'), 'auto');
+  assert.equal(normalizeLanguageSetting(''), 'auto');
+  assert.equal(normalizeLanguageSetting('EN-US'), 'en');
+  assert.equal(normalizeLanguageSetting('ja_JP'), 'ja');
+  assert.equal(normalizeLanguageSetting('zh-CN'), 'zh');
+  assert.equal(normalizeLanguageSetting('fr-FR'), 'auto');
+
+  assert.equal(resolveAiLang('en'), 'en');
+  assert.equal(resolveAiLang('ja'), 'ja');
+  assert.equal(resolveAiLang('zh'), 'zh');
+  assert.ok(['zh', 'en', 'ja'].includes(resolveAiLang('auto')));
+});
+
+test('cleanAiReply uses wider limit for English and CJK limit for Chinese/Japanese', () => {
+  const enReply = '✦ '.slice(0, 0) + '"Nice refactor on the sidebar i18n bridge—every single test came back green!"';
+  assert.equal(cleanAiReply(enReply, 'en'), '✦ Nice refactor on the sidebar i18n bridge—every single test came back green!');
+  const longEn = 'This English remark is intentionally much longer than seventy-six characters so it should truncate cleanly at the limit.';
+  const clippedEn = cleanAiReply(longEn, 'en');
+  assert.ok(clippedEn.startsWith('✦ '));
+  assert.ok(clippedEn.length <= 78);
+  assert.ok(clippedEn.endsWith('…'));
+
+  const longJa = 'これは四十四文字を超える日本語の長いコメントを切り詰めるためのテスト用テキストです、とても長いです。';
+  const clippedJa = cleanAiReply(longJa, 'ja');
+  assert.ok(clippedJa.startsWith('✦ '));
+  assert.ok(clippedJa.length <= 46);
+  assert.ok(clippedJa.endsWith('…'));
+});
+
+test('AiCommentEngine generates localized prompts for EN and JA with localized personas and lang-aware dedupe', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agy-ai-i18n-'));
+  try {
+    let clock = Date.parse('2026-11-26T12:00:00Z');
+    const calls = [];
+    const engine = new AiCommentEngine({
+      petRoot: PET_ROOT,
+      budgetFile: join(dir, 'budget.json'),
+      now: () => clock,
+      limits: { minIntervalMs: 1_000, maxPerHour: 10, maxPerDay: 20, dailyTokenBudget: 10_000, pauseBelowQuotaPct: 10, dedupeWindowMs: 3_600_000 },
+      lsRpc: async (method, body) => {
+        calls.push({ method, body });
+        return { response: body.prompt.includes('Japanese') || body.prompt.includes('日本語') ? '「テスト全部通ったね、さすが！」' : '"All tests green—clean landing!"' };
+      },
+    });
+    const modelState = {
+      labelMap: new Map([['M_FLASH', 'Gemini 3 Flash (Low)']]),
+      quotaMap: new Map([['M_FLASH', { remainingPct: 80 }]]),
+    };
+
+    const enRes = await engine.maybeGenerate({
+      enabled: true,
+      trigger: 'turn_done_big',
+      formId: 'claude',
+      lang: 'en',
+      facts: { title: 'Add i18n tests', steps: 5, quotaPct: 80 },
+      modelState,
+    });
+    assert.ok(enRes);
+    assert.equal(enRes.text, '✦ All tests green—clean landing!');
+    assert.match(calls[0].body.prompt, /Reply in natural English/i);
+    assert.match(calls[0].body.prompt, /gothic-lolita/i);
+    assert.match(calls[0].body.prompt, /<<<Add i18n tests>>>/);
+
+    // Same trigger + facts in Japanese should NOT be deduped against English
+    clock += 5_000;
+    const jaRes = await engine.maybeGenerate({
+      enabled: true,
+      trigger: 'turn_done_big',
+      formId: 'claude',
+      lang: 'ja',
+      facts: { title: 'Add i18n tests', steps: 5, quotaPct: 80 },
+      modelState,
+    });
+    assert.ok(jaRes);
+    assert.equal(jaRes.text, '✦ テスト全部通ったね、さすが！');
+    assert.match(calls[1].body.prompt, /日本語/);
+    assert.match(calls[1].body.prompt, /白ゴスロリ/);
+    assert.match(calls[1].body.prompt, /<<<Add i18n tests>>>/);
+    assert.equal(calls.length, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('sidecar app.js and index.html have complete ZH/EN/JA key parity and zero innerHTML usage', () => {
+  const appSrc = readFileSync(join(PET_ROOT, 'sidecars', 'pet-bridge', 'app.js'), 'utf8');
+  const htmlSrc = readFileSync(join(PET_ROOT, 'sidecars', 'pet-bridge', 'index.html'), 'utf8');
+
+  assert.doesNotMatch(appSrc, /\.innerHTML\b/, 'app.js must not use innerHTML');
+
+  const start = appSrc.indexOf('const I18N = {');
+  const end = appSrc.indexOf('\n  function detectBrowserLang()', start);
+  assert.ok(start >= 0 && end > start, 'Could not locate I18N catalog in app.js');
+  const catalog = vm.runInNewContext(`(function(){ ${appSrc.slice(start, end)}; return I18N; })()`);
+
+  const zhKeys = Object.keys(catalog.zh).sort();
+  const enKeys = Object.keys(catalog.en).sort();
+  const jaKeys = Object.keys(catalog.ja).sort();
+  assert.deepEqual(enKeys, zhKeys, 'I18N.en keys must match I18N.zh');
+  assert.deepEqual(jaKeys, zhKeys, 'I18N.ja keys must match I18N.zh');
+
+  const extractVars = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+  for (const key of zhKeys) {
+    assert.ok(String(catalog.zh[key]).trim().length > 0, `Empty zh string for ${key}`);
+    assert.ok(String(catalog.en[key]).trim().length > 0, `Empty en string for ${key}`);
+    assert.ok(String(catalog.ja[key]).trim().length > 0, `Empty ja string for ${key}`);
+    assert.deepEqual(extractVars(catalog.en[key]), extractVars(catalog.zh[key]), `Placeholder mismatch in en.${key}`);
+    assert.deepEqual(extractVars(catalog.ja[key]), extractVars(catalog.zh[key]), `Placeholder mismatch in ja.${key}`);
+  }
+
+  for (const attr of ['data-i18n', 'data-i18n-title']) {
+    const matches = [...htmlSrc.matchAll(new RegExp(`${attr}="([^"]+)"`, 'g'))];
+    if (attr === 'data-i18n') {
+      assert.ok(matches.length > 0, `Expected ${attr} attributes in index.html`);
+    }
+    for (const m of matches) {
+      assert.ok(Object.hasOwn(catalog.zh, m[1]), `Missing I18N key "${m[1]}" referenced by ${attr} in index.html`);
+    }
   }
 });

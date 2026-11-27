@@ -22,12 +22,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import (
+    get_language,
+    get_language_setting,
+    normalize_language_setting,
+    set_language as set_global_language,
+    tr,
+)
+from app.i18n_lines import idle_play_activities, pet_state_name, win_msg
 from app.paths import AppPaths
 from app.recovery import RecoveryStatus
 from agy.autonomy import AgyAutonomy, AutonomyCommand, AutonomyInput, WindowTarget, plan_hop
-from agy.characters import FORMS, FORM_IDS, form_by_id, normalize_form
+from agy.characters import FORMS, FORM_IDS, form_by_id, form_tagline, normalize_form
 from agy.hud_bar import HudBar
-from agy.reactions import ReactionTracker, TOOL_STATUS_NAMES, greeting_for_moment
+from agy.reactions import ReactionTracker, TOOL_STATUS_NAMES, greeting_for_moment, tool_status_name
 from agy.service import TelemetryService
 from agy.telemetry import SubagentInfo, TelemetryCollector
 from agy.token_meter import TokenMeterWindow
@@ -52,7 +60,7 @@ from behavior.classifier import AppClassifier
 from behavior.cooldown import Cooldown
 from behavior.events import EventType
 from behavior.scheduler import ContextEventScheduler
-from dialogue.local_rules import DialogueManager
+from dialogue.local_rules import DialogueManager, load_form_voice
 from dialogue.personality import normalize_personality
 from pet.climb import JumpPlan, pick_jump, uncovered_top_span, ClimbController, Rect as ClimbRect, is_exposed, plan_climb
 from pet.interaction import FoodPanel, InteractionController, parse_food_menu
@@ -145,10 +153,11 @@ class PetWindow(QWidget):
         super().__init__(None, flags)
         self.paths = paths
         self.config = config
+        set_global_language(self._agy().get("language", "auto"))
         self.recovery_status = recovery_status or RecoveryStatus()
         self.rng = random.Random()
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setWindowTitle("AGY 桌宠")
+        self.setWindowTitle(tr("tray.tooltip", name=form_by_id(self._agy().get("form")).name))
         self.setMouseTracking(True)
 
         self.current_height = self._height_for_size(
@@ -299,6 +308,7 @@ class PetWindow(QWidget):
             on_dock=self._toggle_edge_dock,
             on_perch=lambda: self._preview_action("EDGE_SIT"),
             on_recall_primary=self.recall_to_primary_screen,
+            on_language=self.set_language,
             forms=tuple((form.id, form.name) for form in FORMS),
         )
         self._create_tray()
@@ -683,33 +693,28 @@ class PetWindow(QWidget):
             hud_hover_only=bool(self._agy().get("hud_hover_only", False)),
             follow_cursor=bool(comfort.get("follow_cursor", True)),
             autonomy=bool(self._agy().get("autonomy", True)),
+            language=normalize_language_setting(self._agy().get("language", "auto")),
         )
 
     def _display_state_name(self) -> str:
         if self._dock_side is not None:
-            return "探头看你" if self._dock_peeking else "贴边藏身"
+            return pet_state_name("_dock_peek" if self._dock_peeking else "_dock_hide")
         if time.monotonic() < self._sulk_until:
-            return "闹别扭中"
+            return pet_state_name("_sulk")
         telemetry = getattr(self, "telemetry", None)
         snap = telemetry.last_snapshot if telemetry is not None else None
         if snap is not None and getattr(snap, "waiting_for_user", False):
-            return TOOL_STATUS_NAMES["asking"]
+            return tool_status_name("asking")
         tool_category = getattr(snap, "latest_tool_category", "") if snap is not None else ""
         if (
             self.action_machine.current == PetAction.WORKING
             and tool_category in TOOL_STATUS_NAMES
         ):
-            return TOOL_STATUS_NAMES[tool_category]
+            return tool_status_name(tool_category)
         if self.action_machine.current != PetAction.IDLE:
-            return STATE_NAMES.get(self.action_machine.current, "待机")
-        return {
-            "tired": "有点困",
-            "annoyed": "闹脾气",
-            "restless": "想走走",
-            "cheerful": "心情很好",
-            "affectionate": "很亲近",
-            "steady": "待机",
-        }.get(self.pet_state.visible_condition(), "待机")
+            return pet_state_name(self.action_machine.current.name)
+        cond = self.pet_state.visible_condition()
+        return pet_state_name(f"_cond_{cond}")
 
     def _open_food_panel(self) -> None:
         self._interrupt_activity()
@@ -1309,7 +1314,7 @@ class PetWindow(QWidget):
             immediate=True,
         )
         if was_sulking:
-            self.say("哼……摸头就算原谅你啦～", preserve_action=True)
+            self.say(win_msg("forgive_pat_1"), preserve_action=True)
         elif not self.bubble.visible:
             line = self.dialogue.pick_interaction("head_pat", personality=self._personality())
             if line:
@@ -1410,7 +1415,7 @@ class PetWindow(QWidget):
                 self._launch_throw(outcome.velocity_x * 0.25, outcome.velocity_y * 0.25, reason="shaken_release")
                 self._request_action(PetAction.DIZZY, reason="shaken_dizzy", force=True, immediate=True)
                 self.emit_particles("sweat")
-                self.say("呜哇别晃了，转圈圈头好晕……", preserve_action=True)
+                self.say(win_msg("dizzy_shake"), preserve_action=True)
                 return
             if bool(self._agy().get("edge_dock", True)):
                 edge = self._near_screen_edge(threshold=12)
@@ -1489,7 +1494,7 @@ class PetWindow(QWidget):
                 self._sulk_until = 0.0
                 self.pet_state.annoyance = max(0.0, self.pet_state.annoyance - 0.18)
                 self._request_action(PetAction.HAPPY, reason="sulk_forgiven", force=True)
-                self.say("哼……好吧，看在摸头的份上原谅你啦～", preserve_action=True)
+                self.say(win_msg("forgive_pat_2"), preserve_action=True)
                 return
             self._request_action(PetAction.HEAD_PAT, reason="head_pat")
             self.say(
@@ -1503,7 +1508,7 @@ class PetWindow(QWidget):
             self.emit_particles("sweat")
             self._request_action(PetAction.ANGRY, reason="sulking_ignore", force=True)
             self.action_machine.queue_after_current(PetAction.SULK)
-            self.say("哼，还在生闷气呢……摸摸头再哄我嘛。", preserve_action=True)
+            self.say(win_msg("still_sulking"), preserve_action=True)
             return
 
         self._recent_pokes.append(now)
@@ -1515,7 +1520,7 @@ class PetWindow(QWidget):
             self._interrupt_activity(delay_seconds=30.0)
             self.emit_particles("sweat")
             self._request_action(PetAction.SULK, reason="poke_sulk", force=True)
-            self.say("气鼓鼓！不理你了，要摸头才原谅！", preserve_action=True)
+            self.say(win_msg("sulk_start"), preserve_action=True)
             return
         if recent_count == 3:
             self.emit_particles("sweat")
@@ -1563,7 +1568,7 @@ class PetWindow(QWidget):
             self._next_purr_heart_at = now + PURR_HEART_INTERVAL_S
             self._request_action(PetAction.PET_PURR, now=now, reason="long_head_purr", force=True)
             if forgiven:
-                self.say("唔……摸这么温柔，那就原谅你吧～", preserve_action=True)
+                self.say(win_msg("forgive_gentle"), preserve_action=True)
             else:
                 self.say(
                     self.dialogue.pick_interaction("head_hold", personality=self._personality())
@@ -1573,7 +1578,7 @@ class PetWindow(QWidget):
             return
         if forgiven:
             self._request_action(PetAction.HAPPY, reason="long_pat_forgiven", force=True)
-            self.say("唔……摸这么温柔，那就原谅你吧～", preserve_action=True)
+            self.say(win_msg("forgive_gentle"), preserve_action=True)
             return
         self._request_action(PetAction.HEAD_PAT, reason="long_head_pat")
         self.say(
@@ -1717,9 +1722,9 @@ class PetWindow(QWidget):
         self._sync_awareness_timer()
         self._refresh_control_panel()
         if enabled:
-            self.say("本地环境感知已开启。")
+            self.say(win_msg("awareness_on"))
         else:
-            self.say("本地环境感知已暂停。")
+            self.say(win_msg("awareness_off"))
 
     def _set_awareness_flag(self, key: str, enabled: bool) -> None:
         self.config.set_nested("awareness", key, bool(enabled))
@@ -1741,36 +1746,69 @@ class PetWindow(QWidget):
         icon = QIcon(str(self.paths.icon_path))
         self.tray = QSystemTrayIcon(icon, self)
         tray_menu = QMenu()
-        tray_menu.addAction("显示/隐藏", self.toggle_visible)
-        tray_menu.addAction("打开快速控制", self._open_control_panel_from_tray)
-        tray_menu.addAction(
-            "暂停/启用环境感知",
+        self._tray_menu = tray_menu
+        self._tray_toggle_action = tray_menu.addAction(tr("tray.toggle_visible"), self.toggle_visible)
+        self._tray_panel_action = tray_menu.addAction(tr("tray.open_panel"), self._open_control_panel_from_tray)
+        self._tray_awareness_action = tray_menu.addAction(
+            win_msg("tray_awareness"),
             lambda: self.set_awareness_enabled(
                 not bool(self.config.section("awareness").get("enabled", True))
             ),
         )
-        form_menu = tray_menu.addMenu("切换形态")
+        self._tray_form_menu = tray_menu.addMenu(tr("tray.switch_form"))
         self._tray_form_actions = {}
         for form in FORMS:
-            action = form_menu.addAction(f"{form.name} · {form.tagline}")
+            action = self._tray_form_menu.addAction(f"{form.name} · {form_tagline(form.id)}")
             action.setCheckable(True)
             action.triggered.connect(lambda _checked=False, key=form.id: self.set_form(key, manual=True))
             self._tray_form_actions[form.id] = action
-        form_menu.addSeparator()
-        self._tray_follow_action = form_menu.addAction("跟随 Antigravity 当前模型")
+        self._tray_form_menu.addSeparator()
+        self._tray_follow_action = self._tray_form_menu.addAction(tr("tray.follow_model"))
         self._tray_follow_action.setCheckable(True)
         self._tray_follow_action.triggered.connect(self.set_follow_model)
-        form_menu.aboutToShow.connect(self._sync_tray_forms)
-        tray_menu.addAction("Token Meter 面板", self.open_token_meter)
-        tray_menu.addAction(
-            "显示/隐藏 HUD 悬浮条",
+        self._tray_form_menu.aboutToShow.connect(self._sync_tray_forms)
+
+        self._tray_lang_menu = tray_menu.addMenu(tr("tray.language"))
+        self._tray_lang_actions = {}
+        for code in ("auto", "zh", "en", "ja"):
+            act = self._tray_lang_menu.addAction(tr(f"lang.{code}"))
+            act.setCheckable(True)
+            act.triggered.connect(lambda _checked=False, lang_code=code: self.set_language(lang_code))
+            self._tray_lang_actions[code] = act
+        self._tray_lang_menu.aboutToShow.connect(self._sync_tray_forms)
+
+        self._tray_meter_action = tray_menu.addAction(tr("tray.open_meter"), self.open_token_meter)
+        self._tray_hud_action = tray_menu.addAction(
+            tr("tray.toggle_hud"),
             lambda: self.set_hud_enabled(not bool(self._agy().get("hud_enabled", True))),
         )
         tray_menu.addSeparator()
-        tray_menu.addAction("退出", self.quit_app)
+        self._tray_quit_action = tray_menu.addAction(tr("tray.quit"), self.quit_app)
         self.tray.setContextMenu(tray_menu)
+        self.tray.setToolTip(tr("tray.tooltip", name=form_by_id(self.form_id).name))
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.show()
+
+    def _retranslate_tray(self) -> None:
+        if not hasattr(self, "_tray_toggle_action"):
+            return
+        self._tray_toggle_action.setText(tr("tray.toggle_visible"))
+        self._tray_panel_action.setText(tr("tray.open_panel"))
+        self._tray_awareness_action.setText(win_msg("tray_awareness"))
+        self._tray_form_menu.setTitle(tr("tray.switch_form"))
+        for form in FORMS:
+            act = self._tray_form_actions.get(form.id)
+            if act is not None:
+                act.setText(f"{form.name} · {form_tagline(form.id)}")
+        self._tray_follow_action.setText(tr("tray.follow_model"))
+        self._tray_lang_menu.setTitle(tr("tray.language"))
+        for code, act in self._tray_lang_actions.items():
+            act.setText(tr(f"lang.{code}"))
+        self._tray_meter_action.setText(tr("tray.open_meter"))
+        self._tray_hud_action.setText(tr("tray.toggle_hud"))
+        self._tray_quit_action.setText(tr("tray.quit"))
+        self.tray.setToolTip(tr("tray.tooltip", name=form_by_id(self.form_id).name))
+        self._sync_tray_forms()
 
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -1934,7 +1972,7 @@ class PetWindow(QWidget):
         self._gentle_landing = False
         self._request_action(PetAction.WAVE, reason="recall_primary", force=True, immediate=True)
         self.emit_particles("sparkles")
-        self.say("我回来主屏幕啦～", preserve_action=True)
+        self.say(win_msg("recall_done"), preserve_action=True)
         self._refresh_control_panel()
 
     def _toggle_edge_dock(self) -> None:
@@ -2044,7 +2082,7 @@ class PetWindow(QWidget):
         if area is not None:
             target_y = max(area.top(), min(area.bottom() - self.height() + 1, target_y))
         self.move(target_x, target_y)
-        self.say("先躲到屏幕边上探头看你，鼠标过来我再出来～", preserve_action=True)
+        self.say(win_msg("dock_hide"), preserve_action=True)
         self._refresh_control_panel()
 
     def undock_from_edge(self, *, fall_if_airborne: bool = True) -> None:
@@ -2150,9 +2188,9 @@ class PetWindow(QWidget):
             self.config.set("passthrough", enabled)
             self._refresh_control_panel()
             if enabled:
-                self.say("我隐身了！右键托盘图标可以解除。")
+                self.say(win_msg("passthrough_on"))
         except OSError as error:
-            QMessageBox.warning(self, "鼠标穿透", f"设置失败：{error}")
+            QMessageBox.warning(self, tr("panel.passthrough"), f"{error}")
 
     def set_topmost(self, enabled: bool) -> None:
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, bool(enabled))
@@ -2198,14 +2236,14 @@ class PetWindow(QWidget):
                     check=True,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
-                self.say("已设置开机自启，明天见。")
+                self.say(win_msg("autostart_on"))
             elif link.exists():
                 link.unlink()
-                self.say("已取消开机自启。")
+                self.say(win_msg("autostart_off"))
             self.config.set("autostart", enabled)
             self._refresh_control_panel()
         except (OSError, subprocess.CalledProcessError) as error:
-            QMessageBox.warning(self, "开机自启", f"设置失败：{error}")
+            QMessageBox.warning(self, tr("panel.autostart"), f"{error}")
 
     def toggle_visible(self) -> None:
         if self.isVisible():
@@ -2229,11 +2267,8 @@ class PetWindow(QWidget):
     def _show_privacy_notice(self) -> None:
         QMessageBox.information(
             self,
-            "本地隐私规则",
-            "环境感知只在本机读取前台进程名、窗口标题、空闲时长和全屏状态。\n\n"
-            "开启“窗口落脚”时，只额外读取前台窗口句柄和外框位置，用来判断顶部落点与随动；不会读取窗口内容。\n\n"
-            "密码管理器、支付/银行、远程桌面、聊天和邮件应用，以及无痕窗口默认不保留标题，也不会触发台词。"
-            "\n\n不会截图、不会读取浏览历史、不会把感知数据发送到网络。",
+            win_msg("privacy_title"),
+            win_msg("privacy_body"),
         )
 
     # ----- Antigravity: forms, telemetry, HUD and Token Meter -------------------
@@ -2294,17 +2329,16 @@ class PetWindow(QWidget):
         if announce:
             lines = self._form_voice.get("announce") if isinstance(self._form_voice.get("announce"), list) else []
             form = form_by_id(form_id)
-            text = self.rng.choice(lines) if lines else f"{form.name} 形态！{form.tagline}。"
+            text = (
+                self.rng.choice(lines)
+                if lines
+                else win_msg("form_announce_fallback", name=form.name, tagline=form_tagline(form.id))
+            )
             self.say(str(text), preserve_action=True)
 
     def _apply_form_voice(self, form_id: str) -> None:
-        """Load assets/dialogue/forms/<form>.json: each form talks differently."""
-        try:
-            voice = json.loads((self.paths.assets_dir / "dialogue" / "forms" / f"{form_id}.json").read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            voice = {}
-        if not isinstance(voice, dict):
-            voice = {}
+        """Load locale-aware dialogue/forms/<form>.json: each form talks differently."""
+        voice = load_form_voice(self.paths.assets_dir / "dialogue", form_id)
         self._form_voice = voice
         form = form_by_id(form_id)
         speaker = str(voice.get("speaker") or form.name)
@@ -2314,21 +2348,43 @@ class PetWindow(QWidget):
         if hasattr(self, "control_panel"):
             self.control_panel.set_title(speaker)
         if hasattr(self, "dialogue"):
+            self.dialogue.set_language(get_language())
             self.dialogue.set_form_lines(voice.get("dialogue"))
         if hasattr(self, "food_panel"):
             self.food_panel.hide()
+            self.food_panel.retranslate()
             self.food_panel.set_menu(parse_food_menu(voice.get("food_menu")), ACCENTS.get(form_id, "#339ad5"))
         agy_lines = voice.get("agy") if isinstance(voice.get("agy"), dict) else {}
         for target in (getattr(self, "reactions", None), getattr(self, "autonomy", None)):
             if target is not None:
                 target.set_lines(agy_lines)
 
+    def set_language(self, setting: str, *, persist: bool = True) -> str:
+        """Switch UI & dialogue language live (auto / zh / en / ja) without restarting."""
+        norm = normalize_language_setting(setting)
+        resolved = set_global_language(norm)
+        if persist:
+            self._agy_set("language", norm)
+        self.setWindowTitle(tr("tray.tooltip", name=form_by_id(self.form_id).name))
+        self._apply_form_voice(self.form_id)
+        if hasattr(self, "control_panel"):
+            self.control_panel.retranslate()
+        if hasattr(self, "hud_bar"):
+            self.hud_bar.retranslate()
+        if hasattr(self, "token_meter"):
+            self.token_meter.retranslate()
+        if hasattr(self, "subagent_clones"):
+            self.subagent_clones.retranslate()
+        self._retranslate_tray()
+        self._refresh_control_panel()
+        return resolved
+
     def set_follow_model(self, enabled: bool) -> None:
         self._agy_set("follow_model", bool(enabled))
         self._refresh_control_panel()
         if enabled:
             self.reactions.reset_follow()
-            self.say("我会跟着 Antigravity 当前的模型换形态。")
+            self.say(win_msg("follow_model_on"))
             snapshot = self.telemetry.last_snapshot
             if snapshot is not None:
                 self._on_live_snapshot(snapshot)
@@ -2337,6 +2393,9 @@ class PetWindow(QWidget):
         for form_id, action in self._tray_form_actions.items():
             action.setChecked(form_id == self.form_id)
         self._tray_follow_action.setChecked(bool(self._agy().get("follow_model", False)))
+        cur_lang = normalize_language_setting(self._agy().get("language", "auto"))
+        for code, act in getattr(self, "_tray_lang_actions", {}).items():
+            act.setChecked(code == cur_lang)
 
     def _create_agy(self) -> None:
         settings = self._agy()
@@ -2398,6 +2457,9 @@ class PetWindow(QWidget):
         if not hasattr(self, "telemetry") or not self.config.reload_if_external_change():
             return
         settings = self._agy()
+        ext_lang = normalize_language_setting(settings.get("language", "auto"))
+        if ext_lang != get_language_setting():
+            self.set_language(ext_lang, persist=False)
         pinned = str(settings.get("pinned_conversation") or "")
         if pinned != self.telemetry.pinned_conversation:
             self.telemetry.pinned_conversation = pinned
@@ -2866,7 +2928,7 @@ class PetWindow(QWidget):
     def _panel_climb(self, *, sit_after: bool) -> None:
         self._interrupt_activity()
         if not self.surface_tracker.enabled:
-            self.say("先在「更多设置」打开「窗口落脚」就能爬窗啦", preserve_action=True)
+            self.say(win_msg("need_surfaces"), preserve_action=True)
             return
         if sit_after and self.surface_tracker.attached:
             self._request_action(PetAction.PERCH, reason="panel_edge_sit", force=True, immediate=True)
@@ -2889,7 +2951,7 @@ class PetWindow(QWidget):
                 self._perch_after_landing = sit_after
                 self._explored_handle = int(handle)
                 return
-        self.say("这里没有能爬的窗口呀", preserve_action=True)
+        self.say(win_msg("no_climb_win"), preserve_action=True)
 
     # ----- exploring nearby windows on her own -----------------------------------
 
@@ -3278,16 +3340,16 @@ class PetWindow(QWidget):
         parts: list[str] = []
         for name, n in counts.items():
             if n == 2:
-                parts.append(f"双胞胎 {name}")
+                parts.append(win_msg("playmate_twin", name=name))
             elif n == 3:
-                parts.append(f"三胞胎 {name}")
+                parts.append(win_msg("playmate_triplet", name=name))
             elif n >= 4:
-                parts.append(f"{n} 只 {name}")
+                parts.append(win_msg("playmate_multi", n=n, name=name))
             else:
                 parts.append(name)
         if len(parts) <= 3:
-            return "、".join(parts)
-        return f"{parts[0]}、{parts[1]} 等 {len(playmates)} 位"
+            return win_msg("playmate_join").join(parts)
+        return win_msg("playmate_more", first=parts[0], second=parts[1], total=len(playmates))
 
     def summon_idle_playmates(
         self,
@@ -3318,7 +3380,7 @@ class PetWindow(QWidget):
             if desired >= 2 and len(set(picked_forms)) == desired and self.rng.random() < 0.25:
                 src_i, dst_i = self.rng.sample(range(desired), 2)
                 picked_forms[dst_i] = picked_forms[src_i]
-        activities = list(self._IDLE_PLAY_ACTIVITIES)
+        activities = list(idle_play_activities())
         self.rng.shuffle(activities)
         playmates: list[SubagentInfo] = []
         for idx, fid in enumerate(picked_forms):
@@ -3327,7 +3389,7 @@ class PetWindow(QWidget):
                     conversation_id=f"{PLAYMATE_PREFIX}{uuid.uuid4().hex[:8]}",
                     parent_conversation_id="idle-play",
                     title=activities[idx % len(activities)],
-                    model_label="闲时随机玩伴",
+                    model_label=win_msg("playmate_model"),
                     form_id=fid,
                 )
             )
@@ -3410,7 +3472,8 @@ class PetWindow(QWidget):
             else:
                 picked.append(self.rng.choice(FORM_IDS))
         used_titles = {item.title for item in self._idle_play_clones}
-        activities = [a for a in self._IDLE_PLAY_ACTIVITIES if a not in used_titles] or list(self._IDLE_PLAY_ACTIVITIES)
+        base_acts = idle_play_activities()
+        activities = [a for a in base_acts if a not in used_titles] or list(base_acts)
         self.rng.shuffle(activities)
         added: list[SubagentInfo] = []
         for idx, fid in enumerate(picked):
@@ -3419,7 +3482,7 @@ class PetWindow(QWidget):
                     conversation_id=f"{PLAYMATE_PREFIX}{uuid.uuid4().hex[:8]}",
                     parent_conversation_id="idle-play",
                     title=activities[idx % len(activities)],
-                    model_label="闲时随机玩伴",
+                    model_label=win_msg("playmate_model"),
                     form_id=fid,
                 )
             )

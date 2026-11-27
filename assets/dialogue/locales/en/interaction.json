@@ -1,0 +1,107 @@
+{
+  "tap": {
+    "standard": [
+      "Hey, easy there!",
+      "I know you're here—no need to keep poking.",
+      "Interaction received; mood ticked up."
+    ],
+    "sharp": [
+      "Poke again and I'm charging an interaction tax.",
+      "Fingers bored? Go press Ctrl+S.",
+      "Excuse me, please procrastinate responsibly."
+    ],
+    "gentle": [
+      "Hey there—need something?",
+      "You tapped me—makes me happy.",
+      "I'm right here."
+    ],
+    "community": [
+      "AGY lit up for a moment.",
+      "Poke landed! Tiny response unlocked."
+    ]
+  },
+  "head": {
+    "standard": [
+      "Headpats are always allowed.",
+      "Mhm, just the right pressure.",
+      "Pat pat—you've worked hard today."
+    ],
+    "sharp": [
+      "Headpats allowed, just don't wreck my hair.",
+      "Alright, you get points for manners this time."
+    ],
+    "gentle": [
+      "Thank you—so warm.",
+      "One more pat is fine too."
+    ],
+    "community": [
+      "AGY received certified headpat.",
+      "Sharing a bit of headpat luck with you."
+    ]
+  },
+  "drag": {
+    "standard": [
+      "Whoa, easy, easy!",
+      "A sunny new spot doesn't sound bad.",
+      "Put me down—I can walk myself."
+    ],
+    "sharp": [
+      "Relocation service isn't free, you know.",
+      "This isn't a conveyor belt!"
+    ],
+    "gentle": [
+      "Okay, take me wherever you'd like.",
+      "Thanks for finding me a cozy new corner."
+    ],
+    "community": [
+      "AGY completed manual migration.",
+      "Coordinates updated; resuming patrol."
+    ]
+  },
+  "food": {
+    "standard": [
+      "Yummy! Thanks for the treat.",
+      "That bite really hit the spot.",
+      "Nom nom nom—recharging energy."
+    ],
+    "sharp": [
+      "Snack accepted. Bring double next time.",
+      "Fine, you're forgiven for poking me earlier."
+    ],
+    "gentle": [
+      "Thank you—I'll savor every bite.",
+      "Such a sweet gesture."
+    ],
+    "community": [
+      "Feeding succeeded—token energy block credited.",
+      "No empty calories here, pure high-grade context.",
+      "Mhm, fresh requirements—chewing carefully.",
+      "Supply drop received! Energy bar rising.",
+      "Treat delivered! Bond +1 today."
+    ]
+  },
+  "face": {
+    "standard": ["Hey, that's my cheek!", "My face is not an OK button.", "I already see you—no need for pinpoint clicks."],
+    "sharp": ["Direct hit on the face. Proud of yourself?", "Save that click accuracy for your IDE.", "That's a face, not a trackpad calibration zone."],
+    "gentle": ["My cheeks are ticklish.", "Just a gentle touch is plenty.", "Checking if I fell asleep?"],
+    "community": ["Facial input received; AGY flinched slightly.", "Direct poke logged; zero valid tokens emitted.", "Cheek node briefly illuminated."]
+  },
+  "head_hold": {
+    "standard": ["Slow headpats like this feel super cozy.", "You can stay like this a bit longer.", "Mhm, not a poke—a proper headpat."],
+    "sharp": ["Decent technique. Approved for three more seconds.", "Don't think extra pats can bribe me.", "Acceptable pressure. No points deducted."],
+    "gentle": ["So warm, thank you.", "Feel free to keep patting.", "Quiet moments like this are lovely."],
+    "community": ["Long-press classified as headpat; affinity rising steadily.", "AGY entered low-power bliss mode.", "Sustained headpat request approved—no rate limit."]
+  },
+  "drag_gentle": {
+    "standard": ["Nice and slow—I don't get dizzy.", "A change of scenery sounds nice.", "All steady in the new spot."],
+    "sharp": ["Smooth relocation this time.", "Coordinates changed, dignity intact.", "At least you didn't toss me like a ball."],
+    "gentle": ["Thanks for carrying me over gently.", "This spot is comfy too.", "Moving slowly isn't scary at all."],
+    "community": ["Low-velocity drag complete; dizziness nominal.", "Coordinate migration succeeded without context loss.", "Manual displacement within safe bounds."]
+  },
+  "drag_fast": {
+    "standard": ["Whoa, way too fast!", "Is this a move or a rocket launch?", "Let me touch the ground first!"],
+    "sharp": ["Please don't treat a desktop pet like a cannonball.", "That fling deserves an incident report.", "High speed, low manners."],
+    "gentle": ["That's a little scary—slower next time, okay?", "I'll get dizzy; gentle drops please.", "Catch me so I don't land too hard."],
+    "community": ["Release velocity exceeded; switching to projectile physics.", "AGY launched—awaiting touchdown resolution.", "High-speed drag triggered dizziness and collision check."]
+  }
+}

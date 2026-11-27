@@ -231,8 +231,15 @@ class DesktopScenePropWidget(QWidget):
         ts = time.monotonic() if now is None else float(now)
         self._next_ambient_at = ts + 1.2
         self._particles.clear()
-        self.setToolTip(spec.tooltip)
+        self.retranslate()
         self.update()
+
+    def retranslate(self) -> None:
+        from app.i18n_lines import scene_prop_text
+
+        spec = SCENE_SPECS.get(self._kind, SCENE_SPECS["tea_party"])
+        loc = scene_prop_text(spec.kind)
+        self.setToolTip(str(loc["tooltip"]) if loc and loc.get("tooltip") else spec.tooltip)
 
     def say(self, text: str, *, now: float | None = None, duration: float = 2.6) -> None:
         ts = time.monotonic() if now is None else float(now)
@@ -242,11 +249,15 @@ class DesktopScenePropWidget(QWidget):
 
     def trigger_interact(self, *, now: float | None = None) -> str:
         """Apply visual pulse, particle burst, and prop bubble on user click."""
+        from app.i18n_lines import scene_prop_text
+
         ts = time.monotonic() if now is None else float(now)
         spec = SCENE_SPECS.get(self._kind, SCENE_SPECS["tea_party"])
+        loc = scene_prop_text(spec.kind)
+        lines = loc["click_lines"] if loc and loc.get("click_lines") else spec.click_lines
         self._interact_count += 1
         self._pulse_until = ts + 0.65
-        line = spec.click_lines[(self._interact_count - 1) % len(spec.click_lines)]
+        line = lines[(self._interact_count - 1) % len(lines)]
         self.say(line, now=ts, duration=2.5)
         self._particles.reduced_motion = self._reduced_motion
         cx = self.width() * 0.5

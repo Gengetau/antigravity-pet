@@ -1,0 +1,24 @@
+{
+  "lines": {
+    "standard": [
+      "Taking a break is good—remember to roll your shoulders.",
+      "Finish this clip, then ease right back in.",
+      "Keep the volume gentle on your ears."
+    ],
+    "sharp": [
+      "One video is fine; autoplaying until dawn isn't.",
+      "The recommendation algorithm is persuasive—I'm your reminder.",
+      "After this one, really the last one?"
+    ],
+    "gentle": [
+      "Unwind properly—rest counts as real work too.",
+      "Watch as long as you'd like, zero rush.",
+      "Blink when your eyes get tired—I'll zone out with you."
+    ],
+    "community": [
+      "AGY entering watch-party mode—quietly chilling.",
+      "No idea what's happening on screen, but great at watching along.",
+      "Take me for a stroll once the video wraps up."
+    ]
+  }
+}

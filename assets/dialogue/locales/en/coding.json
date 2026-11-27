@@ -1,0 +1,28 @@
+{
+  "lines": {
+    "standard": [
+      "Good checkpoint—try running it once.",
+      "Don't panic at the error; the clue is usually near the first exception.",
+      "Narrow the problem down a bit so even AGY can follow along."
+    ],
+    "sharp": [
+      "Leave that TODO sitting there and it'll start multiplying.",
+      "Stop arguing with the stack trace—actually read it first.",
+      "If you can reproduce it, you've already won half the battle."
+    ],
+    "gentle": [
+      "Take it step by step—even tangled bugs have an entry point.",
+      "Save your file first, then keep going with peace of mind.",
+      "Focus on coding; I'll keep an eye on the clock."
+    ],
+    "community": [
+      "Code's ready? Feed AGY a bite of tokens before running the tests.",
+      "Errors aren't fishbones—pick through them patiently and you'll find it.",
+      "This context is pretty long; I need to chew slowly.",
+      "I'm not freeloading—I'm earnestly digesting requirements.",
+      "Serious coding detected! Today's cheer-up packet from AGY delivered.",
+      "This function looks like it needs a pinch of patience.",
+      "Before committing, let me peek at the test results too."
+    ]
+  }
+}

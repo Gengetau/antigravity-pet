@@ -6,8 +6,28 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from app.i18n import get_language, resolve_language
 from behavior.events import EventType
 from dialogue.personality import normalize_personality
+
+
+def load_form_voice(dialogue_dir: Path, form_id: str, lang: str | None = None) -> dict[str, Any]:
+    """Load per-form dialogue JSON for ``lang`` (zh default, locales/<lang>/forms/ for en/ja)."""
+    code = resolve_language(lang) if lang is not None else get_language()
+    base_dir = Path(dialogue_dir)
+    candidates: list[Path] = []
+    if code != "zh":
+        candidates.append(base_dir / "locales" / code / "forms" / f"{form_id}.json")
+    candidates.append(base_dir / "forms" / f"{form_id}.json")
+    for path in candidates:
+        try:
+            if path.is_file():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+        except (OSError, ValueError, TypeError):
+            continue
+    return {}
 
 
 class DialogueManager:
@@ -23,13 +43,21 @@ class DialogueManager:
         "ai_chat": "daily",
     }
 
-    def __init__(self, dialogue_dir: Path, rng: random.Random | None = None) -> None:
+    def __init__(self, dialogue_dir: Path, rng: random.Random | None = None, lang: str | None = None) -> None:
         self.dialogue_dir = Path(dialogue_dir)
         self._rng = rng or random.Random()
+        self._lang: str | None = resolve_language(lang) if lang is not None else None
         self._cache: dict[str, dict[str, Any]] = {}
         self._recent: deque[str] = deque(maxlen=12)
         # Per-form voice: {filename: {key: [lines]}}; replaces the "standard" personality.
         self._form_lines: dict[str, dict[str, list[str]]] = {}
+
+    def set_language(self, lang: str | None) -> None:
+        resolved = resolve_language(lang) if lang is not None else None
+        if resolved != self._lang:
+            self._lang = resolved
+            self._cache.clear()
+            self._recent.clear()
 
     def set_form_lines(self, overrides: dict | None) -> None:
         self._form_lines = overrides if isinstance(overrides, dict) else {}
@@ -89,11 +117,22 @@ class DialogueManager:
         return selected
 
     def _load(self, filename: str) -> dict[str, Any]:
-        if filename not in self._cache:
-            try:
-                self._cache[filename] = json.loads(
-                    (self.dialogue_dir / f"{filename}.json").read_text(encoding="utf-8")
-                )
-            except (OSError, ValueError, TypeError):
-                self._cache[filename] = {}
-        return self._cache[filename]
+        code = self._lang or get_language()
+        cache_key = f"{code}:{filename}"
+        if cache_key not in self._cache:
+            candidates: list[Path] = []
+            if code != "zh":
+                candidates.append(self.dialogue_dir / "locales" / code / f"{filename}.json")
+            candidates.append(self.dialogue_dir / f"{filename}.json")
+            loaded: dict[str, Any] = {}
+            for path in candidates:
+                try:
+                    if path.is_file():
+                        data = json.loads(path.read_text(encoding="utf-8"))
+                        if isinstance(data, dict):
+                            loaded = data
+                            break
+                except (OSError, ValueError, TypeError):
+                    continue
+            self._cache[cache_key] = loaded
+        return self._cache[cache_key]

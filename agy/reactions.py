@@ -7,8 +7,19 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.i18n import get_language
+from app.i18n_lines import GREETING_LINES, REACTION_LINES, REACTION_TOOL_STATUS
 from .characters import form_for_model_label
 from .telemetry import LiveSnapshot, format_reset_countdown, format_tokens, parse_iso_ms
+
+
+def tool_status_name(category: str, *, lang: str | None = None) -> str:
+    code = lang or get_language()
+    if code != "zh":
+        loc = REACTION_TOOL_STATUS.get(code, {}).get(category)
+        if loc:
+            return loc
+    return TOOL_STATUS_NAMES.get(category, "")
 
 TOOL_STATUS_NAMES: dict[str, str] = {
     "reading": "陪你读代码",
@@ -339,27 +350,36 @@ _LUNAR_FESTIVALS: dict[tuple[int, int, int], tuple[str, str]] = {
 }
 
 
-def greeting_for_moment(dt: datetime | None = None) -> tuple[str, str, str | None]:
+def greeting_for_moment(dt: datetime | None = None, *, lang: str | None = None) -> tuple[str, str, str | None]:
     """Return ``(kind, greeting_line, particle_effect)`` for the local clock/festival."""
     now = dt.astimezone() if (dt is not None and dt.tzinfo is not None) else (dt or datetime.now())
+    code = lang or get_language()
+
+    def _loc(kind: str, zh_text: str) -> str:
+        if code != "zh":
+            return GREETING_LINES.get(code, {}).get(kind, zh_text)
+        return zh_text
+
     lunar = _LUNAR_FESTIVALS.get((now.year, now.month, now.day))
     if lunar is not None:
-        return f"fest_{lunar[0]}", lunar[1], "confetti"
+        kind = f"fest_{lunar[0]}"
+        return kind, _loc(kind, lunar[1]), "confetti"
     fixed = _FIXED_FESTIVALS.get((now.month, now.day))
     if fixed is not None:
-        return f"fest_{fixed[0]}", fixed[1], "confetti"
+        kind = f"fest_{fixed[0]}"
+        return kind, _loc(kind, fixed[1]), "confetti"
     hour = now.hour
     if 1 <= hour < 5:
-        return "late_night", "已经凌晨啦，快去睡觉吧，明天再继续～", "sweat"
+        return "late_night", _loc("late_night", "已经凌晨啦，快去睡觉吧，明天再继续～"), "sweat"
     if 5 <= hour < 11:
-        return "morning", "早安！新的一天，一起把今天的任务稳稳拿下～", "sparkles"
+        return "morning", _loc("morning", "早安！新的一天，一起把今天的任务稳稳拿下～"), "sparkles"
     if 11 <= hour < 14:
-        return "noon", "中午好呀，记得按时吃午饭别饿着！", None
+        return "noon", _loc("noon", "中午好呀，记得按时吃午饭别饿着！"), None
     if 14 <= hour < 18:
-        return "afternoon", "下午好～泡杯茶或咖啡，状态拉满！", None
+        return "afternoon", _loc("afternoon", "下午好～泡杯茶或咖啡，状态拉满！"), None
     if 18 <= hour < 23:
-        return "evening", "晚上好！辛苦一天啦，今晚也陪着你。", "sparkles"
-    return "night", "夜深啦，注意保护眼睛，收完这波早点休息哦。", None
+        return "evening", _loc("evening", "晚上好！辛苦一天啦，今晚也陪着你。"), "sparkles"
+    return "night", _loc("night", "夜深啦，注意保护眼睛，收完这波早点休息哦。"), None
 
 
 @dataclass
@@ -389,14 +409,27 @@ class ReactionTracker:
         self._update_notified_for = ""
         self._last_ai_comment_id = ""
         self._was_offline = False
+        self._overrides: dict[str, tuple[str, ...]] = {}
         self.lines: dict[str, tuple[str, ...]] = dict(LINES)
 
+    def _default_lines_for_lang(self) -> dict[str, tuple[str, ...]]:
+        code = get_language()
+        if code != "zh":
+            base = dict(LINES)
+            base.update(REACTION_LINES.get(code, {}))
+            return base
+        return dict(LINES)
+
     def set_lines(self, overrides: dict | None) -> None:
-        """Per-form voice; unknown kinds are ignored, missing kinds keep defaults."""
-        self.lines = dict(LINES)
+        """Per-form voice; unknown kinds are ignored, missing kinds keep localized defaults."""
+        parsed: dict[str, tuple[str, ...]] = {}
         for kind, lines in (overrides or {}).items():
             if kind in LINES and isinstance(lines, list) and lines:
-                self.lines[kind] = tuple(str(line) for line in lines)
+                parsed[kind] = tuple(str(line) for line in lines)
+        self._overrides = parsed
+        merged = self._default_lines_for_lang()
+        merged.update(parsed)
+        self.lines = merged
 
     def reset_follow(self) -> None:
         """Forget the last followed form so re-enabling follow switches again."""
@@ -410,10 +443,18 @@ class ReactionTracker:
         return True
 
     def _line(self, kind: str, **values: object) -> str:
+        code = get_language()
+        pool = self._overrides.get(kind)
+        if not pool:
+            if code != "zh":
+                pool = REACTION_LINES.get(code, {}).get(kind)
+            if not pool:
+                pool = self.lines.get(kind) or LINES.get(kind)
         try:
-            return self.rng.choice(self.lines[kind]).format(**values)
-        except (KeyError, IndexError, ValueError):
-            return self.rng.choice(LINES[kind]).format(**values)
+            return self.rng.choice(pool).format(**values)
+        except (KeyError, IndexError, ValueError, TypeError):
+            fallback = REACTION_LINES.get(code, {}).get(kind) if code != "zh" else None
+            return self.rng.choice(fallback or LINES[kind]).format(**values)
 
     def _effective_quota(self, snapshot: LiveSnapshot) -> tuple[float | None, str | None]:
         q5, reset5 = snapshot.quota_for("5h")

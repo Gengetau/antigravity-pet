@@ -16,38 +16,38 @@
         <span class="status-dot" id="pet-dot" aria-hidden="true"></span>
         <div>
           <div class="brand-title-row">
-            <h1 class="brand-title">AGY 桌宠</h1>
+            <h1 class="brand-title" data-i18n="brandTitle">AGY 桌宠</h1>
             <span class="ver-tag" id="ver-text">v0.2.0</span>
           </div>
-          <span class="brand-sub" id="pet-status-text">正在检测桌宠状态…</span>
+          <span class="brand-sub" id="pet-status-text" data-i18n="statusChecking">正在检测桌宠状态…</span>
         </div>
       </div>
       <div class="top-actions">
-        <button type="button" class="update-btn" id="btn-update" hidden>↑ 新版更新</button>
+        <button type="button" class="update-btn" id="btn-update" hidden data-i18n="btnUpdateDefault">↑ 新版更新</button>
         <button type="button" class="icon-btn" id="btn-github" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库 (Gengetau/antigravity-pet)">
           <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
           </svg>
         </button>
-        <button type="button" class="primary-btn" id="btn-launch">启动 / 唤醒</button>
+        <button type="button" class="primary-btn" id="btn-launch" data-i18n="btnLaunchDefault">启动 / 唤醒</button>
       </div>
     </header>
 
     <main class="content">
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">当前会话上下文</h2>
+          <h2 class="card-title" data-i18n="cardContext">当前会话上下文</h2>
           <div class="head-badges">
             <span class="tier-pill" id="tier-badge" hidden>—</span>
             <span class="source-pill" id="focus-badge">—</span>
           </div>
         </div>
-        <div class="conv-title" id="conv-title">等待会话数据…</div>
+        <div class="conv-title" id="conv-title" data-i18n="waitingSession">等待会话数据…</div>
         <div class="conv-meta" id="conv-model">当前模型：—</div>
 
         <div class="meter-block">
           <div class="meter-row">
-            <span class="meter-label">上下文占用（不含思考 token）</span>
+            <span class="meter-label" data-i18n="ctxLabel">上下文占用（不含思考 token）</span>
             <strong class="meter-value" id="ctx-text">—</strong>
           </div>
           <div class="progress-track" aria-hidden="true">
@@ -57,19 +57,19 @@
 
         <div class="kpi-row">
           <div class="kpi-cell">
-            <span class="kpi-label">流式速率</span>
+            <span class="kpi-label" data-i18n="kpiSpeed">流式速率</span>
             <strong class="kpi-val" id="kpi-speed">—</strong>
           </div>
           <div class="kpi-cell">
-            <span class="kpi-label">5h 限额</span>
+            <span class="kpi-label" data-i18n="kpi5h">5h 限额</span>
             <strong class="kpi-val" id="kpi-5h">—</strong>
           </div>
           <div class="kpi-cell">
-            <span class="kpi-label">周限额</span>
+            <span class="kpi-label" data-i18n="kpiWeek">周限额</span>
             <strong class="kpi-val" id="kpi-week">—</strong>
           </div>
           <div class="kpi-cell">
-            <span class="kpi-label">缓存命中</span>
+            <span class="kpi-label" data-i18n="kpiCache">缓存命中</span>
             <strong class="kpi-val" id="kpi-cache">—</strong>
           </div>
         </div>
@@ -77,10 +77,10 @@
 
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">桌宠形态</h2>
+          <h2 class="card-title" data-i18n="cardForm">桌宠形态</h2>
           <label class="switch-label">
             <input type="checkbox" id="chk-follow-model">
-            <span>跟随模型自动切换</span>
+            <span data-i18n="followModel">跟随模型自动切换</span>
           </label>
         </div>
         <div class="form-grid" id="form-grid" role="group" aria-label="桌宠形态选择"></div>
@@ -88,50 +88,60 @@
 
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">HUD 悬浮条与联动设置</h2>
+          <h2 class="card-title" data-i18n="cardSettings">HUD 悬浮条与联动设置</h2>
         </div>
 
         <div class="setting-row">
-          <label class="field-label" for="sel-pinned">监控会话</label>
+          <label class="field-label" for="sel-language" data-i18n="fieldLanguage">界面语言</label>
+          <select id="sel-language" class="select-input">
+            <option value="auto" data-i18n="langAuto">自动跟随系统 (Auto)</option>
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label class="field-label" for="sel-pinned" data-i18n="fieldPinned">监控会话</label>
           <select id="sel-pinned" class="select-input"></select>
         </div>
 
         <div class="setting-row">
-          <label class="field-label" for="sel-appearance">HUD 外观</label>
+          <label class="field-label" for="sel-appearance" data-i18n="fieldAppearance">HUD 外观</label>
           <select id="sel-appearance" class="select-input">
-            <option value="dialog">对话框卡片（默认）</option>
-            <option value="capsule">暗色胶囊</option>
-            <option value="glass">轻透毛玻璃</option>
-            <option value="seamless">无边框透明底</option>
+            <option value="dialog" data-i18n="appDialog">对话框卡片（默认）</option>
+            <option value="capsule" data-i18n="appCapsule">暗色胶囊</option>
+            <option value="glass" data-i18n="appGlass">轻透毛玻璃</option>
+            <option value="seamless" data-i18n="appSeamless">无边框透明底</option>
           </select>
         </div>
 
         <div class="setting-row">
-          <label class="field-label" for="sel-hud-mode">HUD 位置</label>
+          <label class="field-label" for="sel-hud-mode" data-i18n="fieldHudMode">HUD 位置</label>
           <select id="sel-hud-mode" class="select-input">
-            <option value="attached">跟随桌宠</option>
-            <option value="floating">独立悬浮（可拖到输入框旁）</option>
+            <option value="attached" data-i18n="modeAttached">跟随桌宠</option>
+            <option value="floating" data-i18n="modeFloating">独立悬浮（可拖到输入框旁）</option>
           </select>
         </div>
 
         <div class="toggle-grid">
-          <label class="switch-label"><input type="checkbox" id="chk-hud-enabled"><span>显示 HUD 悬浮条</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-hud-hover-only"><span>悬停桌宠时显示 HUD（平时隐藏）</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-hud-locked"><span>锁定悬浮坐标</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-autonomy"><span>自主爬窗与互动</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-reactions"><span>对速率/限额做出反应</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-subagent-clones"><span>显示子代理小分身（复用角色素材）</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-particles"><span>互动与反应粒子特效</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-edge-dock"><span>贴边藏身与鼠标探头</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-ai-comments"><span id="lbl-ai-comments">AI 活台词（走本地最省档额度）</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-auto-launch"><span>插件启动时自动拉起桌宠</span></label>
-          <label class="switch-label"><input type="checkbox" id="chk-check-updates"><span>自动检查 GitHub 更新（版本与主分支提交）</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-hud-enabled"><span data-i18n="optHudEnabled">显示 HUD 悬浮条</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-hud-hover-only"><span data-i18n="optHudHover">悬停桌宠时显示 HUD（平时隐藏）</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-hud-locked"><span data-i18n="optHudLocked">锁定悬浮坐标</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-autonomy"><span data-i18n="optAutonomy">自主爬窗与互动</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-reactions"><span data-i18n="optReactions">对速率/限额做出反应</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-subagent-clones"><span data-i18n="optClones">显示子代理小分身（复用角色素材）</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-particles"><span data-i18n="optParticles">互动与反应粒子特效</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-edge-dock"><span data-i18n="optEdgeDock">贴边藏身与鼠标探头</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-ai-comments"><span id="lbl-ai-comments" data-i18n="optAiComments">AI 活台词（走本地最省档额度）</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-auto-launch"><span data-i18n="optAutoLaunch">插件启动时自动拉起桌宠</span></label>
+          <label class="switch-label"><input type="checkbox" id="chk-check-updates"><span data-i18n="optCheckUpdates">自动检查 GitHub 更新（版本与主分支提交）</span></label>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <span id="status-msg">修改后约 1.5 秒内自动同步到桌面宠物</span>
+      <span id="status-msg" data-i18n="footerDefault">修改后约 1.5 秒内自动同步到桌面宠物</span>
       <span id="last-sync">—</span>
     </footer>
   </div>

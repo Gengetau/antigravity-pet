@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import tr
+
 
 class PetControlPanel(QWidget):
     """Quick interaction first; secondary settings are explicitly revealed."""
@@ -63,6 +65,7 @@ class PetControlPanel(QWidget):
         on_dock: Callable[[], None] | None = None,
         on_perch: Callable[[], None] | None = None,
         on_recall_primary: Callable[[], None] | None = None,
+        on_language: Callable[[str], None] | None = None,
         forms: tuple[tuple[str, str], ...] = (("carbon", "Carbon"), ("hydergon", "Hydrogen"), ("neon", "Neon")),
     ) -> None:
         super().__init__(
@@ -78,10 +81,12 @@ class PetControlPanel(QWidget):
         self._size_buttons: dict[float, QToolButton] = {}
         self._activity_buttons: dict[str, QToolButton] = {}
         self._speed_buttons: dict[float, QToolButton] = {}
+        self._lang_buttons: dict[str, QToolButton] = {}
         self._mode_group = QButtonGroup(self)
         self._size_group = QButtonGroup(self)
         self._activity_group = QButtonGroup(self)
         self._speed_group = QButtonGroup(self)
+        self._lang_group = QButtonGroup(self)
         self._form_buttons: dict[str, QToolButton] = {}
         self._form_group = QButtonGroup(self)
         self._expanded = False
@@ -109,35 +114,36 @@ class PetControlPanel(QWidget):
         header = QHBoxLayout()
         header.setSpacing(6)
         self._header_layout = header
-        title = QLabel("小A")
+        title = QLabel(tr("panel.default_title"))
         title.setObjectName("panelTitle")
         header.addWidget(title)
         self.title_label = title
-        self.state_label = QLabel("待机")
+        self.state_label = QLabel(tr("state.idle"))
         self.state_label.setObjectName("stateLabel")
         header.addWidget(self.state_label)
         header.addStretch(1)
         close = QToolButton()
         close.setObjectName("closeButton")
         close.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarCloseButton))
-        close.setToolTip("关闭")
-        close.setAccessibleName("关闭")
         close.clicked.connect(self.hide)
+        self._close_button = close
         header.addWidget(close)
         layout.addLayout(header)
 
         quick_row = QHBoxLayout()
         quick_row.setSpacing(4)
         playmate_cb = on_playmates if on_playmates is not None else (lambda: on_action("HAPPY"))
-        for label, callback in (
-            ("投喂", on_feed),
-            ("说话", on_say),
-            ("唤玩伴", playmate_cb),
-            ("休息", lambda: on_action("SLEEPING")),
+        self._quick_buttons: dict[str, QToolButton] = {}
+        for key, callback in (
+            ("feed", on_feed),
+            ("say", on_say),
+            ("playmates", playmate_cb),
+            ("rest", lambda: on_action("SLEEPING")),
         ):
-            button = self._quick_button(label)
+            button = self._quick_button(tr(f"panel.{key}"))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(callback)
+            self._quick_buttons[key] = button
             quick_row.addWidget(button)
         layout.addLayout(quick_row)
 
@@ -149,20 +155,16 @@ class PetControlPanel(QWidget):
 
         spatial_row = QHBoxLayout()
         spatial_row.setSpacing(4)
-        self.dock_button = self._quick_button("贴边")
-        self.dock_button.setToolTip("贴到屏幕边缘藏身 / 取消贴边")
+        self.dock_button = self._quick_button(tr("panel.dock"))
         self.dock_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.dock_button.clicked.connect(dock_cb)
-        self.climb_button = self._quick_button("爬窗")
-        self.climb_button.setToolTip("爬到附近窗口顶部")
+        self.climb_button = self._quick_button(tr("panel.climb"))
         self.climb_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.climb_button.clicked.connect(lambda: on_action("CLIMB"))
-        self.perch_button = self._quick_button("坐沿")
-        self.perch_button.setToolTip("坐在附近窗口顶部边缘")
+        self.perch_button = self._quick_button(tr("panel.perch"))
         self.perch_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.perch_button.clicked.connect(perch_cb)
-        self.recall_button = self._quick_button("召回主屏")
-        self.recall_button.setToolTip("取消贴边并召回到主屏幕")
+        self.recall_button = self._quick_button(tr("panel.recall"))
         self.recall_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.recall_button.clicked.connect(recall_cb)
         spatial_row.addWidget(self.dock_button, 2)
@@ -174,14 +176,8 @@ class PetControlPanel(QWidget):
         scene_row = QHBoxLayout()
         scene_row.setSpacing(4)
         self.scene_buttons: dict[str, QToolButton] = {}
-        for label, kind, tip in (
-            ("茶会", "tea_party", "🫖 摆开奶油下午茶会（左键茶桌续杯，右键收起）"),
-            ("篝火", "campfire_night", "🏕️ 升起暖光小篝火烤棉花糖（左键添柴，右键熄火）"),
-            ("画室", "art_studio", "🎨 支起小画架给姐姐画肖像（左键换新作，右键收起）"),
-            ("午睡", "cloud_nap", "☁️ 铺开云朵午睡窝一起打盹（左键盖小被，右键收起）"),
-        ):
-            btn = self._quick_button(label)
-            btn.setToolTip(tip)
+        for kind in ("tea_party", "campfire_night", "art_studio", "cloud_nap"):
+            btn = self._quick_button(tr(f"panel.scene.{kind}"))
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if on_scene is not None:
                 btn.clicked.connect(lambda _c=False, k=kind: on_scene(k))
@@ -194,12 +190,12 @@ class PetControlPanel(QWidget):
         layout.addWidget(self._divider())
         mode_row = QHBoxLayout()
         mode_row.setSpacing(4)
-        mode_label = QLabel("移动")
-        mode_label.setObjectName("inlineLabel")
-        mode_label.setFixedWidth(28)
-        mode_row.addWidget(mode_label)
-        for label, value in (("散步", "wander"), ("跟随", "follow"), ("静止", "still")):
-            button = self._choice_button(label)
+        self._mode_label = QLabel(tr("panel.mode"))
+        self._mode_label.setObjectName("inlineLabel")
+        self._mode_label.setFixedWidth(30)
+        mode_row.addWidget(self._mode_label)
+        for value in ("wander", "follow", "still"):
+            button = self._choice_button(tr(f"panel.mode.{value}"))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, key=value: on_mode(key))
             self._mode_group.addButton(button)
@@ -207,9 +203,9 @@ class PetControlPanel(QWidget):
             mode_row.addWidget(button, 1)
         layout.addLayout(mode_row)
 
-        form_label = QLabel("形态")
-        form_label.setObjectName("compactLabel")
-        layout.addWidget(form_label)
+        self._form_label = QLabel(tr("panel.form"))
+        self._form_label.setObjectName("compactLabel")
+        layout.addWidget(self._form_label)
         # Two columns so four (or more) form names never get elided.
         form_row = QGridLayout()
         form_row.setHorizontalSpacing(4)
@@ -226,53 +222,48 @@ class PetControlPanel(QWidget):
         agy_row = QGridLayout()
         agy_row.setHorizontalSpacing(6)
         agy_row.setVerticalSpacing(2)
-        self.follow_model = self._toggle("跟随模型", on_follow_model or (lambda _enabled: None))
-        self.follow_model.setToolTip("根据 Antigravity 当前使用的模型（Carbon / Hydrogen / Neon / Claude）自动切换形态")
-        self.hud = self._toggle("HUD 条", on_hud or (lambda _enabled: None))
-        self.hud.setToolTip("显示 tok/s · 限额 · 缓存 · 上下文 迷你悬浮条")
-        self.autonomy = self._toggle("自主行为", on_autonomy or (lambda _enabled: None))
-        self.autonomy.setToolTip("模型干活时陪着干活、跳上 Antigravity 窗口、闲久了打盹、限额低会犯困、久坐提醒")
-        self.hud_hover_only = self._toggle("悬停HUD", on_hud_hover_only or (lambda _enabled: None))
-        self.hud_hover_only.setToolTip("平时隐藏 HUD 卡片还桌面清爽，鼠标悬停在桌宠身上时再弹出")
+        self.follow_model = self._toggle(tr("panel.follow_model"), on_follow_model or (lambda _enabled: None))
+        self.hud = self._toggle(tr("panel.hud"), on_hud or (lambda _enabled: None))
+        self.autonomy = self._toggle(tr("panel.autonomy"), on_autonomy or (lambda _enabled: None))
+        self.hud_hover_only = self._toggle(tr("panel.hud_hover_only"), on_hud_hover_only or (lambda _enabled: None))
         agy_row.addWidget(self.follow_model, 0, 0)
         agy_row.addWidget(self.hud, 0, 1)
         agy_row.addWidget(self.autonomy, 1, 0)
         agy_row.addWidget(self.hud_hover_only, 1, 1)
         layout.addLayout(agy_row)
-        meter = self._quick_button("Token Meter 面板")
-        meter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._meter_button = self._quick_button(tr("panel.open_meter"))
+        self._meter_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if on_open_meter is not None:
-            meter.clicked.connect(on_open_meter)
-        layout.addWidget(meter)
+            self._meter_button.clicked.connect(on_open_meter)
+        layout.addWidget(self._meter_button)
 
         footer = QHBoxLayout()
         footer.setSpacing(4)
         self.more_button = QToolButton()
         self.more_button.setObjectName("moreButton")
-        self.more_button.setText("更多设置")
         self.more_button.clicked.connect(self._toggle_advanced)
         footer.addWidget(self.more_button, 1)
-        hide = QToolButton()
-        hide.setObjectName("moreButton")
-        hide.setText("隐藏")
-        hide.clicked.connect(on_hide)
-        footer.addWidget(hide)
+        self._hide_button = QToolButton()
+        self._hide_button.setObjectName("moreButton")
+        self._hide_button.clicked.connect(on_hide)
+        footer.addWidget(self._hide_button)
         layout.addLayout(footer)
 
         self._advanced = QWidget()
         advanced_layout = QVBoxLayout(self._advanced)
-        advanced_layout.setContentsMargins(0, 1, 0, 0)
-        advanced_layout.setSpacing(4)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(2)
         advanced_layout.addWidget(self._divider())
 
         size_row = QHBoxLayout()
         size_row.setSpacing(4)
-        size_label = QLabel("大小")
-        size_label.setObjectName("inlineLabel")
-        size_label.setFixedWidth(28)
-        size_row.addWidget(size_label)
-        for label, value in (("小", 0.55), ("中", 0.70), ("大", 0.90)):
-            button = self._choice_button(label)
+        self._size_label = QLabel(tr("panel.size"))
+        self._size_label.setObjectName("inlineLabel")
+        self._size_label.setFixedWidth(30)
+        size_row.addWidget(self._size_label)
+        self._size_key_map = ((0.55, "panel.size.small"), (0.70, "panel.size.medium"), (0.90, "panel.size.large"))
+        for value, i18n_key in self._size_key_map:
+            button = self._choice_button(tr(i18n_key))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, size=value: on_size(size))
             self._size_group.addButton(button)
@@ -282,26 +273,27 @@ class PetControlPanel(QWidget):
 
         action_row = QHBoxLayout()
         action_row.setSpacing(4)
-        action_label = QLabel("动作")
-        action_label.setObjectName("inlineLabel")
-        action_label.setFixedWidth(28)
-        action_row.addWidget(action_label)
-        for label, action in (("发呆", "THINKING"), ("扫地", "SWEEPING")):
-            button = self._quick_button(label)
+        self._action_label = QLabel(tr("panel.action"))
+        self._action_label.setObjectName("inlineLabel")
+        self._action_label.setFixedWidth(30)
+        action_row.addWidget(self._action_label)
+        self._action_buttons: dict[str, QToolButton] = {}
+        for key, action in (("think", "THINKING"), ("sweep", "SWEEPING")):
+            button = self._quick_button(tr(f"panel.action.{key}"))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, value=action: on_action(value))
+            self._action_buttons[key] = button
             action_row.addWidget(button, 1)
         advanced_layout.addLayout(action_row)
 
         rhythm_row = QHBoxLayout()
         rhythm_row.setSpacing(4)
-        rhythm_label = QLabel("节奏")
-        rhythm_label.setObjectName("inlineLabel")
-        rhythm_label.setToolTip("陪伴节奏")
-        rhythm_label.setFixedWidth(28)
-        rhythm_row.addWidget(rhythm_label)
-        for label, value in (("安静", "calm"), ("适中", "balanced"), ("活泼", "lively")):
-            button = self._choice_button(label)
+        self._rhythm_label = QLabel(tr("panel.rhythm"))
+        self._rhythm_label.setObjectName("inlineLabel")
+        self._rhythm_label.setFixedWidth(30)
+        rhythm_row.addWidget(self._rhythm_label)
+        for value in ("calm", "balanced", "lively"):
+            button = self._choice_button(tr(f"panel.rhythm.{value}"))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, key=value: on_activity_level(key))
             self._activity_group.addButton(button)
@@ -311,13 +303,13 @@ class PetControlPanel(QWidget):
 
         speed_row = QHBoxLayout()
         speed_row.setSpacing(4)
-        speed_label = QLabel("步速")
-        speed_label.setObjectName("inlineLabel")
-        speed_label.setToolTip("走路速度")
-        speed_label.setFixedWidth(28)
-        speed_row.addWidget(speed_label)
-        for label, value in (("慢", 64.0), ("适中", 82.0), ("快", 104.0)):
-            button = self._choice_button(label)
+        self._speed_label = QLabel(tr("panel.speed"))
+        self._speed_label.setObjectName("inlineLabel")
+        self._speed_label.setFixedWidth(30)
+        speed_row.addWidget(self._speed_label)
+        self._speed_key_map = ((64.0, "panel.speed.slow"), (82.0, "panel.speed.normal"), (104.0, "panel.speed.fast"))
+        for value, i18n_key in self._speed_key_map:
+            button = self._choice_button(tr(i18n_key))
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda _checked=False, speed=value: on_walk_speed(speed))
             self._speed_group.addButton(button)
@@ -325,17 +317,33 @@ class PetControlPanel(QWidget):
             speed_row.addWidget(button, 1)
         advanced_layout.addLayout(speed_row)
 
-        self.awareness = self._toggle("本地感知", on_awareness)
-        self.topmost = self._toggle("窗口置顶", on_topmost)
-        self.read_window_title = self._toggle("读取标题", on_read_window_title)
-        self.fullscreen_hide = self._toggle("全屏隐藏", on_fullscreen_hide)
-        self.idle_detection = self._toggle("检测空闲", on_idle_detection)
-        self.passthrough = self._toggle("鼠标穿透", on_passthrough)
-        self.autostart = self._toggle("开机自启", on_autostart)
-        self.reduced_motion = self._toggle("减少动态", on_reduced_motion)
-        self.follow_cursor = self._toggle("目光跟随", on_follow_cursor or (lambda _enabled: None))
-        self.hover_pause = self._toggle("悬停暂停", on_hover_pause)
-        self.desktop_surfaces = self._toggle("窗口落脚", on_desktop_surfaces)
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(3)
+        self._lang_label = QLabel(tr("lang.label"))
+        self._lang_label.setObjectName("inlineLabel")
+        self._lang_label.setFixedWidth(30)
+        lang_row.addWidget(self._lang_label)
+        lang_cb = on_language if on_language is not None else (lambda _lang: None)
+        for value in ("auto", "zh", "en", "ja"):
+            button = self._choice_button(tr(f"lang.{value}"))
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            button.clicked.connect(lambda _checked=False, code=value: lang_cb(code))
+            self._lang_group.addButton(button)
+            self._lang_buttons[value] = button
+            lang_row.addWidget(button, 1)
+        advanced_layout.addLayout(lang_row)
+
+        self.awareness = self._toggle(tr("panel.awareness"), on_awareness)
+        self.topmost = self._toggle(tr("panel.topmost"), on_topmost)
+        self.read_window_title = self._toggle(tr("panel.read_window_title"), on_read_window_title)
+        self.fullscreen_hide = self._toggle(tr("panel.fullscreen_hide"), on_fullscreen_hide)
+        self.idle_detection = self._toggle(tr("panel.idle_detection"), on_idle_detection)
+        self.passthrough = self._toggle(tr("panel.passthrough"), on_passthrough)
+        self.autostart = self._toggle(tr("panel.autostart"), on_autostart)
+        self.reduced_motion = self._toggle(tr("panel.reduced_motion"), on_reduced_motion)
+        self.follow_cursor = self._toggle(tr("panel.follow_cursor"), on_follow_cursor or (lambda _enabled: None))
+        self.hover_pause = self._toggle(tr("panel.hover_pause"), on_hover_pause)
+        self.desktop_surfaces = self._toggle(tr("panel.desktop_surfaces"), on_desktop_surfaces)
         toggle_grid = QGridLayout()
         toggle_grid.setHorizontalSpacing(8)
         toggle_grid.setVerticalSpacing(1)
@@ -359,18 +367,21 @@ class PetControlPanel(QWidget):
 
         tools = QHBoxLayout()
         tools.setSpacing(4)
-        for label, callback, object_name in (
-            ("回到屏幕内", on_snap, "utilityButton"),
-            ("隐私", on_privacy, "utilityButton"),
-            ("退出", on_quit, "dangerButton"),
+        self._tool_buttons: dict[str, QPushButton] = {}
+        for key, callback, object_name in (
+            ("snap", on_snap, "utilityButton"),
+            ("privacy", on_privacy, "utilityButton"),
+            ("quit", on_quit, "dangerButton"),
         ):
-            button = QPushButton(label)
+            button = QPushButton(tr(f"panel.{key}"))
             button.setObjectName(object_name)
             button.clicked.connect(callback)
+            self._tool_buttons[key] = button
             tools.addWidget(button)
         advanced_layout.addLayout(tools)
         self._advanced.setVisible(False)
         layout.addWidget(self._advanced)
+        self.retranslate()
 
         self.setStyleSheet(
             "#controlSurface{background:#fffdfb;border:1.5px solid #c4b5fd;border-radius:14px;}"
@@ -378,20 +389,20 @@ class PetControlPanel(QWidget):
             "#stateLabel{padding:1px 7px;background:#ede9fe;border-radius:8px;color:#6d28d9;font-size:10px;font-weight:600;}"
             "QLabel#compactLabel,QLabel#inlineLabel{color:#7c5cd6;font-size:10px;font-weight:700;}"
             "QFrame#divider{background:#e9e3fb;min-height:1px;max-height:1px;}"
-            "QToolButton#quickButton{min-height:23px;padding:0 4px;background:#f5f3ff;border:1px solid #dfd6fe;border-radius:8px;"
+            "QToolButton#quickButton{min-height:21px;padding:0 4px;background:#f5f3ff;border:1px solid #dfd6fe;border-radius:8px;"
             "color:#3b2761;font-size:11px;font-weight:600;}"
             "QToolButton#quickButton:hover{background:#ede9fe;border-color:#c4b5fd;color:#2a1b3d;}"
-            "QToolButton#choiceButton{min-height:21px;padding:0 5px;background:#faf8ff;border:1px solid #e5ddfe;border-radius:7px;"
+            "QToolButton#choiceButton{min-height:19px;padding:0 4px;background:#faf8ff;border:1px solid #e5ddfe;border-radius:7px;"
             "color:#4c3b73;font-size:11px;font-weight:600;}"
             "QToolButton#choiceButton:hover{background:#ede9fe;}"
             "QToolButton#choiceButton:checked{background:#8b5cf6;border-color:#7c3aed;color:#ffffff;}"
-            "QToolButton#moreButton,QToolButton#closeButton{min-height:22px;padding:0 8px;background:transparent;border:none;"
+            "QToolButton#moreButton,QToolButton#closeButton{min-height:20px;padding:0 8px;background:transparent;border:none;"
             "border-radius:7px;color:#6b5b95;font-size:11px;font-weight:600;}"
             "QToolButton#moreButton:hover,QToolButton#closeButton:hover{background:#ede9fe;color:#2a1b3d;}"
-            "QCheckBox{min-height:16px;padding:0px;color:#3b2761;font-size:11px;spacing:5px;}"
+            "QCheckBox{min-height:14px;padding:0px;color:#3b2761;font-size:11px;spacing:5px;}"
             "QCheckBox::indicator{width:24px;height:13px;border-radius:6px;background:#e5ddfe;}"
             "QCheckBox::indicator:checked{background:#8b5cf6;}"
-            "QPushButton#utilityButton,QPushButton#dangerButton{min-height:23px;padding:0 7px;border:none;border-radius:7px;"
+            "QPushButton#utilityButton,QPushButton#dangerButton{min-height:21px;padding:0 7px;border:none;border-radius:7px;"
             "font-size:11px;font-weight:600;}"
             "QPushButton#utilityButton{background:#ede9fe;color:#4c1d95;}"
             "QPushButton#utilityButton:hover{background:#ddd6fe;}"
@@ -427,10 +438,74 @@ class PetControlPanel(QWidget):
         checkbox.clicked.connect(callback)
         return checkbox
 
+    def retranslate(self) -> None:
+        self._close_button.setToolTip(tr("panel.close"))
+        self._close_button.setAccessibleName(tr("panel.close"))
+        for key, btn in self._quick_buttons.items():
+            btn.setText(tr(f"panel.{key}"))
+        self.dock_button.setText(tr("panel.dock"))
+        self.dock_button.setToolTip(tr("panel.dock_tip"))
+        self.climb_button.setText(tr("panel.climb"))
+        self.climb_button.setToolTip(tr("panel.climb_tip"))
+        self.perch_button.setText(tr("panel.perch"))
+        self.perch_button.setToolTip(tr("panel.perch_tip"))
+        self.recall_button.setText(tr("panel.recall"))
+        self.recall_button.setToolTip(tr("panel.recall_tip"))
+        for kind, btn in self.scene_buttons.items():
+            btn.setText(tr(f"panel.scene.{kind}"))
+            btn.setToolTip(tr(f"panel.scene.{kind}_tip"))
+        self._mode_label.setText(tr("panel.mode"))
+        for key, btn in self._mode_buttons.items():
+            btn.setText(tr(f"panel.mode.{key}"))
+        self._form_label.setText(tr("panel.form"))
+        self.follow_model.setText(tr("panel.follow_model"))
+        self.follow_model.setToolTip(tr("panel.follow_model_tip"))
+        self.hud.setText(tr("panel.hud"))
+        self.hud.setToolTip(tr("panel.hud_tip"))
+        self.autonomy.setText(tr("panel.autonomy"))
+        self.autonomy.setToolTip(tr("panel.autonomy_tip"))
+        self.hud_hover_only.setText(tr("panel.hud_hover_only"))
+        self.hud_hover_only.setToolTip(tr("panel.hud_hover_only_tip"))
+        self._meter_button.setText(tr("panel.open_meter"))
+        self.more_button.setText(tr("panel.less") if self._expanded else tr("panel.more"))
+        self._hide_button.setText(tr("panel.hide"))
+        self._size_label.setText(tr("panel.size"))
+        for value, i18n_key in self._size_key_map:
+            self._size_buttons[value].setText(tr(i18n_key))
+        self._action_label.setText(tr("panel.action"))
+        for key, btn in self._action_buttons.items():
+            btn.setText(tr(f"panel.action.{key}"))
+        self._rhythm_label.setText(tr("panel.rhythm"))
+        self._rhythm_label.setToolTip(tr("panel.rhythm_tip"))
+        for key, btn in self._activity_buttons.items():
+            btn.setText(tr(f"panel.rhythm.{key}"))
+        self._speed_label.setText(tr("panel.speed"))
+        self._speed_label.setToolTip(tr("panel.speed_tip"))
+        for value, i18n_key in self._speed_key_map:
+            self._speed_buttons[value].setText(tr(i18n_key))
+        self._lang_label.setText(tr("lang.label"))
+        for code, btn in self._lang_buttons.items():
+            btn.setText(tr(f"lang.{code}"))
+        self.awareness.setText(tr("panel.awareness"))
+        self.topmost.setText(tr("panel.topmost"))
+        self.read_window_title.setText(tr("panel.read_window_title"))
+        self.fullscreen_hide.setText(tr("panel.fullscreen_hide"))
+        self.idle_detection.setText(tr("panel.idle_detection"))
+        self.passthrough.setText(tr("panel.passthrough"))
+        self.autostart.setText(tr("panel.autostart"))
+        self.reduced_motion.setText(tr("panel.reduced_motion"))
+        self.follow_cursor.setText(tr("panel.follow_cursor"))
+        self.hover_pause.setText(tr("panel.hover_pause"))
+        self.desktop_surfaces.setText(tr("panel.desktop_surfaces"))
+        for key, btn in self._tool_buttons.items():
+            btn.setText(tr(f"panel.{key}"))
+        if self.isVisible():
+            QTimer.singleShot(0, self._fit_to_content)
+
     def _toggle_advanced(self) -> None:
         self._expanded = not self._expanded
         self._advanced.setVisible(self._expanded)
-        self.more_button.setText("收起设置" if self._expanded else "更多设置")
+        self.more_button.setText(tr("panel.less") if self._expanded else tr("panel.more"))
         # Hiding a child queues a layout recalculation.  Resize on the next Qt
         # turn so the compact hint is already current instead of retaining the
         # expanded tool window's old height.
@@ -476,6 +551,7 @@ class PetControlPanel(QWidget):
         hud_hover_only: bool | None = None,
         follow_cursor: bool | None = None,
         autonomy: bool | None = None,
+        language: str | None = None,
     ) -> None:
         if autonomy is not None:
             self.autonomy.setChecked(autonomy)
@@ -489,6 +565,8 @@ class PetControlPanel(QWidget):
             self.hud_hover_only.setChecked(hud_hover_only)
         if follow_cursor is not None:
             self.follow_cursor.setChecked(follow_cursor)
+        if language in self._lang_buttons:
+            self._lang_buttons[language].setChecked(True)
         if mode in self._mode_buttons:
             self._mode_buttons[mode].setChecked(True)
         closest_size = min(self._size_buttons, key=lambda value: abs(value - size))

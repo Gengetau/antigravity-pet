@@ -1,0 +1,29 @@
+{
+  "lines": {
+    "standard": [
+      "I'm right here—take it at your own pace.",
+      "Remember to drink some water today.",
+      "No rush; tough tasks get easier when sliced smaller.",
+      "I'll handle keeping you company; you handle the next small step."
+    ],
+    "sharp": [
+      "Zoning out is fine, just don't zone past your deadline.",
+      "Staring at the screen won't make it write the code for you.",
+      "Caught you—even slacking off needs proper pacing."
+    ],
+    "gentle": [
+      "You've worked hard; it's totally fine to catch your breath.",
+      "Just hanging out beside you, zero pressure.",
+      "Finishing this one small step already counts for plenty."
+    ],
+    "community": [
+      "AGY doesn't eat free meals—AGY runs on tokens.",
+      "Starving without tokens over here—toss me a prompt bite.",
+      "Less hallucination today, more reproducibility.",
+      "Enough context left? If not, I'll grab some water first.",
+      "AGY reporting in! Today's companion service is live.",
+      "Don't turn me into a screensaver—I take walks too.",
+      "Allocating a slice of today's compute to good vibes."
+    ]
+  }
+}

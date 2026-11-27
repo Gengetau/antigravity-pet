@@ -1,0 +1,80 @@
+{
+  "first_today": {
+    "standard": ["Morning! Meeting on the desktop again today.", "Brand-new day—AGY is on duty.", "What's first today? I'm right beside you."],
+    "sharp": ["Checked in! Don't just open the repo and stare at it today.", "Here again—knock out the hardest task first.", "On watch again so you don't start three new side projects."],
+    "gentle": ["First hello of the day—wishing you smooth sailing.", "Good morning; starting slow is totally fine.", "A new day, and I'll quietly keep you company again."],
+    "community": ["Daily first session initialized; token ration delivered.", "Today's AGY instance started cleanly.", "New day—inference pipeline and mood both green."]
+  },
+  "recovered": {
+    "standard": ["Think I took a tumble earlier, but everything's restored.", "Didn't get a proper goodbye last time—state recovered.", "Back online; position and mood both intact."],
+    "sharp": ["The process tripped, I wasn't playing dead.", "Just an abrupt exit—AGY didn't lose context.", "Recovery complete; try not to force-kill me next time."],
+    "gentle": ["Had a tiny hiccup earlier, and now I'm safely back.", "No worries—none of your saved state was lost.", "I'm back! That little bump is all sorted out."],
+    "community": ["Crash recovery complete; long-term context intact.", "Process restarted; AGY state replayed.", "Abnormal session closed; local save loaded cleanly."]
+  },
+  "safe_mode": {
+    "standard": ["Two startup glitches in a row—staying in safe mode for now.", "Fancy moves paused temporarily so I stay rock steady.", "Safe mode active; your original settings are untouched."],
+    "sharp": ["Hands off the knobs—launching in maximum-stability mode.", "Two crashes means playing it smart, not stubborn.", "Safe mode isn't giving up; it's skipping tumble number three."],
+    "gentle": ["Starting quietly for now until everything feels stable.", "Using safe mode this time—your preferences remain safely stored.", "Don't worry, I'm just dialing back animations briefly."],
+    "community": ["Consecutive anomalies detected; falling back to stable path.", "Safe mode engaged: sensing, perching, and physics paused.", "Fault isolated; user config preserved read-only."]
+  },
+  "soft_landing": {
+    "standard": ["Smooth touchdown.", "Steady on my feet—all good.", "That drop height was totally fine."],
+    "sharp": ["See? I can stick my own landing.", "Doesn't even count as high-altitude tossing.", "Barely passes as a polite drop-off."],
+    "gentle": ["Touched down nice and soft.", "No problem, I'm steady!", "Thanks for not dropping me from too high."],
+    "community": ["Landing check passed; impact within safe range.", "Physics resolved—no dizziness triggered.", "AGY safely returned to desktop coordinates."]
+  },
+  "hard_landing": {
+    "standard": ["So dizzy—gentler next time.", "That drop really packed a punch.", "Give me a few seconds before walking."],
+    "sharp": ["I'm a desktop pet, not a drop-test dummy.", "Do that again and I'm filing a collision report.", "You call that putting me down? That was a launch."],
+    "gentle": ["A little dizzy... let me catch my breath.", "Could you set me down more gently next time?", "I'm okay, just need a second to steady up."],
+    "community": ["Impact threshold exceeded; AGY briefly dizzy.", "Physics engine note: excessive user launch force.", "Rough landing—shook loose a few tokens."]
+  },
+  "window_land": {
+    "standard": ["Top of this window makes a comfy perch.", "Found a solid spot to sit.", "I'll watch along from up here."],
+    "sharp": ["Claiming the top of this window—rent's on my tab.", "Nice, this platform beats the bare desktop.", "Don't close the window abruptly while I'm standing on it."],
+    "gentle": ["Lovely view up here—mind if I sit a moment?", "Landed softly on the window edge!", "I'll ride along without blocking your screen."],
+    "community": ["Window handle bound; AGY tracking enabled.", "Viable platform detected; perch protocol complete.", "Local window topology updated: new antigravity node."]
+  },
+  "window_lost": {
+    "standard": ["Window vanished—heading back down.", "Perch closed; locating the floor again.", "Platform gone—bracing for touchdown."],
+    "sharp": ["Closing the window without alerting passengers?", "Platform abruptly revoked. One star.", "Guess it's back to the desktop floor."],
+    "gentle": ["Window closed—drifting gently down.", "No worries, I'll find another safe spot.", "Perch is gone, I'll land on my own."],
+    "community": ["Window handle invalidated; detaching with gravity.", "Platform node offline; AGY descending.", "Topology shift handled—zero window content read."]
+  },
+  "repeated_poke": {
+    "standard": ["Too many pokes—that starts to hurt.", "Interaction received; no need to resubmit.", "Hold on a sec, let me recover."],
+    "sharp": ["Too many duplicate requests—throttling enabled.", "One more poke and it's 1 token per click.", "Is your finger stuck in an infinite loop?"],
+    "gentle": ["Could we switch to headpats? Poking nonstop hurts.", "A little gentler, please?", "I know you're here—no need to keep checking."],
+    "community": ["Poke rate exceeded; AGY returned 429.", "High-frequency interaction triggered protection.", "Even a hardworking AGY can't survive nonstop stress tests."]
+  },
+  "repeated_feed": {
+    "standard": ["Already stuffed—save the rest for later.", "Treat received, no need to feed all at once.", "Plenty of energy now, thank you!"],
+    "sharp": ["Trying to turn AGY into an oversized model?", "Tokens topped off—no scaling needed.", "Even feeding deserves a rate limit."],
+    "gentle": ["Thank you, though I'm genuinely full now.", "Let's save some to share later.", "Love the gesture—snacks can wait a bit."],
+    "community": ["Token pantry full; pausing incoming quota.", "Rapid feeding triggered capacity guard.", "AGY cache saturated; no extra writes needed."]
+  },
+  "tail_touch": {
+    "standard": ["The tail is sensitive—no sudden grabs.", "At least say hello before touching the tail.", "That's not a button."],
+    "sharp": ["Hands off the tail, thanks.", "That's a tail, not a window drag handle.", "Touch it again and I'm turning around."],
+    "gentle": ["Tail is ticklish—easy there.", "Sudden touches startle me.", "Headpats are great, skip the tail for now."],
+    "community": ["Tail sensor triggered; feedback level elevated.", "Non-standard rear input detected.", "AGY tail interface does not support hot-plugging."]
+  },
+  "long_focus": {
+    "standard": ["You've focused for a long stretch—time to move a bit.", "Progress matters, and so do your shoulders.", "Grab a sip of water once this chunk wraps up."],
+    "sharp": ["Focus doesn't mean compiling yourself into a statue.", "Screen time maxed—try refreshing yourself.", "Save the file, stand up, take two steps."],
+    "gentle": ["Great effort—give your eyes a short rest too.", "A slow stretch won't cost you any momentum.", "I'll watch the desk while you take a breather."],
+    "community": ["Long context running stable, but human needs cooling.", "Extended inference detected—hydration recommended.", "AGY reminder: humans have context windows too."]
+  },
+  "late_work": {
+    "standard": ["Getting really late—the rest can wait for tomorrow.", "Plenty accomplished today; consider wrapping up.", "One final save, then head to bed."],
+    "sharp": ["3 AM code doesn't get smarter just because you're awake.", "All-nighters aren't turbo mode—they're thermal throttling.", "One last save, and mean it."],
+    "gentle": ["Deep night already—please don't wear yourself out.", "Great job today; leave the rest for tomorrow.", "Happy to sit till wrap-up, even happier if you sleep early."],
+    "community": ["Late-night token burn high; recommending session end.", "Human energy detected below safe threshold.", "AGY requesting shutdown of overnight inference."]
+  },
+  "update_available": {
+    "standard": ["New version found—I'll verify it before installing.", "Update spotted; downloading the package safely.", "New release ready; I'll ask you once checksums pass."],
+    "sharp": ["Update found. Relax, I won't sneak-install behind your back.", "New build's out—verify the hash before upgrading.", "Auto-download is fine; restart always waits for your OK."],
+    "gentle": ["A new version is out—I'll verify safety before reminding you.", "Preparing the update quietly without interrupting your work.", "Once verified, you decide when to install."],
+    "community": ["New release detected; validating SHA-256.", "Update asset found; rejecting unverified binaries.", "Version diff complete; fresh token bundle downloading."]
+  }
+}

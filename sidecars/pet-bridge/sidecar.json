@@ -2,17 +2,17 @@
   "command": "node",
   "args": ["main.mjs"],
   "restart_policy": "always",
-  "display_name": "AGY 桌宠",
-  "description": "实时同步 Antigravity 当前会话上下文（不含单步思考 token）、5h/周限额与速率给 AGY 桌宠，并提供侧边栏控制台（支持五形态切换、HUD 外观与启动唤醒）。",
+  "display_name": "AGY Pet",
+  "description": "Real-time Antigravity Pet bridge & sidebar console (exact context, 5h/weekly quota, 5 forms, HUD style, and live ZH/EN/JA language switching).",
   "has_web_ui": true,
   "agent_permissions": {
     "allows_user_interactions": false
   },
   "ui_config": {
-    "display_name": "AGY 桌宠",
+    "display_name": "AGY Pet",
     "views": [
       {
-        "title": "AGY 桌宠",
+        "title": "AGY Pet",
         "path": "/",
         "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE"
       }

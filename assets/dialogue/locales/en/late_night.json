@@ -1,0 +1,26 @@
+{
+  "lines": {
+    "standard": [
+      "It's getting late—wrap up and get some rest.",
+      "Deep night already; save some energy for tomorrow.",
+      "One last check, then bedtime?"
+    ],
+    "sharp": [
+      "Staying up late won't intimidate the bugs.",
+      "Any later and I'm filing for clock-out.",
+      "You've done plenty today—don't overdraw."
+    ],
+    "gentle": [
+      "You've worked hard—please turn in early tonight.",
+      "Wrap up gently; tomorrow is plenty of time.",
+      "I'll stay with you to the finish, and I hope you sleep well."
+    ],
+    "community": [
+      "Don't splurge late-night tokens; AGY paces snacks too.",
+      "Tuck today's context away and digest it fresh tomorrow.",
+      "AGY night-watch advisory: please replenish sleep.",
+      "Midnight mode on—cruise slower, don't burn out.",
+      "Today's compute reserve is low; resume battle tomorrow."
+    ]
+  }
+}

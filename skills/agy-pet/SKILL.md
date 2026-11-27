@@ -1,6 +1,6 @@
 ---
 name: agy-pet
-description: 管理与控制 AGY 桌宠（支持 Carbon / Hydrogen / Neon / Argon / Claude 五形态切换、启动/唤醒桌宠、查看当前会话精确上下文与 5h/周限额、打开侧边栏控制台）。当用户提到桌宠、切换形态、查看桌宠状态或打开桌宠面板时触发。
+description: 管理与控制 AGY 桌宠 / Manage & control AGY Desktop Pet / AGY デスクトップペットの管理（Carbon / Hydrogen / Neon / Argon / Claude 五形态切换、中/英/日三语切换、启动唤醒、查看精确上下文与 5h/周限额、打开侧边栏控制台）。Trigger when the user mentions desktop pet, 桌宠, デスクトップペット, switch form/切换形态/形態切替, change pet language/切换语言/言語切替, or opening the AGY Pet sidebar.
 ---
 
 # AGY 桌宠控制与遥测插件
@@ -35,6 +35,6 @@ description: 管理与控制 AGY 桌宠（支持 Carbon / Hydrogen / Neon / Argo
 
 ## 配置热同步
 
-- 桌宠主配置文件位于 `<PET_ROOT>/config.json` 的 `agy` 字段（支持 `form`、`follow_model`、`hud_enabled`、`hud_mode`、`hud_appearance`、`hud_locked`、`pinned_conversation`、`autonomy`、`reactions`）。
-- 外部或侧边栏控制台更新 `<PET_ROOT>/config.json` 后，运行中的桌宠会在约 1.5 秒内自动热生效并保持坐标位置。
+- 桌宠主配置文件位于 `<PET_ROOT>/config.json` 的 `agy` 字段（支持 `language`（`auto` / `zh` / `en` / `ja`）、`form`、`follow_model`、`hud_enabled`、`hud_mode`、`hud_appearance`、`hud_locked`、`pinned_conversation`、`autonomy`、`reactions`、`ai_comments`）。
+- 外部或侧边栏控制台更新 `<PET_ROOT>/config.json` 后，运行中的桌宠会在约 1.5 秒内自动热生效（包括语言热切）并保持坐标位置。
 - 启动或唤醒桌宠命令（在 `<PET_ROOT>` 下）：`pyw -3.13 main.py`（或双击 `启动AGY桌宠.cmd`）。

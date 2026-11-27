@@ -35,7 +35,11 @@ def parse_food_menu(raw) -> tuple[FoodItem, ...]:
             taste=taste if taste in {"favorite", "normal", "dislike"} else "normal",
             lines=tuple(str(line) for line in entry.get("lines") or () if line),
         ))
-    return tuple(items) or tuple(FoodItem(name, name) for name in FOODS)
+    if items:
+        return tuple(items)
+    from app.i18n import tr
+
+    return tuple(FoodItem(name, tr(f"food.fallback.{idx}")) for idx, name in enumerate(FOODS))
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,11 +193,16 @@ class FoodPanel(QWidget):
         self._layout.setContentsMargins(12, 8, 12, 8)
         self._layout.setSpacing(6)
         self._close = QToolButton()
-        self._close.setText("关闭")
         self._close.setFont(QFont("Microsoft YaHei UI", 10))
-        self._close.setFixedSize(40, 30)
+        self._close.setFixedSize(46, 30)
         self._close.clicked.connect(self.hide)
+        self.retranslate()
         self.set_menu(parse_food_menu(None))
+
+    def retranslate(self) -> None:
+        from app.i18n import tr
+
+        self._close.setText(tr("food.close"))
 
     def set_menu(self, items, accent: str = "#339ad5") -> None:
         """Rebuild the buttons for ``items`` (FoodItem) in the form's colours."""
@@ -227,7 +236,7 @@ class FoodPanel(QWidget):
             "QToolButton:hover{background:rgba(255,255,255,80);color:#fff;}"
         )
         count = len(self.buttons)
-        self.setFixedSize(24 + count * (self.BUTTON_W + 6) + 40, self.BUTTON_H + 16)
+        self.setFixedSize(24 + count * (self.BUTTON_W + 6) + 46, self.BUTTON_H + 16)
         self._background = QColor(accent).darker(260)
         self._background.setAlpha(238)
         self.update()

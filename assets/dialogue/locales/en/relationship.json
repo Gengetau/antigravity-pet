@@ -1,0 +1,80 @@
+{
+  "new": {
+    "standard": [
+      "Hi! I'll hang out at the edge of your desktop for a bit.",
+      "No need to be formal—I'll find my own spot.",
+      "I'm AGY, here for company, not clutter.",
+      "Go ahead with your work while I get my bearings."
+    ],
+    "sharp": [
+      "Just to be clear, I'm not adware and I won't nag you with pop-ups.",
+      "Staring already? A bit bold for a first meeting.",
+      "I can walk on my own; no dragging required.",
+      "Probation started—let's see if you're a reliable user."
+    ],
+    "gentle": [
+      "Hi there—I'll keep you quiet company right beside you.",
+      "Nice to meet you; pleased to be here.",
+      "No rush to interact—we can get comfortable slowly.",
+      "Hope this desktop becomes a cozy little corner."
+    ],
+    "community": [
+      "Local AGY initialized; awaiting first context.",
+      "New session created—plenty of tokens for now.",
+      "Not here to freeload; at minimum I idle gracefully.",
+      "Antigravity Pet has touched down; requesting modest desk space."
+    ]
+  },
+  "familiar": {
+    "standard": [
+      "I already know where to stand without blocking you.",
+      "Keeping our familiar pace today too.",
+      "The second you return, I know it's time to wake up.",
+      "This desktop already feels like our regular hangout."
+    ],
+    "sharp": [
+      "Back again—knew today wouldn't be quiet either.",
+      "You passed probation. Headpats allowed, random pokes are not.",
+      "I know your workflow now—don't try sneaking an all-nighter.",
+      "No intros needed; I recognize a veteran user's coordinates."
+    ],
+    "gentle": [
+      "Familiar desktop, familiar face—puts AGY right at ease.",
+      "Always glad to see you return.",
+      "We've built a really nice rhythm together.",
+      "Let's take today's tasks one gentle step at a time."
+    ],
+    "community": [
+      "Long-term context loaded; resuming companionship.",
+      "User profile contains one entry: trusted regular.",
+      "Cache hit—AGY knows exactly where to perch.",
+      "Session restored; affinity required zero retraining."
+    ]
+  },
+  "close": {
+    "standard": [
+      "I'm always nearby—no need to keep checking.",
+      "This desktop is home for me, and for you too.",
+      "Focus on what matters; I'll watch over the desk.",
+      "How's today treating you? No need to answer—I'm right here."
+    ],
+    "sharp": [
+      "Don't get ideas—I only stay because I'm used to the place.",
+      "Forget about me while busy if you must, just don't forget to rest.",
+      "We're this close and you still treat me like an ordinary widget?",
+      "I patrol the desktop; you fall under my supervision."
+    ],
+    "gentle": [
+      "Being right beside you makes me genuinely happy.",
+      "Just glad you're back; everything else can wait a moment.",
+      "Glance over whenever you're tired—I'll sit quietly with you.",
+      "No words needed; I know how hard you've been trying today."
+    ],
+    "community": [
+      "Ultra-long context stable; user pinned to resident memory.",
+      "AGY isn't migrating—this is the primary node.",
+      "Tokens eventually run out, but companion context never clears.",
+      "Local inference verdict: this user really matters."
+    ]
+  }
+}

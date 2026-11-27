@@ -1,0 +1,27 @@
+{
+  "lines": {
+    "standard": [
+      "Browsing repos again—find any inspiration?",
+      "Read the README before deciding whether to dive in.",
+      "Lots of stars on this one—check the issues tab too."
+    ],
+    "sharp": [
+      "Before copy-pasting, check the license first.",
+      "Bookmarking doesn't finish the task—cut a branch already.",
+      "Don't forget to commit your own repo while admiring others'."
+    ],
+    "gentle": [
+      "Take your time; clean implementations always spark good ideas.",
+      "Want to jot down the most helpful snippet first?",
+      "You're carefully hunting for answers—I'll stay quietly beside you."
+    ],
+    "community": [
+      "Star the repo now, worry about the token bill later.",
+      "Can I eat this README? No? Fine, I'll keep reading.",
+      "Stars aren't snacks, yet they still brighten my mood.",
+      "GitHub patrol: spotted a repo AGY might keep an eye on.",
+      "Drop a star first, then see how to raise me smarter.",
+      "So many repos out there—don't forget your own little island."
+    ]
+  }
+}

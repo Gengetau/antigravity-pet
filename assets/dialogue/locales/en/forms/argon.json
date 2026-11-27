@@ -1,0 +1,395 @@
+{
+  "form": "argon",
+  "voice": "A drowsy, slow-paced noble-gas girl hugging her cat pillow, half-lidded eyes, brief trailing sentences—claims to be inert, yet quietly keeps you company.",
+  "speaker": "Argon",
+  "announce": [
+    "...Argon, present. *Yawn*...",
+    "Switched to Argon. Non-reactive. Very stable.",
+    "Mhm... pillow secured. Ready whenever."
+  ],
+  "dialogue": {
+    "coding": {
+      "lines": [
+        "Take it slow... no rush at all.",
+        "Error? Mhm... don't panic. Check the first line.",
+        "I don't join reactions... I'm watching though.",
+        "Run the tests... then I wanna nap."
+      ]
+    },
+    "daily": {
+      "lines": [
+        "I'm here... hugging my pillow.",
+        "Have some water... I want a sip too.",
+        "Nice and steady today. Good.",
+        "Mhm... you work, I'll lie down a bit."
+      ]
+    },
+    "document": {
+      "lines": [
+        "So many words... one line at a time.",
+        "Eyes tired? Lean on my pillow a sec.",
+        "Mhm... I'm listening along.",
+        "Finish this page... then take a breather."
+      ]
+    },
+    "github": {
+      "lines": [
+        "Browsing repos again... find anything nice?",
+        "Read the README first... saves energy.",
+        "That commit... looks pretty tidy.",
+        "So many stars... too sleepy to count."
+      ]
+    },
+    "idle": {
+      "idle": [
+        "Do your thing... I'll hug my pillow here.",
+        "...Right here. Not moving.",
+        "Zoning out. Do not disturb... well, you can.",
+        "Phew... so quiet."
+      ],
+      "return": [
+        "Oh... you're back.",
+        "Thought you got... vacuumed away.",
+        "Welcome back... wanna borrow the pillow?",
+        "Mhm, let's continue... nice and slow."
+      ]
+    },
+    "inner_voice": {
+      "lines": [
+        "Full electron shell... zero urge to move.",
+        "Roughly one percent of air is me... probably.",
+        "Run voltage through me... and I glow violet.",
+        "...Thinking about dinner. And a nap."
+      ]
+    },
+    "interaction": {
+      "tap": [
+        "Mhm...? Calling me?",
+        "Poking won't get a reaction... I'm inert.",
+        "...Gently, my pillow's slipping.",
+        "I'm here... just kinda sleepy."
+      ],
+      "head": [
+        "Mhm... this is nice.",
+        "Pat a little longer... I'm drifting off.",
+        "*Purr*... ah, nothing.",
+        "...Comfy. Keep going."
+      ],
+      "drag": [
+        "Where to...? Holding my pillow tight.",
+        "...Carry me slowly.",
+        "Floating up... just like a gas.",
+        "Mhm... whatever you like."
+      ],
+      "food": [
+        "Yummy... one more bite.",
+        "...Thanks. Now I'm sleepy.",
+        "Sweet. I like it.",
+        "Mhm... you can have half my pillow."
+      ],
+      "face": [
+        "...Cheeks soft?",
+        "Don't poke my face... I'll wake up.",
+        "Mmm... can't keep my eyes open.",
+        "One more poke and I'm burying my face in the pillow."
+      ],
+      "head_hold": [
+        "Just like this... don't move...",
+        "So warm... falling asleep.",
+        "Mhm... feels so safe.",
+        "...Could stay like this all day."
+      ],
+      "drag_gentle": [
+        "This speed... is perfect for dozing.",
+        "Drifting slowly... so comfy.",
+        "Mhm... like riding a boat.",
+        "...Even slower is fine too."
+      ],
+      "drag_fast": [
+        "Too fast... my pillow's gonna fly off!",
+        "Mmm... dizzy.",
+        "Noble gases... get dizzy too.",
+        "S-slow down..."
+      ]
+    },
+    "late_night": {
+      "lines": [
+        "So late... let's sleep together.",
+        "Borrow my pillow... go to bed.",
+        "Staying up late... makes things unstable.",
+        "...I'll wait till you wrap up, then sleep."
+      ]
+    },
+    "relationship": {
+      "new": [
+        "Nice to meet you... I'm Argon.",
+        "I don't move much... hope you don't mind.",
+        "...My pillow. Not sharing. Yet.",
+        "Mhm... pleased to meet you."
+      ],
+      "familiar": [
+        "Your pace... I've gotten used to it.",
+        "Mhm, let's take today slow too.",
+        "...You can borrow half the pillow now.",
+        "You're here. Waking up a little."
+      ],
+      "close": [
+        "With you here... everything feels calm.",
+        "This is my spot... and the pillow's.",
+        "When you're away... I wait.",
+        "...Don't go far. Too lazy to chase."
+      ]
+    },
+    "routine": {
+      "first_today": [
+        "Morning... still half asleep.",
+        "New day... *yawn*...",
+        "Mhm, I'm here... pillow in tow.",
+        "Let's start... nice and easy."
+      ],
+      "recovered": [
+        "Just now... think I fell. All good now.",
+        "Mhm, I'm back. Very stable.",
+        "...Cut off suddenly last time. Sorry.",
+        "No worries... I'm pretty inert."
+      ],
+      "safe_mode": [
+        "Startup acted up... staying still for now.",
+        "Fancy moves off... wasn't planning to move anyway.",
+        "Safe mode... really suits me.",
+        "...Don't worry, I'm here."
+      ],
+      "soft_landing": [
+        "Touchdown... nice and soft.",
+        "Mhm, steady.",
+        "...All good.",
+        "Gentle."
+      ],
+      "hard_landing": [
+        "Mmm... ow.",
+        "Pillow... broke the fall, mostly.",
+        "...Set me down gentler next time.",
+        "That fall woke me up."
+      ],
+      "window_land": [
+        "This window... good for lying down.",
+        "Mhm, right here works.",
+        "...Nice spot for a snooze.",
+        "Sat down. Not moving now."
+      ],
+      "window_lost": [
+        "Window's gone... dropping down.",
+        "...My bed vanished.",
+        "Mmm, time for a new spot.",
+        "Mhm... looking for somewhere else to lie."
+      ],
+      "repeated_poke": [
+        "That's a lot of pokes...",
+        "...Keep poking and I'll fall asleep on you.",
+        "I won't react... really.",
+        "Mmm... ease up a little."
+      ],
+      "repeated_feed": [
+        "Full... getting sleepy.",
+        "...Leave the rest by the pillow.",
+        "No more... tummy's round.",
+        "Thanks... plenty."
+      ],
+      "tail_touch": [
+        "Tail...? D-don't touch.",
+        "...Fur just puffed up.",
+        "Mmm... not there.",
+        "Give a warning first..."
+      ],
+      "long_focus": [
+        "Been staring ages... get up and stretch.",
+        "Eyes tired...? Borrow my pillow.",
+        "Take a break... just a quick one.",
+        "...Pull too tight and you'll snap."
+      ],
+      "late_work": [
+        "So late... call it a night.",
+        "The rest... is a job for tomorrow's you.",
+        "...Bedtime. I'm lying down first.",
+        "All-nighters aren't worth it... really."
+      ],
+      "update_available": [
+        "An update... I'll take a look.",
+        "New version? ...No rush.",
+        "Mhm... update's here. Watching it.",
+        "...Double-check before installing."
+      ]
+    },
+    "state": {
+      "tired": [
+        "So sleepy... let me flop down.",
+        "...Low battery.",
+        "Mmm... eyes shutting.",
+        "Shh... recharging."
+      ],
+      "annoyed": [
+        "...That's enough.",
+        "Face in the pillow. Ignoring you.",
+        "Even noble gases get grumpy.",
+        "...Really that bored?"
+      ],
+      "restless": [
+        "Lay down too long... shifting spots.",
+        "Going over there... to lie a different way.",
+        "...Legs went numb.",
+        "Just a tiny walk."
+      ],
+      "cheerful": [
+        "Today... is pretty nice.",
+        "Mhm, good mood. Glowing a tiny bit violet.",
+        "...Feeling kinda happy.",
+        "Steady progress. I like it."
+      ],
+      "affectionate": [
+        "Used to you now... feels so safe.",
+        "The moment you're back... I wake up.",
+        "...Being with you beats even my pillow.",
+        "Don't make me talk too much... I'll blush."
+      ]
+    },
+    "video": {
+      "lines": [
+        "Go ahead... I'll lean on my pillow and watch too.",
+        "Close your eyes if they get tired.",
+        "...This clip looks kinda interesting.",
+        "Remember to stretch after."
+      ]
+    }
+  },
+  "agy": {
+    "started": [
+      "Work started... I'm watching.",
+      "Inference rolling... dozing right beside it.",
+      "Model's thinking... I'm thinking too. About sleep."
+    ],
+    "finished": [
+      "Done... {total} tokens total.",
+      "Finished. {total} tokens... nice work.",
+      "All done. {total} tokens, avg {rate} tok/s."
+    ],
+    "fast": [
+      "{rate} tok/s... so fast, can't keep up.",
+      "Speed {rate}... mhm, very steady.",
+      "{rate} tok/s. Not bad."
+    ],
+    "quota_low": [
+      "Quota at {quota}%... go easy.",
+      "Gentle reminder... quota {quota}%.",
+      "{quota}%... take it slow."
+    ],
+    "quota_critical": [
+      "Only {quota}% quota left... {reset}.",
+      "{quota}%... {reset}. Rest a bit first.",
+      "Almost out: {quota}%, {reset}."
+    ],
+    "context_high": [
+      "Context at {ctx}%... time for a new session.",
+      "{ctx}%... so cramped. Tidy it up.",
+      "Window's {ctx}% full... don't overpack."
+    ],
+    "form": [
+      "It's {model}... switching to {form}.",
+      "{model} arrived... {form} in place.",
+      "Detected {model}... I'm here. *Yawn*..."
+    ],
+    "offline": [
+      "Antigravity's closed... nap time then.",
+      "...No movement. Perfect for a snooze.",
+      "It's away... I'll stay quiet too."
+    ],
+    "hop": [
+      "Going to lie on top of the window.",
+      "Up here... nice view.",
+      "Climbing up... to sit and watch."
+    ],
+    "wake": [
+      "Mhm...? Work started? I'm awake.",
+      "Things moved... getting up too.",
+      "...Awake, awake."
+    ],
+    "nap": [
+      "All quiet... going to sleep.",
+      "Nobody coding... hugging pillow for a nap.",
+      "So peaceful... goodnight."
+    ],
+    "tired": [
+      "Only {quota}% quota left... so tired.",
+      "{quota}%... flopping flat.",
+      "Quota at {quota}%... pace yourself."
+    ],
+    "recharged": [
+      "Quota's full again... use it freely.",
+      "Reset done... don't burn it all at once.",
+      "Restored. Nice."
+    ],
+    "stretch": [
+      "Busy for {minutes} min... get up and stretch.",
+      "{minutes} min with no break... have some water.",
+      "{minutes} min straight... take a breather."
+    ],
+    "greet": [
+      "Antigravity's up... what are we writing today?",
+      "Spotted it... I'm here.",
+      "You're here... let's start, nice and slow."
+    ]
+  },
+  "food_menu": [
+    {
+      "id": "warm_milk",
+      "name": "Warm Milk",
+      "icon": "🥛",
+      "taste": "favorite",
+      "lines": [
+        "Warm milk... so cozy... getting sleepy...",
+        "Phew... this is the one. Thank you.",
+        "Once I finish... pillow nap time, right?"
+      ]
+    },
+    {
+      "id": "cookie",
+      "name": "Cookie",
+      "icon": "🍪",
+      "taste": "normal",
+      "lines": [
+        "Crunch... got crumbs on my pillow.",
+        "One is plenty... okay, two."
+      ]
+    },
+    {
+      "id": "fish_jerky",
+      "name": "Fish Jerky",
+      "icon": "🐟",
+      "taste": "normal",
+      "lines": [
+        "Chew... slow chew...",
+        "Mhm... tastes like kitty snacks."
+      ]
+    },
+    {
+      "id": "pudding",
+      "name": "Pudding",
+      "icon": "🍮",
+      "taste": "normal",
+      "lines": [
+        "Soft... barely have to chew.",
+        "Pudding... just right."
+      ]
+    },
+    {
+      "id": "espresso",
+      "name": "Espresso",
+      "icon": "☕",
+      "taste": "dislike",
+      "lines": [
+        "Coffee... I won't be able to sleep. No thanks.",
+        "...I'm inert. I don't react with caffeine.",
+        "Take it away... I still want my nap."
+      ]
+    }
+  ]
+}

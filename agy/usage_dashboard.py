@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import format_month_label, format_short_month, get_language, tr, weekday_labels
 from . import pricing, usage_stats
 from .usage_stats import METRICS, UsageStats
 
@@ -137,9 +138,10 @@ class Heatmap(QWidget):
         visible = {d: v for d, v in self.values.items() if self.start <= d <= self.end}
         peak = max(visible.values(), default=0)
         self._cells = []
+        weekdays = weekday_labels()
         painter.setPen(muted_pen)
-        for row, name in ((0, "一"), (2, "三"), (4, "五")):
-            painter.drawText(QRectF(0, top + row * (CELL + GAP) - 2, left - 6, CELL + 4), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, name)
+        for row in (0, 2, 4):
+            painter.drawText(QRectF(0, top + row * (CELL + GAP) - 2, left - 6, CELL + 4), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, weekdays[row])
         last_month = None
         day = self.start
         while day <= self.end:
@@ -150,7 +152,7 @@ class Heatmap(QWidget):
             if row == 0 and day.month != last_month:
                 last_month = day.month
                 painter.setPen(muted_pen)
-                painter.drawText(QPointF(x, top - 6), f"{day.month}月")
+                painter.drawText(QPointF(x, top - 6), format_short_month(day.month))
             value = visible.get(day, 0)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(palette[_level(value, peak)]))
@@ -174,7 +176,7 @@ class Heatmap(QWidget):
         peak = max(month_values.values(), default=0)
         self._cells = []
         painter.setPen(muted_pen)
-        for col, name in enumerate(WEEKDAYS):
+        for col, name in enumerate(weekday_labels()):
             painter.drawText(QRectF(col * step, 0, MONTH_CELL, 16), Qt.AlignmentFlag.AlignCenter, name)
         today = date.today()
         day = first
@@ -200,19 +202,20 @@ class Heatmap(QWidget):
         point = event.position()
         for rect, day, value in self._cells:
             if rect.contains(point):
+                day_str = f"{day:%Y-%m-%d}"
                 if self.mode == "week":
-                    label = f"{day:%Y-%m-%d} 所在周"
+                    label = tr("dash.heat.tip_week", day=day_str)
                 elif self.mode == "total":
-                    label = f"截至 {day:%Y-%m-%d} 累计"
+                    label = tr("dash.heat.tip_total", day=day_str)
                 else:
-                    label = f"{day:%Y-%m-%d}"
+                    label = day_str
                 QToolTip.showText(event.globalPosition().toPoint(), f"{label} · {self._fmt(value)}", self)
                 return
         QToolTip.hideText()
 
     def _fmt(self, value: int) -> str:
         if self.unit == "steps":
-            return f"{value:,} 步"
+            return tr("dash.heat.steps_unit", val=value)
         if self.unit == "usd":
             return pricing.format_usd(value / usage_stats.MICRO)
         return f"{usage_stats.format_tokens_cn(value)} token" if value >= 10_000 else f"{value:,} token"
@@ -230,6 +233,7 @@ class _PeriodCard(QFrame):
         top = QHBoxLayout()
         lbl = QLabel(title)
         lbl.setObjectName("cardTitle")
+        self.title_label = lbl
         badge = QLabel(tag)
         badge.setObjectName(tag_id)
         top.addWidget(lbl)
@@ -261,6 +265,7 @@ class _Stat(QFrame):
         label = QLabel(caption)
         label.setObjectName("statCaption")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.caption_label = label
         layout.addWidget(self.value)
         layout.addWidget(label)
 
@@ -277,6 +282,7 @@ class _Window(QFrame):
         row = QHBoxLayout()
         title = QLabel(caption)
         title.setObjectName("cardTitle")
+        self.title_label = title
         self.detail = QLabel("—")
         self.detail.setObjectName("cardDetail")
         row.addWidget(title)
@@ -288,13 +294,18 @@ class _Window(QFrame):
         self.bar.setTextVisible(False)
         self.bar.setFixedHeight(7)
         layout.addWidget(self.bar)
+        self._last_pct: float | None = None
+        self._last_reset: str = ""
 
     def set_value(self, remaining_pct: float | None, reset_text: str) -> None:
+        self._last_pct = remaining_pct
+        self._last_reset = reset_text
         if remaining_pct is None:
-            self.detail.setText("暂无数据")
+            self.detail.setText(tr("dash.win.none"))
             self.bar.setValue(0)
             return
-        self.detail.setText(f"剩余 {remaining_pct:.0f}%" + (f" · {reset_text}" if reset_text else ""))
+        reset_part = f" · {reset_text}" if reset_text else ""
+        self.detail.setText(tr("dash.win.left", pct=remaining_pct, reset=reset_part))
         self.bar.setValue(int(max(0.0, min(100.0, remaining_pct)) * 10))
         color = "#10B981" if remaining_pct >= 40 else "#F59E0B" if remaining_pct >= 20 else "#EF4444"
         self.bar.setStyleSheet(f"QProgressBar::chunk{{background:{color};border-radius:3px;}}")
@@ -328,12 +339,12 @@ class UsageDashboard(QScrollArea):
         tier_layout.setContentsMargins(14, 10, 14, 10)
         tier_layout.setSpacing(8)
         tier_head = QHBoxLayout()
-        self.tier_label = QLabel("💎 订阅档位暂未识别（连接 Antigravity 语言服务后自动同步）")
+        self.tier_label = QLabel(tr("dash.tier.unknown_init"))
         self.tier_label.setObjectName("tierBannerText")
         self.tier_price = QLabel("")
         self.tier_price.setObjectName("tierPricePill")
         self.tier_price.setVisible(False)
-        self.tier_toggle = QPushButton("详情 ▼")
+        self.tier_toggle = QPushButton(tr("dash.detail.open"))
         self.tier_toggle.setObjectName("ghostSmall")
         self.tier_toggle.clicked.connect(self._toggle_tier_detail)
         tier_head.addWidget(self.tier_label)
@@ -363,10 +374,10 @@ class UsageDashboard(QScrollArea):
         # 2. Four Hero Period Cards (Total / Today / Month / Year)
         hero_grid = QHBoxLayout()
         hero_grid.setSpacing(10)
-        self.hero_total = _PeriodCard("累计处理 Token\n含缓存读取", "Total", "tagViolet")
-        self.hero_today = _PeriodCard("今日使用", "Today", "tagTeal")
-        self.hero_month = _PeriodCard("本月使用", "Month", "tagIndigo")
-        self.hero_year = _PeriodCard("年度使用", "Year", "tagSlate")
+        self.hero_total = _PeriodCard(tr("dash.hero.total"), "Total", "tagViolet")
+        self.hero_today = _PeriodCard(tr("dash.hero.today"), "Today", "tagTeal")
+        self.hero_month = _PeriodCard(tr("dash.hero.month"), "Month", "tagIndigo")
+        self.hero_year = _PeriodCard(tr("dash.hero.year"), "Year", "tagSlate")
         for card in (self.hero_total, self.hero_today, self.hero_month, self.hero_year):
             hero_grid.addWidget(card, 1)
         layout.addLayout(hero_grid)
@@ -378,10 +389,10 @@ class UsageDashboard(QScrollArea):
         c_layout.setContentsMargins(14, 11, 14, 11)
         c_layout.setSpacing(8)
         c_row = QHBoxLayout()
-        self.cache_split_label = QLabel("输入(未缓存) —   缓存读取 —   总输入(输入+缓存) —   输出 —")
+        self.cache_split_label = QLabel(tr("dash.cache.split", fresh="—", cache="—", prompt="—", out="—"))
         self.cache_split_label.setObjectName("cardDetail")
         self.cache_split_label.setWordWrap(True)
-        self.cache_ratio_label = QLabel("缓存读取占比 —")
+        self.cache_ratio_label = QLabel(tr("dash.cache.ratio", pct=0.0))
         self.cache_ratio_label.setObjectName("accentLabel")
         c_row.addWidget(self.cache_split_label, 1)
         c_row.addWidget(self.cache_ratio_label)
@@ -391,20 +402,20 @@ class UsageDashboard(QScrollArea):
         self.cache_share_bar.setTextVisible(False)
         self.cache_share_bar.setFixedHeight(7)
         c_layout.addWidget(self.cache_share_bar)
-        c_note = self._muted("按当前筛选范围总缓存读取 / 总输入（未命中缓存输入 + 缓存读取）加权计算。")
-        c_layout.addWidget(c_note)
+        self._cache_note = self._muted(tr("dash.cache.note"))
+        c_layout.addWidget(self._cache_note)
         layout.addWidget(cache_card)
 
         # 4. Dual Quota Windows (5h / Weekly)
         windows = QHBoxLayout()
         windows.setSpacing(10)
-        self.window_5h = _Window("5 小时窗口")
-        self.window_week = _Window("每周额度")
+        self.window_5h = _Window(tr("dash.win.5h"))
+        self.window_week = _Window(tr("dash.win.week"))
         windows.addWidget(self.window_5h, 1)
         windows.addWidget(self.window_week, 1)
         layout.addLayout(windows)
 
-        # 5. Token Activity Heatmap Card (matches Screenshot 2 bottom block)
+        # 5. Token Activity Heatmap Card
         heat_card = QFrame()
         heat_card.setObjectName("card")
         h_layout = QVBoxLayout(heat_card)
@@ -412,10 +423,10 @@ class UsageDashboard(QScrollArea):
         h_layout.setSpacing(10)
 
         controls = QHBoxLayout()
-        heading = QLabel("Token 活动")
-        heading.setObjectName("sectionTitle")
+        self._heat_heading = QLabel(tr("dash.heat.title"))
+        self._heat_heading.setObjectName("sectionTitle")
         self.first_day_label = self._muted("")
-        controls.addWidget(heading)
+        controls.addWidget(self._heat_heading)
         controls.addSpacing(8)
         controls.addWidget(self.first_day_label)
         controls.addStretch(1)
@@ -426,13 +437,15 @@ class UsageDashboard(QScrollArea):
         mp_layout.setContentsMargins(3, 3, 3, 3)
         mp_layout.setSpacing(2)
         self.mode_group = QButtonGroup(self)
-        for key, label in (("day", "每天"), ("week", "每周"), ("total", "累计总量")):
-            button = QPushButton(label)
+        self._mode_buttons: dict[str, QPushButton] = {}
+        for key in ("day", "week", "total"):
+            button = QPushButton(tr(f"dash.heat.{key}"))
             button.setCheckable(True)
             button.setObjectName("modeButton")
             button.setProperty("mode", key)
             self.mode_group.addButton(button)
             mp_layout.addWidget(button)
+            self._mode_buttons[key] = button
             if key == "day":
                 button.setChecked(True)
         controls.addWidget(mode_pill)
@@ -445,13 +458,15 @@ class UsageDashboard(QScrollArea):
         sp_layout.setContentsMargins(3, 3, 3, 3)
         sp_layout.setSpacing(2)
         self.span_group = QButtonGroup(self)
-        for key, label in (("month", "按月"), ("year", "按年")):
-            button = QPushButton(label)
+        self._span_buttons: dict[str, QPushButton] = {}
+        for key in ("month", "year"):
+            button = QPushButton(tr(f"dash.heat.{key}"))
             button.setCheckable(True)
             button.setObjectName("modeButton")
             button.setProperty("span", key)
             self.span_group.addButton(button)
             sp_layout.addWidget(button)
+            self._span_buttons[key] = button
             if key == "month":
                 button.setChecked(True)
         nav.addWidget(span_pill)
@@ -468,10 +483,10 @@ class UsageDashboard(QScrollArea):
         nav.addWidget(self.next_month)
         nav.addStretch(1)
         self.model_box = QComboBox()
-        self.model_box.addItem("全部模型", "")
+        self.model_box.addItem(tr("dash.heat.all_models"), "")
         self.metric_box = QComboBox()
-        for key, label in METRICS.items():
-            self.metric_box.addItem(label, key)
+        for key in METRICS:
+            self.metric_box.addItem(tr(f"dash.metric.{key}"), key)
         nav.addWidget(self.model_box)
         nav.addWidget(self.metric_box)
         h_layout.addLayout(nav)
@@ -488,7 +503,8 @@ class UsageDashboard(QScrollArea):
 
         legend = QHBoxLayout()
         legend.addStretch(1)
-        legend.addWidget(self._muted("少"))
+        self._legend_less = self._muted(tr("dash.heat.less"))
+        legend.addWidget(self._legend_less)
         self._legend_swatches: list[QLabel] = []
         for color in HEATMAP_THEMES["light"]:
             swatch = QLabel()
@@ -496,7 +512,8 @@ class UsageDashboard(QScrollArea):
             swatch.setStyleSheet(f"background:{color};border-radius:2px;")
             self._legend_swatches.append(swatch)
             legend.addWidget(swatch)
-        legend.addWidget(self._muted("多"))
+        self._legend_more = self._muted(tr("dash.heat.more"))
+        legend.addWidget(self._legend_more)
         h_layout.addLayout(legend)
         layout.addWidget(heat_card)
 
@@ -505,11 +522,11 @@ class UsageDashboard(QScrollArea):
         stats.setObjectName("card")
         grid = QGridLayout(stats)
         grid.setContentsMargins(6, 6, 6, 6)
-        self.stat_total = _Stat("累计 Token")
-        self.stat_peak = _Stat("单日峰值")
-        self.stat_task = _Stat("最长连续工作")
-        self.stat_longest = _Stat("最长连续天数")
-        self.stat_current = _Stat("当前连续天数")
+        self.stat_total = _Stat(tr("dash.stat.total"))
+        self.stat_peak = _Stat(tr("dash.stat.peak"))
+        self.stat_task = _Stat(tr("dash.stat.task"))
+        self.stat_longest = _Stat(tr("dash.stat.longest"))
+        self.stat_current = _Stat(tr("dash.stat.current"))
         for index, cell in enumerate((self.stat_total, self.stat_peak, self.stat_task, self.stat_longest, self.stat_current)):
             grid.addWidget(cell, 0, index)
             grid.setColumnStretch(index, 1)
@@ -522,20 +539,20 @@ class UsageDashboard(QScrollArea):
         cost_layout.setContentsMargins(14, 12, 14, 12)
         cost_layout.setSpacing(8)
         cost_head = QHBoxLayout()
-        cost_title = QLabel("等效 API 费用明细")
-        cost_title.setObjectName("sectionTitle")
+        self._cost_title = QLabel(tr("dash.cost.title"))
+        self._cost_title.setObjectName("sectionTitle")
         self.cost_total = QLabel("—")
         self.cost_total.setObjectName("costTotal")
-        cost_head.addWidget(cost_title)
+        cost_head.addWidget(self._cost_title)
         cost_head.addStretch(1)
         cost_head.addWidget(self.cost_total)
         cost_layout.addLayout(cost_head)
         cost_cells = QGridLayout()
         cost_cells.setHorizontalSpacing(6)
-        self.cost_today = _Stat("今天")
-        self.cost_week = _Stat("近 7 天")
-        self.cost_month = _Stat("本月")
-        self.cost_saved = _Stat("缓存省下")
+        self.cost_today = _Stat(tr("dash.cost.today"))
+        self.cost_week = _Stat(tr("dash.cost.week"))
+        self.cost_month = _Stat(tr("dash.cost.month"))
+        self.cost_saved = _Stat(tr("dash.cost.saved"))
         for index, cell in enumerate((self.cost_today, self.cost_week, self.cost_month, self.cost_saved)):
             cost_cells.addWidget(cell, 0, index)
             cost_cells.setColumnStretch(index, 1)
@@ -570,6 +587,45 @@ class UsageDashboard(QScrollArea):
 
     # ----- theme & UI toggles -----------------------------------------------
 
+    def retranslate(self) -> None:
+        self.tier_toggle.setText(tr("dash.detail.close") if self._tier_expanded else tr("dash.detail.open"))
+        self.hero_total.title_label.setText(tr("dash.hero.total"))
+        self.hero_today.title_label.setText(tr("dash.hero.today"))
+        self.hero_month.title_label.setText(tr("dash.hero.month"))
+        self.hero_year.title_label.setText(tr("dash.hero.year"))
+        self._cache_note.setText(tr("dash.cache.note"))
+        self.window_5h.title_label.setText(tr("dash.win.5h"))
+        self.window_week.title_label.setText(tr("dash.win.week"))
+        self.window_5h.set_value(self.window_5h._last_pct, self.window_5h._last_reset)
+        self.window_week.set_value(self.window_week._last_pct, self.window_week._last_reset)
+        self._heat_heading.setText(tr("dash.heat.title"))
+        for key, btn in self._mode_buttons.items():
+            btn.setText(tr(f"dash.heat.{key}"))
+        for key, btn in self._span_buttons.items():
+            btn.setText(tr(f"dash.heat.{key}"))
+        self.model_box.blockSignals(True)
+        if self.model_box.count() > 0:
+            self.model_box.setItemText(0, tr("dash.heat.all_models"))
+        self.model_box.blockSignals(False)
+        self.metric_box.blockSignals(True)
+        for idx in range(self.metric_box.count()):
+            mkey = str(self.metric_box.itemData(idx) or "total")
+            self.metric_box.setItemText(idx, tr(f"dash.metric.{mkey}"))
+        self.metric_box.blockSignals(False)
+        self._legend_less.setText(tr("dash.heat.less"))
+        self._legend_more.setText(tr("dash.heat.more"))
+        self.stat_total.caption_label.setText(tr("dash.stat.total"))
+        self.stat_peak.caption_label.setText(tr("dash.stat.peak"))
+        self.stat_task.caption_label.setText(tr("dash.stat.task"))
+        self.stat_longest.caption_label.setText(tr("dash.stat.longest"))
+        self.stat_current.caption_label.setText(tr("dash.stat.current"))
+        self._cost_title.setText(tr("dash.cost.title"))
+        self.cost_today.caption_label.setText(tr("dash.cost.today"))
+        self.cost_week.caption_label.setText(tr("dash.cost.week"))
+        self.cost_month.caption_label.setText(tr("dash.cost.month"))
+        self.cost_saved.caption_label.setText(tr("dash.cost.saved"))
+        self._refresh()
+
     def set_theme(self, theme: str) -> None:
         self.heatmap.set_theme(theme)
         palette = HEATMAP_THEMES.get(theme, HEATMAP_THEMES["light"])
@@ -579,7 +635,7 @@ class UsageDashboard(QScrollArea):
     def _toggle_tier_detail(self) -> None:
         self._tier_expanded = not self._tier_expanded
         self.tier_detail_box.setVisible(self._tier_expanded)
-        self.tier_toggle.setText("收起 ▲" if self._tier_expanded else "详情 ▼")
+        self.tier_toggle.setText(tr("dash.detail.close") if self._tier_expanded else tr("dash.detail.open"))
 
     # ----- data -------------------------------------------------------------
 
@@ -603,7 +659,7 @@ class UsageDashboard(QScrollArea):
         current = self.model_box.currentData()
         self.model_box.blockSignals(True)
         self.model_box.clear()
-        self.model_box.addItem("全部模型", "")
+        self.model_box.addItem(tr("dash.heat.all_models"), "")
         for label in labels:
             self.model_box.addItem(label, label)
         index = self.model_box.findData(current)
@@ -647,15 +703,17 @@ class UsageDashboard(QScrollArea):
         self.heatmap.set_span(span)
         self.heatmap.set_data(values, mode=mode, unit=unit, end=today)
         month = self.heatmap.month
-        self.month_label.setText(f"{month.year} 年 {month.month} 月")
+        self.month_label.setText(format_month_label(month.year, month.month))
         for widget in (self.prev_month, self.month_label, self.next_month):
             widget.setVisible(span == "month")
         self.next_month.setEnabled(month < _month_start(today))
         self.heat_scroll.setFixedHeight(self.heatmap.sizeHint().height() + 18)
         self.heat_scroll.horizontalScrollBar().setValue(self.heat_scroll.horizontalScrollBar().maximum())
-        self.first_day_label.setText(
-            f"首次使用：{stats.first_day:%Y年%m月%d日}" if stats.first_day else ""
-        )
+        if stats.first_day:
+            day_fmt = f"{stats.first_day:%Y-%m-%d}" if get_language() == "en" else f"{stats.first_day:%Y年%m月%d日}"
+            self.first_day_label.setText(tr("dash.heat.first_day", day=day_fmt))
+        else:
+            self.first_day_label.setText("")
         self._show_hero_and_cost(today)
 
     def _show_hero_and_cost(self, today: date) -> None:
@@ -663,7 +721,7 @@ class UsageDashboard(QScrollArea):
             table = pricing.load_table()
         except (OSError, ValueError, KeyError) as error:
             self.cost_total.setText("—")
-            self.cost_note.setText(f"读不到价格表 assets/pricing.json：{error}")
+            self.cost_note.setText(tr("dash.cost.missing", error=error))
             return
         rate = table.usd_to_cny
         report = pricing.compute(self._conversations, table)
@@ -703,12 +761,15 @@ class UsageDashboard(QScrollArea):
         prompt_tok = fresh_tok + cache_tok
         cache_ratio = (cache_tok / prompt_tok * 100.0) if prompt_tok else 0.0
         self.cache_split_label.setText(
-            f"输入(未缓存) {_fmt_compact(fresh_tok)}   "
-            f"缓存读取 {_fmt_compact(cache_tok)}   "
-            f"总输入(输入+缓存) {_fmt_compact(prompt_tok)}   "
-            f"输出 {_fmt_compact(output_tok)}"
+            tr(
+                "dash.cache.split",
+                fresh=_fmt_compact(fresh_tok),
+                cache=_fmt_compact(cache_tok),
+                prompt=_fmt_compact(prompt_tok),
+                out=_fmt_compact(output_tok),
+            )
         )
-        self.cache_ratio_label.setText(f"缓存读取占比 {cache_ratio:.1f}%")
+        self.cache_ratio_label.setText(tr("dash.cache.ratio", pct=cache_ratio))
         self.cache_share_bar.setValue(int(min(100.0, cache_ratio) * 10))
 
         n_days = max(1, len(active_days))
@@ -721,56 +782,50 @@ class UsageDashboard(QScrollArea):
         self.hero_total.value.setText(_fmt_compact(total_tok))
         self.hero_total.sub.setText(f"{total_tok:,} Tokens")
         self.hero_total.cost.setText(
-            f"≈ {pricing.format_usd_cny(report.total_usd, rate)} · 日均 {pricing.format_usd(report.total_usd / n_days)}"
+            tr("dash.hero.daily_avg", cost=pricing.format_usd_cny(report.total_usd, rate), daily=pricing.format_usd(report.total_usd / n_days))
         )
 
         self.hero_today.value.setText(_fmt_compact(today_tok))
-        self.hero_today.sub.setText(f"{today_convs} 会话活跃")
+        self.hero_today.sub.setText(tr("dash.hero.active_convs", count=today_convs))
         self.hero_today.cost.setText(f"≈ {pricing.format_usd_cny(today_usd, rate)}")
 
         self.hero_month.value.setText(_fmt_compact(month_tok))
-        self.hero_month.sub.setText(f"日均约 {_fmt_compact(month_tok / month_days)}")
+        self.hero_month.sub.setText(tr("dash.hero.avg_tok_day", tok=_fmt_compact(month_tok / month_days)))
         self.hero_month.cost.setText(
-            f"≈ {pricing.format_usd_cny(month_usd, rate)} · 日均 {pricing.format_usd(month_usd / month_days)}"
+            tr("dash.hero.daily_avg", cost=pricing.format_usd_cny(month_usd, rate), daily=pricing.format_usd(month_usd / month_days))
         )
 
         self.hero_year.value.setText(_fmt_compact(year_tok))
-        self.hero_year.sub.setText(f"{len(year_days)} 天活动记录")
+        self.hero_year.sub.setText(tr("dash.hero.active_days", days=len(year_days)))
         self.hero_year.cost.setText(
-            f"≈ {pricing.format_usd_cny(year_usd, rate)} · 日均 {pricing.format_usd(year_usd / max(1, len(year_days)))}"
+            tr("dash.hero.daily_avg", cost=pricing.format_usd_cny(year_usd, rate), daily=pricing.format_usd(year_usd / max(1, len(year_days))))
         )
 
         # Subscription banner update
         plan = table.find_subscription(self._user_tier_name)
-        freshness = "刚刚更新" if (self._updated_at is None or time.time() - self._updated_at < 60) else "已同步"
+        freshness = tr("dash.fresh.just") if (self._updated_at is None or time.time() - self._updated_at < 60) else tr("dash.fresh.synced")
+        month_cost_str = pricing.format_usd_cny(month_usd, rate)
+        saved_cost_str = pricing.format_usd_cny(report.cache_saved_usd, rate)
         if self._user_tier_name:
             if self._source == "transcript":
-                self.tier_label.setText(f"💎 {self._user_tier_name} · 历史已记录（当前离线统计）")
+                self.tier_label.setText(tr("dash.tier.offline", tier=self._user_tier_name))
             else:
-                self.tier_label.setText(f"💎 {self._user_tier_name} · 已自动识别 · {freshness}")
+                self.tier_label.setText(tr("dash.tier.synced", tier=self._user_tier_name, freshness=freshness))
             if plan and plan.monthly_usd > 0:
-                self.tier_price.setText(f"${plan.monthly_usd:,.2f}/月 (≈ {pricing.format_cny(plan.monthly_usd, rate)} CNY)")
+                self.tier_price.setText(tr("dash.tier.price", usd=plan.monthly_usd, cny=pricing.format_cny(plan.monthly_usd, rate)))
                 self.tier_price.setVisible(True)
                 roi_pct = min(999.0, month_usd / plan.monthly_usd * 100.0)
                 self.tier_roi_bar.setValue(int(min(100.0, roi_pct) * 10))
-                self.tier_detail_text.setText(
-                    f"本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}（占订阅月费 {roi_pct:.0f}%），"
-                    f"缓存读取累计省下 {pricing.format_usd_cny(report.cache_saved_usd, rate)}。"
-                )
+                self.tier_detail_text.setText(tr("dash.tier.roi", month_cost=month_cost_str, roi=roi_pct, saved_cost=saved_cost_str))
             else:
                 self.tier_price.setVisible(False)
                 self.tier_roi_bar.setValue(0)
-                self.tier_detail_text.setText(
-                    f"本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}，缓存省下 {pricing.format_usd_cny(report.cache_saved_usd, rate)}。"
-                )
+                self.tier_detail_text.setText(tr("dash.tier.no_plan", month_cost=month_cost_str, saved_cost=saved_cost_str))
         else:
-            self.tier_label.setText("💎 订阅档位待同步（在 Antigravity 插件页开关一次 AGY 桌宠或重开 IDE 后自动识别）")
+            self.tier_label.setText(tr("dash.tier.pending"))
             self.tier_price.setVisible(False)
             self.tier_roi_bar.setValue(0)
-            self.tier_detail_text.setText(
-                f"当前按离线记录统计：本月等效 API 消耗 {pricing.format_usd_cny(month_usd, rate)}，"
-                f"缓存读取累计省下 {pricing.format_usd_cny(report.cache_saved_usd, rate)}。"
-            )
+            self.tier_detail_text.setText(tr("dash.tier.offline_detail", month_cost=month_cost_str, saved_cost=saved_cost_str))
 
         self.cost_total.setText(pricing.format_usd_cny(report.total_usd, rate))
         self.cost_today.value.setText(pricing.format_usd(today_usd))
@@ -781,7 +836,9 @@ class UsageDashboard(QScrollArea):
             item = self.cost_rows.takeAt(0)
             if item.widget() is not None:
                 item.widget().deleteLater()
-        for col, title in enumerate(("模型", "输入", "缓存读", "输出", "金额")):
+        for col, title in enumerate(
+            (tr("meter.col.model"), tr("meter.col.input"), tr("meter.col.cache_read"), tr("meter.col.output"), tr("dash.cost.col_amount"))
+        ):
             label = self._muted(title)
             self.cost_rows.addWidget(label, 0, col, Qt.AlignmentFlag.AlignRight if col else Qt.AlignmentFlag.AlignLeft)
         for row, item in enumerate(report.rows, start=1):
@@ -790,7 +847,7 @@ class UsageDashboard(QScrollArea):
                 f"{usage_stats.format_tokens_cn(item.input_tokens)} · {pricing.format_usd(item.input_usd)}",
                 f"{usage_stats.format_tokens_cn(item.cache_tokens)} · {pricing.format_usd(item.cache_usd)}",
                 f"{usage_stats.format_tokens_cn(item.output_tokens)} · {pricing.format_usd(item.output_usd)}",
-                pricing.format_usd_cny(item.total_usd, rate) if item.priced else "未定价",
+                pricing.format_usd_cny(item.total_usd, rate) if item.priced else tr("dash.cost.unpriced"),
             )
             for col, text in enumerate(cells):
                 label = QLabel(text)
@@ -798,16 +855,15 @@ class UsageDashboard(QScrollArea):
                     label.setObjectName("costValue")
                 self.cost_rows.addWidget(label, row, col, Qt.AlignmentFlag.AlignRight if col else Qt.AlignmentFlag.AlignLeft)
         estimated = (
-            f"其中 {pricing.format_usd(report.estimated_usd)} 来自离线日志里没记录模型的步骤，按 "
-            f"{table.by_id(table.unknown_as).name if table.by_id(table.unknown_as) else table.unknown_as} 的价格估算。"
+            tr(
+                "dash.cost.estimated",
+                usd=pricing.format_usd(report.estimated_usd),
+                model=table.by_id(table.unknown_as).name if table.by_id(table.unknown_as) else table.unknown_as,
+            )
             if report.estimated_usd
             else ""
         )
-        self.cost_note.setText(
-            "按官方 API 标价折算（汇率按 1 USD = "
-            f"{rate:.2f} CNY 估算），每一步用当天生效价格；输入只算未命中缓存部分，缓存读按缓存价，输出含思考。{estimated}"
-            "价格表在 assets/pricing.json，可以自己改。"
-        )
+        self.cost_note.setText(tr("dash.cost.note", rate=rate, estimated=estimated))
 
     def _show_stats(self, stats: UsageStats, metric: str) -> None:
         if metric == "cost":
@@ -821,10 +877,7 @@ class UsageDashboard(QScrollArea):
             self.stat_peak.value.setText(usage_stats.format_tokens_cn(stats.peak_value))
         self.stat_peak.setToolTip(f"{stats.peak_day:%Y-%m-%d}" if stats.peak_day else "")
         self.stat_task.value.setText(usage_stats.format_duration(stats.longest_task_ms) if stats.longest_task_ms else "—")
-        self.stat_longest.value.setText(f"{stats.longest_streak} 天")
-        self.stat_current.value.setText(f"{stats.current_streak} 天")
-        since = f"，最早一条在 {stats.first_day:%Y-%m-%d}" if stats.first_day else ""
-        self.note.setText(
-            f"按每一步的时间戳统计 {len(self._conversations)} 个会话、{stats.steps_counted:,} 步{since}。"
-            "启用本机用量账本后，超出最近 40 条或已删除的历史会话仍会累计保留。"
-        )
+        self.stat_longest.value.setText(tr("dash.stat.days", days=stats.longest_streak))
+        self.stat_current.value.setText(tr("dash.stat.days", days=stats.current_streak))
+        since = tr("dash.note.since", day=f"{stats.first_day:%Y-%m-%d}") if stats.first_day else ""
+        self.note.setText(tr("dash.note", convs=len(self._conversations), steps=stats.steps_counted, since=since))

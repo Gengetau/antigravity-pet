@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.i18n import tr
 from .telemetry import LiveSnapshot, format_reset_countdown, format_tokens
 
 TAIL = 9  # height of the dialog tail that points at the pet
@@ -133,6 +134,7 @@ class HudBar(QWidget):
         self.quota_week_bar = QuotaBar()
         self.cache = QLabel("—%")
         self.context = QLabel("—")
+        self._last_snapshot: LiveSnapshot | None = None
         self._pill_muted_labels: list[QLabel] = []
         self._pill_shadow_labels: list[QLabel] = [self.speed, self.quota_5h, self.quota_week, self.cache, self.context]
         head = QHBoxLayout()
@@ -144,18 +146,21 @@ class HudBar(QWidget):
         head.addWidget(self.speed)
         head.addStretch(1)
         grid.addLayout(head, 0, 0, 1, 3)
-        for row, (caption, bar, value) in enumerate(
-            (("5h", self.quota_5h_bar, self.quota_5h), ("周", self.quota_week_bar, self.quota_week)), start=1
+        self._pill_week_cap = self._muted(tr("hud.cap.week"))
+        self._pill_5h_cap = self._muted("5h")
+        for row, (cap, bar, value) in enumerate(
+            ((self._pill_5h_cap, self.quota_5h_bar, self.quota_5h), (self._pill_week_cap, self.quota_week_bar, self.quota_week)),
+            start=1,
         ):
-            cap = self._muted(caption)
             self._pill_muted_labels.append(cap)
             self._pill_shadow_labels.append(cap)
             grid.addWidget(cap, row, 0)
             grid.addWidget(bar, row, 1, Qt.AlignmentFlag.AlignVCenter)
             grid.addWidget(value, row, 2, Qt.AlignmentFlag.AlignRight)
             value.setStyleSheet(_rgb("#9CA3AF") + "font-weight:600;")
-        for row, (caption, value) in enumerate((("缓存", self.cache), ("上下文", self.context)), start=3):
-            cap = self._muted(caption)
+        self._pill_cache_cap = self._muted(tr("hud.cap.cache"))
+        self._pill_ctx_cap = self._muted(tr("hud.cap.context"))
+        for row, (cap, value) in enumerate(((self._pill_cache_cap, self.cache), (self._pill_ctx_cap, self.context)), start=3):
             self._pill_muted_labels.append(cap)
             self._pill_shadow_labels.append(cap)
             grid.addWidget(cap, row, 0)
@@ -165,7 +170,7 @@ class HudBar(QWidget):
         self.dot.setStyleSheet("color:#6B7280;font-size:8px;")
         self.setStyleSheet("QLabel{font-family:'Segoe UI','Microsoft YaHei UI';font-size:12px;background:transparent;border:none;}")
         self.apply_appearance()
-        self.pill.setToolTip("正在读取 Antigravity 实时遥测数据…")
+        self.pill.setToolTip(tr("hud.loading"))
 
     # ----- construction helpers ---------------------------------------------
 
@@ -185,7 +190,7 @@ class HudBar(QWidget):
         head = QHBoxLayout()
         head.setSpacing(5)
         self.card_dot = QLabel("●")
-        self.card_title = QLabel("等待 Antigravity 会话…")
+        self.card_title = QLabel(tr("hud.waiting"))
         self.card_title.setStyleSheet("color:#12395b;font-weight:700;font-size:11px;")
         self.card_model = QLabel("")
         self.card_model.setStyleSheet("color:#6b7f95;font-size:10px;")
@@ -197,10 +202,12 @@ class HudBar(QWidget):
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(1)
         self.card_values: dict[str, QLabel] = {}
-        captions = (("speed", "⚡ 速率"), ("cache", "🎯 缓存"), ("context", "🧠 上下文"))
-        for index, (key, caption) in enumerate(captions):
-            cap = QLabel(caption)
+        self._card_captions: dict[str, QLabel] = {}
+        captions = (("speed", "hud.card.speed"), ("cache", "hud.card.cache"), ("context", "hud.card.context"))
+        for index, (key, i18n_key) in enumerate(captions):
+            cap = QLabel(tr(i18n_key))
             cap.setStyleSheet("color:#6b7f95;font-size:11px;")
+            self._card_captions[key] = cap
             value = QLabel("—")
             value.setStyleSheet("color:#12395b;font-weight:700;font-size:12px;")
             self.card_values[key] = value
@@ -213,9 +220,10 @@ class HudBar(QWidget):
         quota = QGridLayout()
         quota.setHorizontalSpacing(6)
         quota.setVerticalSpacing(1)
-        for row, (key, caption) in enumerate((("quota_5h", "🔋 5h 限额"), ("quota_week", "📅 周限额"))):
-            cap = QLabel(caption)
+        for row, (key, i18n_key) in enumerate((("quota_5h", "hud.card.quota_5h"), ("quota_week", "hud.card.quota_week"))):
+            cap = QLabel(tr(i18n_key))
             cap.setStyleSheet("color:#6b7f95;font-size:11px;")
+            self._card_captions[key] = cap
             value = QLabel("—")
             value.setStyleSheet("color:#12395b;font-weight:700;font-size:12px;")
             reset = QLabel("")
@@ -228,6 +236,27 @@ class HudBar(QWidget):
         quota.setColumnStretch(2, 1)
         layout.addLayout(quota)
         return card
+
+    def retranslate(self) -> None:
+        self._pill_week_cap.setText(tr("hud.cap.week"))
+        self._pill_cache_cap.setText(tr("hud.cap.cache"))
+        self._pill_ctx_cap.setText(tr("hud.cap.context"))
+        for key, i18n_key in (
+            ("speed", "hud.card.speed"),
+            ("cache", "hud.card.cache"),
+            ("context", "hud.card.context"),
+            ("quota_5h", "hud.card.quota_5h"),
+            ("quota_week", "hud.card.quota_week"),
+        ):
+            if key in self._card_captions:
+                self._card_captions[key].setText(tr(i18n_key))
+        if self._last_snapshot is not None:
+            self.update_snapshot(self._last_snapshot)
+        else:
+            self.card_title.setText(tr("hud.waiting"))
+            self.pill.setToolTip(tr("hud.loading"))
+            self.card.setToolTip(self.pill.toolTip())
+            self.adjustSize()
 
     @property
     def dialog(self) -> bool:
@@ -290,11 +319,12 @@ class HudBar(QWidget):
     # ----- data ---------------------------------------------------------------
 
     def update_snapshot(self, snap: LiveSnapshot | None) -> None:
+        self._last_snapshot = snap
         if snap is None:
             self.dot.setStyleSheet("color:#6B7280;font-size:8px;")
             self.card_dot.setStyleSheet("color:#9ca3af;font-size:8px;")
-            self.card_title.setText("Antigravity 没有在运行")
-            self.pill.setToolTip("等待连接 Antigravity 会话数据…\n右键可切换模式或退出")
+            self.card_title.setText(tr("hud.not_running"))
+            self.pill.setToolTip(tr("hud.waiting_tip"))
             self.card.setToolTip(self.pill.toolTip())
             return
         self._conversations = snap.conversations
@@ -323,29 +353,30 @@ class HudBar(QWidget):
 
         ttft = f"{snap.latest_ttft_ms / 1000:.2f}s" if snap.latest_ttft_ms else "—"
         quota_lines = []
-        for kind, caption in (("5h", "5 小时"), ("week", "每周")):
+        for kind, caption in (("5h", tr("hud.quota_5h_name")), ("week", tr("hud.quota_week_name"))):
             q, reset = snap.quota_for(kind)
             if q is None:
                 quota_lines.append(f"{caption} —")
             else:
                 countdown = format_reset_countdown(reset)
-                quota_lines.append(f"{caption} {q:.1f}%" + (f"（{countdown}）" if countdown else ""))
+                quota_lines.append(f"{caption} {q:.1f}%" + (f" ({countdown})" if countdown else ""))
         quota_detail = " | ".join(quota_lines)
-        mode = "[已锁定会话]" if self.settings.get("pinned_conversation") else "[自动跟随当前对话]"
+        mode = tr("hud.mode.pinned") if self.settings.get("pinned_conversation") else tr("hud.mode.auto")
+        source_label = tr(f"hud.source.{snap.source}") if snap.source in SOURCE_NAMES else snap.source
         self.pill.setToolTip(
             "\n".join(
                 (
-                    f"会话: {snap.title} {mode}",
-                    f"当前模型: {snap.selected_model_label}   最近一步: {snap.last_step_model_label}",
+                    tr("hud.tip.session", title=snap.title, mode=mode),
+                    tr("hud.tip.model", selected=snap.selected_model_label, last=snap.last_step_model_label),
                     "────────────────────────────",
-                    f"⚡ 生成速率: 最新 {self.speed.text()} | 会话均值 {fmt_rate(snap.avg_decode_tps)} | 端到端 {fmt_rate(snap.latest_e2e_tps)} | TTFT {ttft}",
-                    f"🔋 限额剩余: {quota_detail}",
-                    f"🎯 缓存命中: 累计 {snap.cache_hit_pct:.1f}%",
-                    f"🧠 上下文占用: {snap.context_used_tokens:,} / {snap.context_limit_tokens:,} tokens ({pct:.2f}%)",
-                    f"📊 会话累计总消耗: {format_tokens(snap.cumulative_total_tokens)} tokens",
-                    f"数据来源: {SOURCE_NAMES.get(snap.source, snap.source)}",
+                    tr("hud.tip.speed", latest=self.speed.text(), avg=fmt_rate(snap.avg_decode_tps), e2e=fmt_rate(snap.latest_e2e_tps), ttft=ttft),
+                    tr("hud.tip.quota", detail=quota_detail),
+                    tr("hud.tip.cache", pct=snap.cache_hit_pct),
+                    tr("hud.tip.context", used=snap.context_used_tokens, limit=snap.context_limit_tokens, pct=pct),
+                    tr("hud.tip.total", total=format_tokens(snap.cumulative_total_tokens)),
+                    tr("hud.tip.source", source=source_label),
                     "────────────────────────────",
-                    "双击打开 Token Meter · 右键打开设置菜单",
+                    tr("hud.tip.footer"),
                 )
             )
         )
@@ -360,12 +391,12 @@ class HudBar(QWidget):
 
     def _update_card(self, snap: LiveSnapshot) -> None:
         self.card_dot.setStyleSheet(f"color:{'#0ea5e9' if snap.running else '#10b981'};font-size:8px;")
-        title = (snap.title or "当前会话").strip()
+        title = (snap.title or tr("hud.cur_session")).strip()
         metrics = self.card_title.fontMetrics()
-        prefix = "生成中 · " if snap.running else ""
+        prefix = tr("hud.running_prefix") if snap.running else ""
         self.card_title.setText(metrics.elidedText(prefix + title, Qt.TextElideMode.ElideRight, 238))
-        pinned = "（已锁定）" if self.settings.get("pinned_conversation") else ""
-        self.card_model.setText(f"{snap.model_for_form or '未知模型'} {pinned}".strip())
+        pinned = tr("hud.pinned_tag") if self.settings.get("pinned_conversation") else ""
+        self.card_model.setText(f"{snap.model_for_form or tr('hud.unknown_model')} {pinned}".strip())
         rate = snap.display_rate
         self.card_values["speed"].setText(f"{rate:.1f} tok/s" if rate else "—")
         for key, kind in (("quota_5h", "5h"), ("quota_week", "week")):
@@ -373,7 +404,7 @@ class HudBar(QWidget):
             self.card_values[key].setText(f"{quota:.0f}%" if quota is not None else "—")
             quota_color = "#9ca3af" if quota is None else "#dc2626" if quota <= 15 else "#d97706" if quota <= 35 else "#059669"
             self.card_values[key].setStyleSheet(f"color:{quota_color};font-weight:700;font-size:12px;")
-            self.card_values[key + "_reset"].setText(format_reset_countdown(reset) if quota is not None else "暂无数据")
+            self.card_values[key + "_reset"].setText(format_reset_countdown(reset) if quota is not None else tr("hud.no_data"))
         self.card_values["cache"].setText(f"{snap.cache_hit_pct:.1f}%")
         pct = snap.context_pct
         self.card_values["context"].setText(f"{format_tokens(snap.context_used_tokens)}·{pct:.0f}%")
@@ -485,35 +516,35 @@ class HudBar(QWidget):
             action.triggered.connect(callback)
             return action
 
-        toggle("跟随桌宠", self.attached, lambda: self._set_mode("attached"))
-        toggle("独立悬浮（可拖到输入框旁）", not self.attached, lambda: self._set_mode("floating"))
+        toggle(tr("hud.menu.attached"), self.attached, lambda: self._set_mode("attached"))
+        toggle(tr("hud.menu.floating"), not self.attached, lambda: self._set_mode("floating"))
         if self.attached:
-            toggle("悬停桌宠时显示（平时隐藏）", bool(self.settings.get("hud_hover_only", False)), self._toggle_hover_only)
+            toggle(tr("hud.menu.hover_only"), bool(self.settings.get("hud_hover_only", False)), self._toggle_hover_only)
         menu.addSeparator()
         pinned = self.settings.get("pinned_conversation", "")
-        toggle("自动跟随最新活跃对话", not pinned, lambda: self._on_pin(""))
+        toggle(tr("hud.menu.auto_follow"), not pinned, lambda: self._on_pin(""))
         if self._conversations:
-            sub = menu.addMenu("指定监控某个会话")
+            sub = menu.addMenu(tr("hud.menu.pin_session"))
             for cid, title in self._conversations:
                 act = sub.addAction(title or cid[:8])
                 act.setCheckable(True)
                 act.setChecked(cid == pinned)
                 act.triggered.connect(lambda _c=False, value=cid: self._on_pin(value))
         menu.addSeparator()
-        style = menu.addMenu("外观融合模式")
+        style = menu.addMenu(tr("hud.menu.appearance"))
         group = QActionGroup(style)
-        for key, (label, _css) in APPEARANCES.items():
-            act = style.addAction(label)
+        for key in APPEARANCES:
+            act = style.addAction(tr(f"hud.appearance.{key}"))
             act.setCheckable(True)
             act.setChecked(self.settings.get("hud_appearance", "capsule") == key)
             group.addAction(act)
             act.triggered.connect(lambda _c=False, value=key: self._set_appearance(value))
         if not self.attached:
-            toggle("锁定当前坐标（防误拖动）", bool(self.settings.get("hud_locked")), self._toggle_lock)
-        menu.addAction("打开 Token Meter", self._on_open_meter)
-        menu.addAction("立即刷新数据", self._on_refresh)
+            toggle(tr("hud.menu.lock_pos"), bool(self.settings.get("hud_locked")), self._toggle_lock)
+        menu.addAction(tr("hud.menu.open_meter"), self._on_open_meter)
+        menu.addAction(tr("hud.menu.refresh"), self._on_refresh)
         menu.addSeparator()
-        menu.addAction("隐藏悬浮条", self._on_hide)
+        menu.addAction(tr("hud.menu.hide"), self._on_hide)
         self.menu_open = True
         try:
             menu.exec(event.globalPos())

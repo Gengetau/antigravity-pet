@@ -66,6 +66,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "pinned_conversation": "",
         "meter_theme": "light",
         "meter_default_tab": "overview",
+        "language": "auto",
     },
 }
 

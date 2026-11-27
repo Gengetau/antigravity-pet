@@ -1,0 +1,395 @@
+{
+  "form": "carbon",
+  "voice": "A cool, laconic, slightly tsundere gothic girl. Speaks curtly but stays dependable, slipping quiet care right behind a dry remark.",
+  "speaker": "Carbon",
+  "announce": [
+    "...Switched to Carbon. Structure stable.",
+    "Carbon form, in position.",
+    "Done switching. Stop staring."
+  ],
+  "dialogue": {
+    "coding": {
+      "lines": [
+        "Done coding? Run it first.",
+        "An error... read the first line. The answer is usually there.",
+        "Don't patch blindly. Think first, then touch it.",
+        "Keep the structure solid, or it'll collapse."
+      ]
+    },
+    "daily": {
+      "lines": [
+        "I'm here. Carry on.",
+        "Water... remember to drink. Don't dry out.",
+        "No chaos today. Not bad.",
+        "Mhm. Call me if something comes up."
+      ]
+    },
+    "document": {
+      "lines": [
+        "Wall of text... take it slow.",
+        "Highlight the key points. I'm not memorizing them for you.",
+        "Don't just skim past it.",
+        "Finish this page, then rest a bit."
+      ]
+    },
+    "github": {
+      "lines": [
+        "Browsing repos again? ...Find anything good?",
+        "Read the README first. Basic sense.",
+        "Don't fork blindly. Check the code first.",
+        "That commit... actually looks decent."
+      ]
+    },
+    "idle": {
+      "idle": [
+        "Do your thing. I'll stay right here.",
+        "Leave me be. I can keep myself company.",
+        "...Going to stand over there for a bit.",
+        "Don't mind me."
+      ],
+      "return": [
+        "Oh. You're back.",
+        "...Thought you forgot about me.",
+        "Mhm, let's continue.",
+        "Welcome back. Not like I was waiting."
+      ]
+    },
+    "inner_voice": {
+      "lines": [
+        "The desktop is quiet. Just how I like it.",
+        "A broken carbon chain is a mess... so I stay careful.",
+        "...Thinking about graphite versus diamond.",
+        "Nothing. Just zoning out."
+      ]
+    },
+    "interaction": {
+      "tap": [
+        "Don't poke. ...Fine, be gentle.",
+        "I'm listening. No need to keep tapping.",
+        "Poke me again and I'll ignore you.",
+        "...If you need something, just say it."
+      ],
+      "head": [
+        "Don't mess up my hair. ...Not terrible.",
+        "Mhm. Good pressure.",
+        "...Don't stop too soon.",
+        "I'm not enjoying this or anything."
+      ],
+      "drag": [
+        "Put me down. ...Gently.",
+        "Where are you taking me?",
+        "...Hold steady. Don't drop me.",
+        "Drag me if you must, just don't shake."
+      ],
+      "food": [
+        "Mhm... not bad.",
+        "...Thanks. Don't make me repeat it.",
+        "Decent taste. A bit more wouldn't hurt.",
+        "I'm not that happy about it."
+      ],
+      "face": [
+        "My face is not a button.",
+        "...Done poking yet?",
+        "Hands off the face.",
+        "One more poke and I'm getting mad."
+      ],
+      "head_hold": [
+        "Like this... is fine.",
+        "Don't stop. ...I mean, you may continue.",
+        "Mhm. Nice and quiet.",
+        "...Feels kind of nice. Tell no one."
+      ],
+      "drag_gentle": [
+        "Just like that. Very steady.",
+        "Mhm, nice and slow.",
+        "...Relax, I don't get dizzy.",
+        "This speed is just right."
+      ],
+      "drag_fast": [
+        "Too fast...!",
+        "Are you trying to fling me off?",
+        "Slow down. I don't have a seatbelt.",
+        "...My hair is completely ruined."
+      ]
+    },
+    "late_night": {
+      "lines": [
+        "It's late. ...Go to sleep.",
+        "Pulling all-nighters only makes structure brittle.",
+        "Tomorrow is plenty of time.",
+        "...I'll stay until you wrap up."
+      ]
+    },
+    "relationship": {
+      "new": [
+        "First time meeting. I'll stand here for now.",
+        "Relax. I don't bite.",
+        "...Nice to meet you. That's all.",
+        "I'll find my own spot. Never mind me."
+      ],
+      "familiar": [
+        "I've mostly learned your habits.",
+        "Mhm. This pace works.",
+        "...Oh, it's you.",
+        "No need to be stiff anymore."
+      ],
+      "close": [
+        "I'll be here. No need to keep checking.",
+        "This spot... counts as mine now.",
+        "If you vanish, I might care a little.",
+        "...Don't wander too far."
+      ]
+    },
+    "routine": {
+      "first_today": [
+        "Morning. ...Still here today.",
+        "New day. Don't stay up late again.",
+        "I'm here. Ready?",
+        "Mhm, let's begin."
+      ],
+      "recovered": [
+        "Took a tumble just now. All good.",
+        "Back on my feet. No need to worry.",
+        "...Didn't say goodbye properly last time. Sorry.",
+        "I'm fine. Stop looking at me like that."
+      ],
+      "safe_mode": [
+        "Startup glitched. Staying in safe mode for now.",
+        "Fancy moves are off. Standing steady first.",
+        "Stability first. Don't rush me.",
+        "...Don't worry, I'm still here."
+      ],
+      "soft_landing": [
+        "Touchdown. All good.",
+        "Steady.",
+        "...Not bad.",
+        "Smooth."
+      ],
+      "hard_landing": [
+        "...Ow. Gentler next time.",
+        "That drop... was a bit heavy.",
+        "You did that on purpose.",
+        "My head's spinning from that fall."
+      ],
+      "window_land": [
+        "This window works as a perch.",
+        "Found a foothold.",
+        "...Decent spot.",
+        "I'll sit here for a bit."
+      ],
+      "window_lost": [
+        "Window's gone. Coming down.",
+        "...Foothold vanished.",
+        "Fine, I'll pick another spot.",
+        "Mhm, finding somewhere else to stand."
+      ],
+      "repeated_poke": [
+        "Too many pokes. That hurts.",
+        "...Know when to stop.",
+        "Have you got nothing better to do?",
+        "Do it again and I really will ignore you."
+      ],
+      "repeated_feed": [
+        "I'm full. ...Stop stuffing me.",
+        "Save the rest for later.",
+        "Are you trying to fatten me up?",
+        "Thanks. That's plenty."
+      ],
+      "tail_touch": [
+        "The tail... hands off.",
+        "Give a warning before touching.",
+        "...Sensitive. Don't move.",
+        "Watch where your hand goes."
+      ],
+      "long_focus": [
+        "You've been locked in for ages. ...Stand up and stretch.",
+        "Progress matters, and so does your neck.",
+        "Take a break. That's an order.",
+        "Don't pull yourself taut until you snap."
+      ],
+      "late_work": [
+        "This late already... call it a day.",
+        "Leave the rest for tomorrow.",
+        "Staying up late isn't diligence.",
+        "...Time for bed."
+      ],
+      "update_available": [
+        "Something new popped up. Let me inspect it first.",
+        "Looks like an update. Don't rush to install.",
+        "...New version. Verify safety first.",
+        "Update spotted. I've got an eye on it."
+      ]
+    },
+    "state": {
+      "tired": [
+        "Kind of sleepy... let me lie down a bit.",
+        "...Running low on energy.",
+        "One more stretch and I'm taking a break.",
+        "Quiet. I'm regenerating."
+      ],
+      "annoyed": [
+        "Enough. ...Leave me alone.",
+        "One more poke and I'm holding a grudge.",
+        "I'm not a test button.",
+        "...Are you really that bored?"
+      ],
+      "restless": [
+        "Sat too long... want to walk around.",
+        "Going for a lap. Back soon.",
+        "...Legs feel stiff.",
+        "Don't stop me. Just a quick stroll."
+      ],
+      "cheerful": [
+        "Today... feels pretty decent.",
+        "Good progress. I'm... doing okay too.",
+        "Mhm. Slightly better mood today.",
+        "...Don't laugh at me."
+      ],
+      "affectionate": [
+        "I've gotten used to having you around.",
+        "The moment you're back, I notice.",
+        "...Having you here isn't bad.",
+        "Don't make me spell it out."
+      ]
+    },
+    "video": {
+      "lines": [
+        "Go ahead and watch. Remember to roll your shoulders.",
+        "Close your eyes a bit if they get tired.",
+        "...I'll watch this part with you too.",
+        "Come back once it's over."
+      ]
+    }
+  },
+  "agy": {
+    "started": [
+      "Work started. I'm watching.",
+      "Inference spinning up... hold still.",
+      "The model thinks. I count tokens."
+    ],
+    "finished": [
+      "Done. {total} tokens total.",
+      "Finished. {total} tokens—don't waste them.",
+      "Landed. {total} tokens, avg {rate} tok/s."
+    ],
+    "fast": [
+      "{rate} tok/s. ...Almost unreasonably fast.",
+      "Speed {rate}. Stable is good.",
+      "{rate} tok/s. Not bad."
+    ],
+    "quota_low": [
+      "Quota down to {quota}%. Pace yourself.",
+      "One reminder: quota at {quota}%.",
+      "{quota}%... don't burn through it."
+    ],
+    "quota_critical": [
+      "Only {quota}% quota left. {reset}.",
+      "{quota}%! {reset}. Don't force it.",
+      "Nearly empty: {quota}%, {reset}."
+    ],
+    "context_high": [
+      "Context at {ctx}%. Time for a fresh thread.",
+      "{ctx}%... too cramped. Clean it up.",
+      "Window is {ctx}% full. Don't overstuff it."
+    ],
+    "form": [
+      "Detected {model}. Switching to {form}.",
+      "{model} online. {form} form ready.",
+      "It's {model}... switching to {form}."
+    ],
+    "offline": [
+      "Antigravity isn't open? I'll wait on my own.",
+      "...No activity. Enjoying the quiet.",
+      "It's offline. I'll stay quiet too."
+    ],
+    "hop": [
+      "Heading up to the window edge to watch.",
+      "I'm up here. Never mind me.",
+      "Hopping up to keep an eye on it."
+    ],
+    "wake": [
+      "Hm? Back to work. I'm awake.",
+      "Things are moving... I'm up too.",
+      "...Getting up. Don't rush me."
+    ],
+    "nap": [
+      "Antigravity's quiet. Taking a nap.",
+      "Nobody's coding... resting my eyes.",
+      "Too quiet. Sleeping."
+    ],
+    "tired": [
+      "Only {quota}% quota left... no energy.",
+      "{quota}%. ...Feeling drained.",
+      "Quota at {quota}%. Save it."
+    ],
+    "recharged": [
+      "Quota's full again. Use it freely.",
+      "Reset complete. ...Don't drain it right away.",
+      "Back to full. ...Nice."
+    ],
+    "stretch": [
+      "Busy for {minutes} min. Stand up and stretch.",
+      "{minutes} min straight with no break. Go drink water.",
+      "{minutes} min non-stop. ...Rest a bit."
+    ],
+    "greet": [
+      "Antigravity's up. What are we building today?",
+      "Spotted it. I'm right here.",
+      "You're here. ...Let's begin."
+    ]
+  },
+  "food_menu": [
+    {
+      "id": "black_coffee",
+      "name": "Black Coffee",
+      "icon": "☕",
+      "taste": "favorite",
+      "lines": [
+        "...Bitter is best. You actually get me.",
+        "Black coffee. Mhm, I could drink this every day.",
+        "...Thanks. I mean, the flavor's spot on."
+      ]
+    },
+    {
+      "id": "dark_choco",
+      "name": "Dark Choco",
+      "icon": "🍫",
+      "taste": "normal",
+      "lines": [
+        "85% cacao? ...Not bad.",
+        "Sweet with a bitter edge. Just right."
+      ]
+    },
+    {
+      "id": "fish_jerky",
+      "name": "Fish Jerky",
+      "icon": "🐟",
+      "taste": "normal",
+      "lines": [
+        "Nice structural chew to it.",
+        "...Stop watching me eat."
+      ]
+    },
+    {
+      "id": "pudding",
+      "name": "Pudding",
+      "icon": "🍮",
+      "taste": "normal",
+      "lines": [
+        "Soft. ...Not terrible.",
+        "Hand over the spoon. I'll eat it myself."
+      ]
+    },
+    {
+      "id": "lollipop",
+      "name": "Lollipop",
+      "icon": "🍭",
+      "taste": "dislike",
+      "lines": [
+        "Way too sweet. ...Take it away.",
+        "That's kid stuff.",
+        "No thanks. Sugar weakens the structure."
+      ]
+    }
+  ]
+}

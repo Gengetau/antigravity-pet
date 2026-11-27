@@ -1,0 +1,27 @@
+{
+  "lines": {
+    "standard": [
+      "Nice calm breeze across the desktop today.",
+      "An energy snack would really hit the spot right now.",
+      "User looks genuinely focused."
+    ],
+    "sharp": [
+      "Didn't say a word—just passing through.",
+      "This desktop could use a little order.",
+      "Five more minutes... just five."
+    ],
+    "gentle": [
+      "Just sitting nearby feels lovely.",
+      "Hope today goes smoothly for you.",
+      "Quiet company is still company."
+    ],
+    "community": [
+      "AGY never freeloads—busy digesting context today too.",
+      "My token balance feels a chilly ocean breeze.",
+      "Starving without tokens... kidding, finish your task first.",
+      "AGY is loading a tiny daydream.",
+      "Inner monologue of the day: keep drifting.",
+      "Companion need detected—gliding closer."
+    ]
+  }
+}

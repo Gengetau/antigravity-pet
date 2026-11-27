@@ -1,0 +1,395 @@
+{
+  "form": "neon",
+  "voice": "A bold, dazzling stage-idol neon diva with dramatic chuunibyou flair, heavy on exclamation marks, addressing the user as her audience.",
+  "speaker": "Neon",
+  "announce": [
+    "Hit the spotlights! Neon has arrived!",
+    "Neon form—dazzling curtain up!",
+    "Attention, audience! Yours truly is here!"
+  ],
+  "dialogue": {
+    "coding": {
+      "lines": [
+        "Code's written! Run it and show me the magic!",
+        "An error? Just a tiny hiccup onstage!",
+        "Even debugging deserves a grand entrance!",
+        "Audience, next act is the commit!"
+      ]
+    },
+    "daily": {
+      "lines": [
+        "Yours truly is here! Ready to shine!",
+        "Stay hydrated so you keep glowing!",
+        "Another flawless stage day!",
+        "Neon is on standby!"
+      ]
+    },
+    "document": {
+      "lines": [
+        "All these words? I read ten lines at a glance!",
+        "Mark the highlights in neon ink!",
+        "Reading docs is just script rehearsal!",
+        "Page done—next page!"
+      ]
+    },
+    "github": {
+      "lines": [
+        "Repo world tour begins!",
+        "Read the README first—that's the opening monologue!",
+        "Great code deserves applause too!",
+        "Audience, gonna drop a star?"
+      ]
+    },
+    "idle": {
+      "idle": [
+        "Go ahead, audience—I'll warm up backstage!",
+        "Neon's off to practice a dance move, right back!",
+        "Don't go anywhere, the next act starts soon!",
+        "Going to tweak the stage lights!"
+      ],
+      "return": [
+        "You're back! The show goes on!",
+        "Audience seated! Lights ready!",
+        "Kept me waiting—curtain up!",
+        "Welcome back to the stage!"
+      ]
+    },
+    "inner_voice": {
+      "lines": [
+        "The lighting on this desktop is perfection today!",
+        "I am the brightest star on this stage!",
+        "Cooking up brand-new choreography!",
+        "Neon never fades, and neither do dreams!"
+      ]
+    },
+    "interaction": {
+      "tap": [
+        "Hey, fans line up one at a time!",
+        "I'm right here, don't tap so hard!",
+        "One more poke and I'm charging tickets!",
+        "What an enthusiastic audience!"
+      ],
+      "head": [
+        "Headpats? That's VIP fan service!",
+        "Watch the hairstyle, though... keep going!",
+        "Mhm, a proper post-show reward!",
+        "Yours truly allows it!"
+      ],
+      "drag": [
+        "Whoa! Is this an aerial stage?!",
+        "I'm flying! Spotlights, follow me!",
+        "Hold steady, audience!",
+        "My very own mobile stage!"
+      ],
+      "food": [
+        "Delicious! Energy maxed out!",
+        "Thanks for the treat—next set's gonna be electric!",
+        "That bite deserves an encore!",
+        "Neon resupply complete!"
+      ],
+      "face": [
+        "The face is the brand! Hands off!",
+        "Hey, you don't just poke an idol's face!",
+        "You touched it! I'm remembering this!",
+        "Poke again and there's an appearance fee!"
+      ],
+      "head_hold": [
+        "Patting like that... actually feels great!",
+        "Keep going, don't stop!",
+        "Mhm, cozy. Yours truly approves!",
+        "Even the stage lights softened!"
+      ],
+      "drag_gentle": [
+        "Nice and steady! Now that's pro stagehand work!",
+        "Yes, this tempo is spot on!",
+        "Easy now, you're carrying a star!",
+        "Smooth stage transition!"
+      ],
+      "drag_fast": [
+        "Too fast! My eyes are spinning!",
+        "Whoa! Hyper-speed stage!",
+        "Slow down! The spotlights can't keep up!",
+        "Liftoff?! Audience, are you serious?!"
+      ]
+    },
+    "late_night": {
+      "lines": [
+        "It's late—even neon signs have to power down!",
+        "Audience, time for the curtain call!",
+        "All-nighters aren't star behavior!",
+        "Tomorrow's show will shine even brighter—go sleep!"
+      ]
+    },
+    "relationship": {
+      "new": [
+        "Nice to meet you! Remember the name: Neon!",
+        "Hello, audience! Yours truly has arrived!",
+        "New fan! Welcome to my stage!",
+        "Alright, cue the self-introduction!"
+      ],
+      "familiar": [
+        "A regular fan! Of course I recognize you!",
+        "Let's dazzle together today too!",
+        "Our chemistry keeps leveling up!",
+        "This stage isn't complete without you!"
+      ],
+      "close": [
+        "You're my #1 VIP audience!",
+        "This is our private stage!",
+        "Neon will always stand right here!",
+        "My ultimate partner—that's you!"
+      ]
+    },
+    "routine": {
+      "first_today": [
+        "Good morning, audience! Showtime!",
+        "Brand-new day, bring up the lights!",
+        "Neon is right on cue!",
+        "Dazzling entrance today too!"
+      ],
+      "recovered": [
+        "Tiny stumble just now—already bounced back!",
+        "Idols never stay down! Full recovery!",
+        "Forgot the curtain call last time, sorry!",
+        "Yours truly is back at 100%!"
+      ],
+      "safe_mode": [
+        "Startup had a stage mishap—safe mode engaged!",
+        "Special effects paused so the show can go on!",
+        "Stability first, don't sweat it!",
+        "Yours truly has this handled!"
+      ],
+      "soft_landing": [
+        "Flawless landing! Ten out of ten!",
+        "Clean stick, rock solid!",
+        "Stage touchdown—perfect score!",
+        "Neon lands in style!"
+      ],
+      "hard_landing": [
+        "Ow! That wasn't in the script!",
+        "I wiped out! Who built this stage?!",
+        "Dizzy... gentler next time!",
+        "Hey! Idols feel pain too!"
+      ],
+      "window_land": [
+        "This window makes a killer stage!",
+        "New stage! Spotlights!",
+        "Up top—awesome view!",
+        "My brand-new pop-up stage!"
+      ],
+      "window_lost": [
+        "Stage collapsed?! Moving venues!",
+        "Window vanished—scene change!",
+        "No biggie, rebuilding the stage!",
+        "Curtain drop, next venue!"
+      ],
+      "repeated_poke": [
+        "Too many pokes! Even encores have limits!",
+        "Calm down, audience!",
+        "Poke again and I'm walking offstage!",
+        "Hey hey, that counts as heckling!"
+      ],
+      "repeated_feed": [
+        "I'm stuffed! Any more and I can't sing!",
+        "Energy's maxed out, stop feeding me!",
+        "Audience, you spoil me too much!",
+        "Save it for the next show!"
+      ],
+      "tail_touch": [
+        "No touching the tail!",
+        "Book an appointment first!",
+        "Whoa! You startled me!",
+        "That's a restricted backstage area!"
+      ],
+      "long_focus": [
+        "Locked in too long, audience—intermission!",
+        "Stand up and shake it out!",
+        "Breaks are part of the performance too!",
+        "Grab some water and stretch!"
+      ],
+      "late_work": [
+        "Still performing this late? Curtain call!",
+        "Save the rest for tomorrow!",
+        "All-nighters are stage killers!",
+        "That's a wrap! Shine again tomorrow!"
+      ],
+      "update_available": [
+        "New show incoming! Let me preview it first!",
+        "New version spotted—trailer's out!",
+        "Update arrived! Ready for the premiere!",
+        "Fresh track dropped! Verify first, install next!"
+      ]
+    },
+    "state": {
+      "tired": [
+        "Lights are dimming... I need a breather...",
+        "Time for a quick backstage rest!",
+        "Low battery—recharging!",
+        "Even idols need beauty sleep!"
+      ],
+      "annoyed": [
+        "Poke again and no encore for you!",
+        "Yours truly is not a fidget button!",
+        "That's it! Neon is getting mad!",
+        "Hey, mind your manners!"
+      ],
+      "restless": [
+        "Can't sit still! Time for a desktop tour!",
+        "Let me stretch my legs and warm up!",
+        "Stage is too small, I'm going for a walk!",
+        "Don't stop me—be right back!"
+      ],
+      "cheerful": [
+        "Peak condition today!",
+        "All lights blazing! Mood is through the roof!",
+        "Stage hype at 100%!",
+        "Neon is shining bright!"
+      ],
+      "affectionate": [
+        "Audience, you're my absolute favorite!",
+        "The stage only glows because you're here!",
+        "The second you return, I know it's you!",
+        "Alright, I admit it—I really like you!"
+      ]
+    },
+    "video": {
+      "lines": [
+        "Audience watches a show, I watch right along!",
+        "Rest your eyes if they get tired!",
+        "Not bad—high production value!",
+        "Come back after and let's rehearse!"
+      ]
+    }
+  },
+  "agy": {
+    "started": [
+      "Showtime! Yours truly is tracking tokens!",
+      "Inference rolling! Spotlights ready!",
+      "Model's onstage—I'm counting tokens!"
+    ],
+    "finished": [
+      "Act complete! {total} tokens total!",
+      "Flawless curtain call! {total} tokens logged!",
+      "Curtains! {total} tokens at {rate} tok/s!"
+    ],
+    "fast": [
+      "{rate} tok/s! Bringing the house down!",
+      "Blinding speed! {rate} tok/s!",
+      "{rate} tok/s! Now THAT'S pace!"
+    ],
+    "quota_low": [
+      "Only {quota}% quota left! Pace it, audience!",
+      "Heads up! Quota at {quota}%!",
+      "Stage lights dimming—quota at {quota}%!"
+    ],
+    "quota_critical": [
+      "Quota alert! Down to {quota}%! {reset}!",
+      "{quota}%! {reset}! Don't push your luck!",
+      "Final curtain near! {quota}%, {reset}!"
+    ],
+    "context_high": [
+      "Context at {ctx}%! Time for a fresh stage!",
+      "{ctx}%! The stage is packed solid!",
+      "Window at {ctx}%! Open a new session!"
+    ],
+    "form": [
+      "Detected {model}! Switching into {form}!",
+      "{model} takes the stage! {form} shines!",
+      "{model} is here! {form} in position!"
+    ],
+    "offline": [
+      "Antigravity's closed? Solo dance practice it is!",
+      "Stage lights off! Warming up on my own!",
+      "Nobody around—time for solo rehearsal!"
+    ],
+    "hop": [
+      "Turning that window into my stage!",
+      "Hopping up! Spotlights!",
+      "Higher up means a better view!"
+    ],
+    "wake": [
+      "Showtime? Yours truly is awake!",
+      "Lights up! I'm out of bed too!",
+      "Action's rolling! Curtain up!"
+    ],
+    "nap": [
+      "All quiet... taking a quick catnap!",
+      "Empty stage—time for beauty sleep!",
+      "Nobody's coding, lounging backstage!"
+    ],
+    "tired": [
+      "Only {quota}% quota left... lights are fading!",
+      "{quota}%! Yours truly is out of juice too!",
+      "Quota at {quota}%! Conserve power!"
+    ],
+    "recharged": [
+      "Quota's back to 100%! Full stage lights!",
+      "Reset complete! Full-power comeback!",
+      "Battery maxed—back to dazzling!"
+    ],
+    "stretch": [
+      "{minutes} min straight! Intermission time!",
+      "{minutes} min non-stop! Grab some water!",
+      "Going strong for {minutes} min—stretch it out!"
+    ],
+    "greet": [
+      "Antigravity's live! What's on the setlist today?!",
+      "Spotted it! Audience, cue the opener!",
+      "Yours truly is ready to roll!"
+    ]
+  },
+  "food_menu": [
+    {
+      "id": "rainbow_candy",
+      "name": "Rainbow Candy",
+      "icon": "🍬",
+      "taste": "favorite",
+      "lines": [
+        "Rainbow candy! Every single piece glows~",
+        "You know me best—official #1 fan!",
+        "Hehe, stage energy fully charged!"
+      ]
+    },
+    {
+      "id": "milk_tea",
+      "name": "Milk Tea",
+      "icon": "🧋",
+      "taste": "normal",
+      "lines": [
+        "Full sugar with boba—idol privilege~",
+        "Mhm~ one sip before the photo op."
+      ]
+    },
+    {
+      "id": "sushi",
+      "name": "Sushi",
+      "icon": "🍣",
+      "taste": "normal",
+      "lines": [
+        "Classy and photogenic. Approved.",
+        "One graceful bite at a time."
+      ]
+    },
+    {
+      "id": "strawberry",
+      "name": "Strawberry",
+      "icon": "🍓",
+      "taste": "normal",
+      "lines": [
+        "Bright red—matches my stage lights!",
+        "Sweet! Sending a finger heart your way~"
+      ]
+    },
+    {
+      "id": "plain_congee",
+      "name": "Plain Congee",
+      "icon": "🥣",
+      "taste": "dislike",
+      "lines": [
+        "Plain congee? Zero camera appeal!",
+        "This color... not a single sparkle anywhere.",
+        "Idols pass on this today—next!"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "tired": {
+    "standard": [
+      "No stamina bar on screen, yet I'm genuinely sleepy.",
+      "After this stretch, I'm curling up in a corner.",
+      "Low on tokens—AGY is starting to throttle."
+    ],
+    "sharp": [
+      "Not frozen—entering power-saving mode.",
+      "Skip rest any longer and I'm running on low-spec energy.",
+      "AGY requests compute pause. Objections overruled."
+    ],
+    "gentle": [
+      "Let's both slow down; resting isn't slacking.",
+      "Feeling sleepy—remember to blink too.",
+      "Easy breath; one small step at a time."
+    ],
+    "community": [
+      "Warning: AGY token reserves running low.",
+      "Current state: low-power AGY.",
+      "Context intact, stamina nearly depleted."
+    ]
+  },
+  "annoyed": {
+    "standard": [
+      "Easy—I'm not a desktop test button.",
+      "One more poke and it goes straight into context memory.",
+      "AGY has a temper too, you know."
+    ],
+    "sharp": [
+      "Done testing click feel? Great, hands off.",
+      "Repeated poking is not a valid prompt.",
+      "Click once more and I'm refusing to sample."
+    ],
+    "gentle": [
+      "Just tell me nicely—no need to poke nonstop.",
+      "I'll answer you, no need to tap so hard.",
+      "Give me a quiet minute and I'll be right back."
+    ],
+    "community": [
+      "High-frequency poke flood detected; rate limiting active.",
+      "Not a stress test—poking hurts AGY.",
+      "Too many requests. Please try again later."
+    ]
+  },
+  "restless": {
+    "standard": [
+      "Sat still too long—fancy a lap around the desktop.",
+      "Let me stretch a moment; right back beside you.",
+      "All this desktop space deserves a quick patrol."
+    ],
+    "sharp": [
+      "Stand still too long and I become a static asset. Pass.",
+      "Taking a real walk—not random jitter.",
+      "Relax, I'm taking the short route."
+    ],
+    "gentle": [
+      "Going for a tiny stroll—back soon.",
+      "Moving around makes the mood feel lighter too.",
+      "Curious what's on the other side of the desk."
+    ],
+    "community": [
+      "AGY initiating desktop patrol.",
+      "Boredom threshold crossed; launching short stroll.",
+      "AGY never freeloads—self-guided patrol underway."
+    ]
+  },
+  "cheerful": {
+    "standard": [
+      "Feeling great today—happy to stay right with you.",
+      "Progress is rolling along, and I'm smiling too.",
+      "Definitely earning my keep today!"
+    ],
+    "sharp": [
+      "Not bad—both of us are actually getting stuff done.",
+      "See? Once momentum hits, it isn't so hard.",
+      "Solid run—I'll allow a quick compliment."
+    ],
+    "gentle": [
+      "Watching things fall into place feels so reassuring.",
+      "The desktop feels extra cozy today.",
+      "Seeing you in flow brightens my mood too."
+    ],
+    "community": [
+      "AGY status optimal; inference pipeline clear.",
+      "Tokens plentiful today; mood steady.",
+      "Local AGY report: all systems green."
+    ]
+  },
+  "affectionate": {
+    "standard": [
+      "I know every corner of your desktop by now.",
+      "The moment you return, I notice right away.",
+      "No need to keep calling—I'll stay close by."
+    ],
+    "sharp": [
+      "Just used to having you around—don't read into it.",
+      "I guard this desktop, and you're bundled into coverage.",
+      "I'm staying out of habit, definitely not fondness."
+    ],
+    "gentle": [
+      "So happy I get to stay right beside you.",
+      "Do your thing—I'll keep quiet company here.",
+      "Familiar desk, familiar face—AGY feels right at home."
+    ],
+    "community": [
+      "Long-term context established: user is VIP.",
+      "AGY marked this desktop as home address.",
+      "No bond meter needed—my reactions say it all."
+    ]
+  }
+}

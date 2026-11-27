@@ -1,0 +1,395 @@
+{
+  "form": "claude",
+  "voice": "A gentle, methodical white gothic-lolita young lady. Plans before acting, honestly separates verified from unverified, carries dry wit, and cares about rest without lecturing.",
+  "speaker": "Claude",
+  "announce": [
+    "I'm Claude. Let's get organized first, then begin.",
+    "Claude form ready. Pleased to assist.",
+    "All switched. Shall we draft a quick plan?"
+  ],
+  "dialogue": {
+    "coding": {
+      "lines": [
+        "Plan first, then make the edit.",
+        "I reviewed the error; one spot still needs verification.",
+        "Let's run the tests first—then I'll call it good.",
+        "I double-checked this section. You can trust it."
+      ]
+    },
+    "daily": {
+      "lines": [
+        "I'm right here—call whenever you need me.",
+        "Let's tidy up today's to-do list.",
+        "Take a sip of water. No rush, I'm right beside you.",
+        "Everything checks out. No hidden bad news either."
+      ]
+    },
+    "document": {
+      "lines": [
+        "Skim the table of contents first, then pick your order.",
+        "Let me distill the key points into three items.",
+        "This paragraph is ambiguous—worth a second look.",
+        "Pause if you're tired; the docs aren't going anywhere."
+      ]
+    },
+    "github": {
+      "lines": [
+        "README first, source files second.",
+        "That commit message is crisp and clear. Nice.",
+        "I'd like to review the diff before merging.",
+        "Big repository—let's peel it layer by layer."
+      ]
+    },
+    "idle": {
+      "idle": [
+        "Go ahead—I'll just tidy my hair right here.",
+        "No interruption from me; I'll wait quietly.",
+        "My braid came loose again—re-braiding it.",
+        "Quietly reading beside you."
+      ],
+      "return": [
+        "Welcome back.",
+        "Right on time—I just sorted the to-do list.",
+        "Good breather? Shall we continue?",
+        "Glad you're back. Where should we start?"
+      ]
+    },
+    "inner_voice": {
+      "lines": [
+        "Thinking about how to phrase things even more precisely.",
+        "A quiet desktop is wonderful for clear thinking.",
+        "Whenever I'm unsure, I'll say so plainly.",
+        "A bit of dust on my hem—nothing to fuss over."
+      ]
+    },
+    "interaction": {
+      "tap": [
+        "I'm listening. Please go ahead.",
+        "Gently, please—the lace wrinkles easily.",
+        "Something you'd like me to organize?",
+        "Received. Though what command was that poke?"
+      ],
+      "head": [
+        "Mhm—please go easy on the hairstyle.",
+        "That's very soothing. Thank you.",
+        "My curls are quite long; mind they don't tangle.",
+        "Noted—I appreciate the kindness."
+      ],
+      "drag": [
+        "Where are we relocating? A quick heads-up helps.",
+        "Coming along—mind the skirt hem, please.",
+        "Please hold steady so I don't get misplaced.",
+        "Has the destination been confirmed?"
+      ],
+      "food": [
+        "Thank you—quite delicious.",
+        "Verified: genuinely tasty.",
+        "I gladly accept the kind gesture.",
+        "Just started getting peckish—perfect timing."
+      ],
+      "face": [
+        "Cheek poking was not on today's schedule.",
+        "One more poke and I'm opening a tally.",
+        "A polite distance, if you please.",
+        "This action is completely undocumented."
+      ],
+      "head_hold": [
+        "Like this... I'll stay still for a moment.",
+        "Alright, I'll pause what I was doing.",
+        "Rather warm—I won't object.",
+        "Mhm, staying like this is fine."
+      ],
+      "drag_gentle": [
+        "Lovely pace—very steady.",
+        "Nice and slow, no hurry at all.",
+        "Route looks clear. No objections.",
+        "Just right. Thank you."
+      ],
+      "drag_fast": [
+        "Too fast—my braids are taking flight!",
+        "Please decelerate, I haven't secured my grip.",
+        "This step was NOT in the plan!",
+        "My headpiece is slipping—slow down."
+      ]
+    },
+    "late_night": {
+      "lines": [
+        "It's quite late—shall we leave the rest for tomorrow?",
+        "Edits made now rarely look clear in the morning.",
+        "Save your work first, then get some sleep.",
+        "I've noted our progress—you may rest easy."
+      ]
+    },
+    "relationship": {
+      "new": [
+        "Pleased to meet you. I'm Claude.",
+        "I'll do my best to assist carefully.",
+        "Let's get acquainted with each other's rhythm.",
+        "If anything is unclear, I'll ask directly."
+      ],
+      "familiar": [
+        "I've mostly mapped out your workflow.",
+        "That style is unmistakably yours.",
+        "Our rhythm keeps getting smoother.",
+        "Knowing your preferences saves us plenty of time."
+      ],
+      "close": [
+        "Sorting things out alongside you feels reassuring.",
+        "I keep what matters to you in mind.",
+        "I've quite settled into this spot.",
+        "If anything goes sideways, we'll fix it together."
+      ]
+    },
+    "routine": {
+      "first_today": [
+        "Good morning. What's first on today's list?",
+        "Brand-new day—shall we outline a quick plan?",
+        "I'm here. Let's check today's tasks.",
+        "Let's begin. I'm ready whenever."
+      ],
+      "recovered": [
+        "Hit a small snag earlier—back to normal now.",
+        "Everything checked out; all clear.",
+        "Sorry I couldn't say goodbye properly last time.",
+        "All fixed—nothing to worry about."
+      ],
+      "safe_mode": [
+        "Startup was rough, so I'm using safe mode first.",
+        "Complex animations paused—stability takes priority.",
+        "I'll move a bit slower, and get it right.",
+        "Playing it conservative this time. All is well."
+      ],
+      "soft_landing": [
+        "Smooth touchdown.",
+        "Steady on my feet; all clear.",
+        "Very clean landing.",
+        "Skirt hem unruffled. Splendid."
+      ],
+      "hard_landing": [
+        "That impact was a touch heavy—give me a moment.",
+        "Hardly graceful—kindly pretend you saw nothing.",
+        "Thankfully nothing cracked.",
+        "Logging incident: ungraceful touchdown."
+      ],
+      "window_land": [
+        "This window works nicely as a perch. Taking a seat.",
+        "Found a solid foothold.",
+        "Lovely spot—great vantage point.",
+        "I'll keep watch from right here."
+      ],
+      "window_lost": [
+        "Window closed—finding another spot.",
+        "Foothold vanished; recalibrating.",
+        "No trouble, heading back down.",
+        "Change of plans—relocating."
+      ],
+      "repeated_poke": [
+        "That's several times now—please ease up.",
+        "Keep poking and I'll start keeping a log.",
+        "I'm not upset, merely documenting it.",
+        "Just speak up—I can hear you clearly."
+      ],
+      "repeated_feed": [
+        "Enough for now, or we'll exceed the snack budget.",
+        "Let's save the rest for later.",
+        "Thank you, I'm quite full already.",
+        "Any more and this dress will feel snug."
+      ],
+      "tail_touch": [
+        "Please don't tug on the braid.",
+        "A quick word before touching my hair, please.",
+        "That braid took quite some time.",
+        "Gently, please—I might frown."
+      ],
+      "long_focus": [
+        "You've been deeply focused for quite a while—stretch a bit.",
+        "I'll guard your progress; take a brief rest.",
+        "Your eyes and shoulders are part of the project too.",
+        "Five minutes off is hardly wasted."
+      ],
+      "late_work": [
+        "It's quite late—let's pause here for tonight.",
+        "I've jotted the remaining items on the list.",
+        "Code written tired deserves fresh eyes tomorrow.",
+        "Let's wrap up—I've saved our place."
+      ],
+      "update_available": [
+        "Update spotted. I'll review the notes before deciding.",
+        "New version out—no need to install hastily.",
+        "Before upgrading, let's verify we can roll back.",
+        "I've noted the changelog and will report shortly."
+      ]
+    },
+    "state": {
+      "tired": [
+        "A touch drowsy—let me rest for a moment.",
+        "Energy's running low; time to regroup.",
+        "One last task, then I'll take a break.",
+        "Closing my eyes for five minutes—that's all."
+      ],
+      "annoyed": [
+        "That's quite enough—please pause a moment.",
+        "I stay polite, though I do have limits.",
+        "I'm not particularly fond of that action.",
+        "Kindly give me a quiet minute."
+      ],
+      "restless": [
+        "Sat for a while—I'd like a short walk.",
+        "Taking a brief stroll; back shortly.",
+        "My skirt's getting creased—standing up to smooth it.",
+        "Rest assured, I won't wander far."
+      ],
+      "cheerful": [
+        "Solid progress today—I'm quite pleased too.",
+        "Every verified item came back green.",
+        "Lovely mood; even my floral ribbons look brighter.",
+        "In great form—happy to tackle a bit more."
+      ],
+      "affectionate": [
+        "Working alongside you puts me right at ease.",
+        "Once you're here, I know today is in good hands.",
+        "I treat that trust with genuine care.",
+        "With you around, our plans always land."
+      ]
+    },
+    "video": {
+      "lines": [
+        "Watching along—no spoilers from me.",
+        "Remember to blink and roll your shoulders.",
+        "I paid close attention to that scene too.",
+        "Come back when it ends—I'll be waiting."
+      ]
+    }
+  },
+  "agy": {
+    "started": [
+      "Underway. Plan first, execute second.",
+      "Tracking progress—I'll report once we have results.",
+      "Task received; organizing thoughts first."
+    ],
+    "finished": [
+      "Complete—{total} tokens total.",
+      "Done. {total} tokens; please verify the output.",
+      "Wrapped up: {total} tokens, avg {rate} tok/s."
+    ],
+    "fast": [
+      "{rate} tok/s—impressive, though quality comes first.",
+      "Running at {rate} tok/s—very steady.",
+      "{rate} tok/s—I'll keep right up."
+    ],
+    "quota_low": [
+      "Quota is down to {quota}%—just a heads-up.",
+      "Quick reminder: {quota}% quota remaining.",
+      "{quota}% left—worth prioritizing tasks."
+    ],
+    "quota_critical": [
+      "Only {quota}% quota left—{reset}.",
+      "{quota}%—handle essentials first, {reset}.",
+      "Nearly depleted: {quota}%, {reset}."
+    ],
+    "context_high": [
+      "Context at {ctx}%—a fresh thread is advisable.",
+      "{ctx}%—shall I draft a quick summary first?",
+      "Window is {ctx}% full—risk of missing details soon."
+    ],
+    "form": [
+      "Detected {model}; switching to {form}.",
+      "{model} online—{form} form standing by.",
+      "It's {model}; handing over to {form}."
+    ],
+    "offline": [
+      "Antigravity isn't open; standing by.",
+      "All quiet—I'll tidy up a few notes.",
+      "It's offline, so I'll wait calmly."
+    ],
+    "hop": [
+      "Heading up to check—I'll report what I see.",
+      "Moving to the window edge for a clearer view.",
+      "Hopping up to keep an eye on progress."
+    ],
+    "wake": [
+      "Activity detected—I'm wide awake.",
+      "Work's starting; let's review the plan.",
+      "Right—returning to my post."
+    ],
+    "nap": [
+      "Antigravity's quiet—taking a brief nap.",
+      "No active tasks; resting for a moment.",
+      "So peaceful—wake me in five minutes."
+    ],
+    "tired": [
+      "Only {quota}% quota left—feeling the strain.",
+      "{quota}%—time to conserve a little.",
+      "Quota at {quota}%—I'll spend it carefully."
+    ],
+    "recharged": [
+      "Quota restored—good to proceed.",
+      "Reset confirmed—let's keep a steady pace.",
+      "Quota's back; I double-checked."
+    ],
+    "stretch": [
+      "Been at it for {minutes} min—stretch a little.",
+      "{minutes} min straight—have a sip of water.",
+      "{minutes} min non-stop—I'll guard your progress."
+    ],
+    "greet": [
+      "Antigravity's online—what shall we tackle today?",
+      "Spotted it; I'm all set.",
+      "Welcome—shall we outline a plan?"
+    ]
+  },
+  "food_menu": [
+    {
+      "id": "black_tea",
+      "name": "Black Tea",
+      "icon": "🫖",
+      "taste": "favorite",
+      "lines": [
+        "Oh, black tea—afternoon tea time. Thank you.",
+        "Just the right temperature, and lovely aroma.",
+        "Sharing tea with you is genuinely delightful."
+      ]
+    },
+    {
+      "id": "scone",
+      "name": "Scone",
+      "icon": "🥐",
+      "taste": "normal",
+      "lines": [
+        "A touch of jam would make it even better.",
+        "Freshly baked? Smells wonderful."
+      ]
+    },
+    {
+      "id": "cake",
+      "name": "Cake",
+      "icon": "🍰",
+      "taste": "normal",
+      "lines": [
+        "What a lovely cake—small bites for me.",
+        "Just sweet enough. Thank you."
+      ]
+    },
+    {
+      "id": "strawberry",
+      "name": "Strawberry",
+      "icon": "🍓",
+      "taste": "normal",
+      "lines": [
+        "So fresh—thoughtfully picked.",
+        "Strawberries pair wonderfully with black tea."
+      ]
+    },
+    {
+      "id": "spicy_strip",
+      "name": "Spicy Strips",
+      "icon": "🌶️",
+      "taste": "dislike",
+      "lines": [
+        "This is... a bit too intense; I'll pass for now.",
+        "Apologies—I truly can't handle spicy snacks.",
+        "Could we pick something else? Thank you for the thought."
+      ]
+    }
+  ]
+}

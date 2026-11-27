@@ -65,3 +65,10 @@ def next_form(current: str) -> str:
 
 def character_dir(root: Path, form_id: str) -> Path:
     return Path(root) / normalize_form(form_id)
+
+
+def form_tagline(form_id: str, *, lang: str | None = None) -> str:
+    from app.i18n import tr
+
+    fid = normalize_form(form_id)
+    return tr(f"char.tagline.{fid}", lang=lang)

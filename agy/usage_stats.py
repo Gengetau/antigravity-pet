@@ -146,18 +146,13 @@ def cumulative(daily: dict[date, int], start: date, end: date) -> dict[date, int
 
 
 def format_tokens_cn(value: float) -> str:
-    """113亿 / 9.1亿 / 3.2万 style, like the Claude usage page."""
-    value = float(value)
-    for unit, size in (("亿", 1e8), ("万", 1e4)):
-        if abs(value) >= size:
-            scaled = value / size
-            return f"{scaled:.0f}{unit}" if scaled >= 100 else f"{scaled:.1f}{unit}".replace(".0" + unit, unit)
-    return f"{value:.0f}"
+    """Format large token counts according to active locale (zh: 万/亿, ja: 万/億, en: K/M/B)."""
+    from app.i18n import format_tokens_localized
+
+    return format_tokens_localized(value)
 
 
 def format_duration(ms: int) -> str:
-    minutes = int(ms // 60000)
-    hours, minutes = divmod(minutes, 60)
-    if hours:
-        return f"{hours} 小时 {minutes} 分"
-    return f"{minutes} 分钟" if minutes else "不到 1 分钟"
+    from app.i18n import format_duration_localized
+
+    return format_duration_localized(ms)

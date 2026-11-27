@@ -21,6 +21,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+from app.i18n import get_language
+from app.i18n_lines import AUTONOMY_LINES
 from .telemetry import LiveSnapshot
 
 # Actions the autonomy layer may override; anything else (being dragged,
@@ -113,20 +115,41 @@ class AgyAutonomy:
         self.rng = rng or random.Random()
         self.settings = settings or AutonomySettings()
         self.state = _State()
+        self._overrides: dict[str, tuple[str, ...]] = {}
         self.lines: dict[str, tuple[str, ...]] = dict(LINES)
 
+    def _default_lines_for_lang(self) -> dict[str, tuple[str, ...]]:
+        code = get_language()
+        if code != "zh":
+            base = dict(LINES)
+            base.update(AUTONOMY_LINES.get(code, {}))
+            return base
+        return dict(LINES)
+
     def set_lines(self, overrides: dict | None) -> None:
-        """Per-form voice; unknown kinds are ignored, missing kinds keep defaults."""
-        self.lines = dict(LINES)
+        """Per-form voice; unknown kinds are ignored, missing kinds keep localized defaults."""
+        parsed: dict[str, tuple[str, ...]] = {}
         for kind, lines in (overrides or {}).items():
             if kind in LINES and isinstance(lines, list) and lines:
-                self.lines[kind] = tuple(str(line) for line in lines)
+                parsed[kind] = tuple(str(line) for line in lines)
+        self._overrides = parsed
+        merged = self._default_lines_for_lang()
+        merged.update(parsed)
+        self.lines = merged
 
     def _line(self, key: str, **values: object) -> str:
+        code = get_language()
+        pool = self._overrides.get(key)
+        if not pool:
+            if code != "zh":
+                pool = AUTONOMY_LINES.get(code, {}).get(key)
+            if not pool:
+                pool = self.lines.get(key) or LINES.get(key)
         try:
-            return self.rng.choice(self.lines[key]).format(**values)
-        except (KeyError, IndexError, ValueError):
-            return self.rng.choice(LINES[key]).format(**values)
+            return self.rng.choice(pool).format(**values)
+        except (KeyError, IndexError, ValueError, TypeError):
+            fallback = AUTONOMY_LINES.get(code, {}).get(key) if code != "zh" else None
+            return self.rng.choice(fallback or LINES[key]).format(**values)
 
     def _say(self, key: str, **values: object) -> AutonomyCommand:
         return AutonomyCommand("say", text=self._line(key, **values), reason=key)
