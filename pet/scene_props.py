@@ -140,8 +140,8 @@ class DesktopScenePropWidget(QWidget):
     """Floating translucent interactive prop centerpiece for themed desktop mini-scenes."""
 
     BUBBLE_TOP_PAD = 28
-    PROP_WIDTH = 160
-    PROP_HEIGHT = 138
+    PROP_WIDTH = 188
+    PROP_HEIGHT = 144
 
     def __init__(
         self,
@@ -204,7 +204,7 @@ class DesktopScenePropWidget(QWidget):
 
     @property
     def visual_size(self) -> tuple[int, int]:
-        return (124, 92)
+        return (148, 98)
 
     def set_topmost(self, topmost: bool) -> None:
         was_visible = self.isVisible()
@@ -550,21 +550,28 @@ class DesktopScenePropWidget(QWidget):
         painter.setBrush(QColor("#fff3c4"))
         painter.drawPath(flame_path(7.5, flame_h * 0.45, 0.5))
 
-        # Two tilted marshmallow roasting sticks leaning in!
+        # Two grounded wooden Y-branch roasting stands staked beside the fire holding golden marshmallows!
         for side in (-1, 1):
-            stick_pen = QPen(QColor("#8d6245"), 2.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-            painter.setPen(stick_pen)
-            x0, y0 = cx + side * 58, base_y - 8
-            x1, y1 = cx + side * 26, base_y - 34
-            painter.drawLine(QPointF(x0, y0), QPointF(x1, y1))
-            # Plump toasted marshmallow
+            base_x = cx + side * 52
+            fork_x = cx + side * 44
+            fork_y = base_y - 28
+            tip_x = cx + side * 24
+            tip_y = base_y - 34
+            painter.setPen(QPen(QColor("#6e462c"), 3.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawLine(QPointF(base_x, base_y + 1), QPointF(fork_x, fork_y))
+            painter.drawLine(QPointF(fork_x, fork_y), QPointF(fork_x + side * 5, fork_y - 6))
+            painter.setPen(QPen(QColor("#9c6d49"), 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawLine(QPointF(base_x + side * 8, base_y - 20), QPointF(tip_x, tip_y))
             painter.save()
-            painter.translate(x1, y1)
-            painter.rotate(side * -34)
+            painter.translate(tip_x, tip_y)
+            painter.rotate(side * -14)
             painter.setPen(QPen(QColor("#cfa382"), 1.3))
-            painter.setBrush(QColor("#fff7e8" if self._interact_count == 0 else "#ffe2b8"))
+            painter.setBrush(QColor("#fff7e8" if self._interact_count == 0 else "#ffe0b2"))
             painter.drawRoundedRect(QRectF(-6.5, -5.0, 13, 10), 4, 4)
             painter.restore()
+            painter.setPen(QPen(QColor("#c79388"), 1.3))
+            painter.setBrush(QColor("#fde2d6" if side < 0 else "#e4eafc"))
+            painter.drawRoundedRect(QRectF(cx + side * 66 - 11, base_y - 6, 22, 9), 4.5, 4.5)
 
         # Twinkling starry sparks above
         painter.setPen(Qt.PenStyle.NoPen)
@@ -677,63 +684,78 @@ class DesktopScenePropWidget(QWidget):
             painter.drawEllipse(QPointF(pal_cx + dx, pal_cy + dy), 2.8, 2.3)
 
     def _paint_cloud_nap(self, painter: QPainter, cx: float, base_y: float) -> None:
-        breath = 0.0 if self._reduced_motion else math.sin(self._phase * 1.1) * 1.8
+        breath = 0.0 if self._reduced_motion else math.sin(self._phase * 1.1) * 1.4
 
         # Ground shadow
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(110, 102, 146, 36))
-        painter.drawEllipse(QPointF(cx, base_y + 3), 58, 10)
+        painter.drawEllipse(QPointF(cx, base_y + 3), 72, 11)
 
-        # Plump multi-puff pastel cloud cushion
-        cloud_y = base_y - 22 + breath * 0.5
+        # Plump multi-puff pastel cloud cushion built with true boolean union (zero hollow inner arcs!)
+        cloud_y = base_y - 22 + breath * 0.45
         cloud = QPainterPath()
-        cloud.addRoundedRect(QRectF(cx - 54, cloud_y - 6, 108, 30), 15, 15)
+        cloud.setFillRule(Qt.FillRule.WindingFill)
+        cloud.addRoundedRect(QRectF(cx - 66, cloud_y - 6, 132, 32), 16, 16)
         for dx, dy, rx, ry in (
-            (-36, -8, 20, 16),
-            (-12, -16, 24, 20),
-            (16, -14, 23, 19),
-            (38, -7, 19, 15),
+            (-46, -8, 24, 18),
+            (-18, -17, 29, 23),
+            (18, -16, 28, 22),
+            (47, -8, 23, 17),
         ):
-            cloud.addEllipse(QPointF(cx + dx, cloud_y + dy), rx, ry)
-        cloud = cloud.simplified()
+            puff = QPainterPath()
+            puff.addEllipse(QPointF(cx + dx, cloud_y + dy), rx, ry)
+            cloud = cloud.united(puff)
 
-        grad = QLinearGradient(QPointF(cx, cloud_y - 34), QPointF(cx, base_y + 2))
+        # Pass 1: clean outer cloud outline; Pass 2: seamless solid creamy gradient fill
+        painter.setPen(QPen(QColor("#c7bce8"), 2.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(cloud)
+
+        grad = QLinearGradient(QPointF(cx, cloud_y - 38), QPointF(cx, base_y + 4))
         grad.setColorAt(0.0, QColor("#ffffff"))
-        grad.setColorAt(0.7, QColor("#f7f4ff"))
+        grad.setColorAt(0.68, QColor("#f7f4ff"))
         grad.setColorAt(1.0, QColor("#e3ddf8"))
-        painter.setPen(QPen(QColor("#c7bce8"), 1.8))
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(grad)
         painter.drawPath(cloud)
 
+        # Soft rosy inner highlight puffs
+        painter.setBrush(QColor(255, 255, 255, 175))
+        painter.drawEllipse(QPointF(cx - 18, cloud_y - 22), 14, 7)
+        painter.drawEllipse(QPointF(cx + 18, cloud_y - 20), 13, 6)
+
         # Cozy pastel starry blanket draped across the cloud (tucks wider when clicked!)
-        blanket_w = 56 if self._interact_count > 0 else 44
+        blanket_w = 72 if self._interact_count > 0 else 56
         blanket = QPainterPath()
         blanket.moveTo(cx - blanket_w * 0.45, cloud_y - 6)
-        blanket.quadTo(cx + 4, cloud_y - 14, cx + blanket_w * 0.55, cloud_y - 4)
-        blanket.lineTo(cx + blanket_w * 0.62, cloud_y + 20)
-        blanket.quadTo(cx + 4, cloud_y + 26, cx - blanket_w * 0.42, cloud_y + 18)
+        blanket.quadTo(cx + 4, cloud_y - 15, cx + blanket_w * 0.55, cloud_y - 4)
+        blanket.lineTo(cx + blanket_w * 0.60, cloud_y + 21)
+        blanket.quadTo(cx + 4, cloud_y + 27, cx - blanket_w * 0.42, cloud_y + 19)
         blanket.closeSubpath()
         painter.setPen(QPen(QColor("#e7a8c2"), 1.5))
         painter.setBrush(QColor("#ffe3ef"))
         painter.drawPath(blanket)
-        # Tiny golden stars on blanket
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#f5c25b"))
-        for sx, sy in ((-6, 4), (10, 1), (4, 13), (18, 10)):
-            painter.drawEllipse(QPointF(cx + sx, cloud_y + sy), 2.3, 2.3)
+        for sx, sy in ((-10, 4), (6, 0), (0, 13), (18, 8), (24, 15)):
+            painter.drawEllipse(QPointF(cx + sx, cloud_y + sy), 2.4, 2.4)
 
-        # Cute butter-yellow crescent moon pillow tucked on left
-        moon_cx, moon_cy = cx - 34, cloud_y - 2
+        # Cute butter-yellow crescent moon pillow on left + pastel mint mini pillow on right
+        moon_cx, moon_cy = cx - 42, cloud_y - 1
         painter.setPen(QPen(QColor("#d9ad52"), 1.3))
         painter.setBrush(QColor("#ffe79a"))
-        painter.drawEllipse(QPointF(moon_cx, moon_cy), 11, 11)
+        painter.drawEllipse(QPointF(moon_cx, moon_cy), 11.5, 11.5)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#f7f4ff"))
-        painter.drawEllipse(QPointF(moon_cx + 4.8, moon_cy - 2.2), 8.5, 8.5)
+        painter.drawEllipse(QPointF(moon_cx + 5.0, moon_cy - 2.2), 8.8, 8.8)
+
+        painter.setPen(QPen(QColor("#a5c9d8"), 1.2))
+        painter.setBrush(QColor("#dff5ff"))
+        painter.drawRoundedRect(QRectF(cx + 36, cloud_y - 6, 18, 12), 5, 5)
 
         # Floating soft lavender Zzz glyphs above
         painter.setFont(self._label_font)
         z_drift = 0.0 if self._reduced_motion else math.sin(self._phase * 1.2) * 3.0
-        for idx, (zx, zy, ch) in enumerate(((-8, -42, "z"), (4, -54, "Z"), (17, -65, "Z"))):
+        for idx, (zx, zy, ch) in enumerate(((-10, -44, "z"), (4, -56, "Z"), (19, -67, "Z"))):
             painter.setPen(QColor(148, 132, 206, 210 - idx * 25))
             painter.drawText(QPointF(cx + zx + z_drift * (idx + 1) * 0.35, cloud_y + zy), ch)

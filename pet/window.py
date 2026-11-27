@@ -3855,7 +3855,8 @@ class PetWindow(QWidget):
                 self.emit_particles("hearts")
                 if can_emote:
                     self._set_direction("left" if event.side < 0 else "right")
-                    self._request_action(PetAction.HAPPY, now=now, reason="scene_campfire", force=True)
+                    camp_pose = PetAction.HAPPY if self.surface_tracker.attached else PetAction.PERCH
+                    self._request_action(camp_pose, now=now, reason="scene_campfire", force=True)
                     key = "playmate_campfire_night" if playmate else "subagent_campfire_night"
                     self.say(pick_line(key, "点起暖暖小篝火，今晚一起烤棉花糖聊八卦吧～"), preserve_action=True)
             elif event.kind == "campfire_night_interact":
@@ -3889,17 +3890,23 @@ class PetWindow(QWidget):
                 self.emit_particles("hearts")
                 if can_emote:
                     self._set_direction("left" if event.side < 0 else "right")
-                    self._request_action(PetAction.PET_PURR, now=now, reason="scene_cloud_nap", force=True)
+                    nap_pose = PetAction.PERCH_SLEEP if self.surface_tracker.attached else PetAction.SLEEPING
+                    self._request_action(nap_pose, now=now, reason="scene_cloud_nap", force=True)
                     key = "playmate_cloud_nap" if playmate else "subagent_cloud_nap"
                     self.say(pick_line(key, "软乎乎云朵午睡窝铺好啦，大家团在一起打个盹吧～"), preserve_action=True)
             elif event.kind == "cloud_nap_interact":
                 self.emit_particles("sleep_z")
                 self.emit_particles("hearts")
-                if can_emote:
-                    self._set_direction("left" if event.side < 0 else "right")
-                    self._request_action(PetAction.PET_PURR, now=now, reason="scene_cloud_interact", force=True)
+                if current in {PetAction.SLEEPING, PetAction.PERCH_SLEEP} or can_emote:
                     key = "playmate_cloud_nap_interact" if playmate else "subagent_cloud_nap_interact"
                     self.say(pick_line(key, "帮大家把星星小被盖严实啦，做个甜梦哦～"), preserve_action=True)
+            elif event.kind == "scene_end":
+                if event.title == "cloud_nap" and current in {PetAction.SLEEPING, PetAction.PERCH_SLEEP}:
+                    self._request_action(PetAction.STRETCH, now=now, reason="scene_cloud_nap_wake", force=True)
+                    key = "playmate_cloud_nap_wake" if playmate else "subagent_cloud_nap_wake"
+                    self.say(pick_line(key, "呼——和大家睡得好香，伸个懒腰精神满格啦～"), preserve_action=True)
+                elif current == PetAction.PERCH and not self.surface_tracker.attached:
+                    self._request_action(PetAction.IDLE, now=now, reason="scene_end_stand", force=True)
         finally:
             self._handling_clone_interaction = False
 

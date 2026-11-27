@@ -717,6 +717,8 @@ class SubagentCloneWidget(QWidget):
         self._sprite_h = max(64, frame_h)
         w = max(156, frame_w + 54)
         h = max(140, frame_h + 34 + self.BUBBLE_TOP_PAD)
+        self._base_widget_w = w
+        self._base_widget_h = h
         if (self.width(), self.height()) != (w, h):
             self.setFixedSize(w, h)
         self.update()
@@ -745,6 +747,18 @@ class SubagentCloneWidget(QWidget):
         self._frame_index = idx
         self._mirrored = mirror_flag
         self._action = action
+        self._sprite_w = max(44, pixmap.width())
+        self._sprite_h = max(64, pixmap.height())
+        base_w = getattr(self, "_base_widget_w", 156)
+        base_h = getattr(self, "_base_widget_h", 140)
+        need_w = max(base_w, pixmap.width() + 44)
+        need_h = max(base_h, pixmap.height() + 34 + self.BUBBLE_TOP_PAD)
+        if (self.width(), self.height()) != (need_w, need_h):
+            old_cx = self.x() + self.width() // 2
+            old_bottom = self.y() + self.height()
+            self.setFixedSize(need_w, need_h)
+            if self.isVisible():
+                self.move(old_cx - need_w // 2, old_bottom - need_h)
         self.update()
 
     def say(self, text: str, *, now: float | None = None, duration: float = 2.4) -> None:
@@ -977,7 +991,8 @@ class SubagentCloneWidget(QWidget):
         s = self._render_scale
         painter.setPen(Qt.PenStyle.NoPen)
         halo_alpha = 88 if (self._hovered or self._dragging) else 42
-        halo_w = (56.0 if (self._hovered or self._dragging) else 48.0) * max(0.35, s)
+        base_halo = max(48.0, float(self._pixmap.width()) * 0.64) if not self._pixmap.isNull() else 48.0
+        halo_w = (base_halo + 8.0 if (self._hovered or self._dragging) else base_halo) * max(0.35, s)
         painter.setBrush(QColor(self._accent.red(), self._accent.green(), self._accent.blue(), halo_alpha))
         painter.drawEllipse(QRectF(cx - halo_w / 2.0, shadow_y - 4.5, halo_w, 10.0 * max(0.4, s)))
 
@@ -1209,6 +1224,23 @@ class SubagentCloneManager:
             return 238
         return 187
 
+    @staticmethod
+    def _scale_mini_pixmap(pix: QPixmap, target_height: int) -> QPixmap:
+        """Scale a clone sprite proportionally, capping wide lying-down poses (e.g. SLEEPING)
+        so horizontal sprites match standing head/body scale and never oversize or clip."""
+        if pix.isNull() or pix.height() <= 0:
+            return pix
+        aspect = pix.width() / float(pix.height())
+        if aspect > 1.15:
+            max_w = max(72, round(target_height * 1.16))
+            return pix.scaled(
+                max_w,
+                target_height,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        return pix.scaledToHeight(target_height, Qt.TransformationMode.SmoothTransformation)
+
     def _mini_frames(
         self,
         form_id: str,
@@ -1246,15 +1278,9 @@ class SubagentCloneManager:
                 left_frames = []
             mirror_tx = QTransform().scale(-1.0, 1.0)
             if right_frames:
-                normal = tuple(
-                    pix.scaledToHeight(self._sprite_height, Qt.TransformationMode.SmoothTransformation)
-                    for pix in right_frames
-                )
+                normal = tuple(self._scale_mini_pixmap(pix, self._sprite_height) for pix in right_frames)
                 flipped = (
-                    tuple(
-                        pix.scaledToHeight(self._sprite_height, Qt.TransformationMode.SmoothTransformation)
-                        for pix in left_frames
-                    )
+                    tuple(self._scale_mini_pixmap(pix, self._sprite_height) for pix in left_frames)
                     if left_frames
                     else tuple(
                         pix.transformed(mirror_tx, Qt.TransformationMode.SmoothTransformation)
@@ -1265,10 +1291,7 @@ class SubagentCloneManager:
                 self._frame_cache[(norm, self._sprite_height, True, action)] = flipped
                 return flipped if mirrored else normal
             if left_frames:
-                flipped = tuple(
-                    pix.scaledToHeight(self._sprite_height, Qt.TransformationMode.SmoothTransformation)
-                    for pix in left_frames
-                )
+                flipped = tuple(self._scale_mini_pixmap(pix, self._sprite_height) for pix in left_frames)
                 normal = tuple(
                     pix.transformed(mirror_tx, Qt.TransformationMode.SmoothTransformation)
                     for pix in flipped
@@ -1294,10 +1317,7 @@ class SubagentCloneManager:
                 continue
         if not raw_frames:
             return ()
-        normal = tuple(
-            pix.scaledToHeight(self._sprite_height, Qt.TransformationMode.SmoothTransformation)
-            for pix in raw_frames
-        )
+        normal = tuple(self._scale_mini_pixmap(pix, self._sprite_height) for pix in raw_frames)
         mirror_tx = QTransform().scale(-1.0, 1.0)
         flipped = tuple(
             pix.transformed(mirror_tx, Qt.TransformationMode.SmoothTransformation)
@@ -2883,17 +2903,26 @@ class SubagentCloneManager:
         prop_side: int,
         area: QRect,
         keepouts: list[QRect],
+        *,
+        scene_kind: str = "",
     ) -> dict[str, tuple[float, float]]:
         """Seat clones right across the scene prop from sister and flanking sister with zero overlap."""
         host_vis_left, host_vis_right, host_vis_rect = self._host_visual_bounds(host_rect)
         placed: list[QRect] = [prop_vis_rect]
         targets: dict[str, tuple[float, float]] = {}
-        remaining: list[int] = list(indices)
+        remaining: list[tuple[int, int]] = list(enumerate(indices))
+        sleep_min_w = round(self._sprite_height * 1.16)
+
+        def expected_dims(rank: int, w: SubagentCloneWidget) -> tuple[int, int]:
+            vw, vh = w.visual_sprite_size
+            if scene_kind == "cloud_nap" and rank % 2 == 0:
+                vw = max(vw, sleep_min_w)
+            return vw, vh
 
         if remaining:
-            first_idx = remaining[0]
+            first_rank, first_idx = remaining[0]
             w0 = self._widgets[first_idx]
-            vis_w, vis_h = w0.visual_sprite_size
+            vis_w, vis_h = expected_dims(first_rank, w0)
             cx = (prop_vis_rect.right() + 10 + vis_w // 2) if prop_side > 0 else (prop_vis_rect.left() - 10 - vis_w // 2)
             px = max(area.left(), min(round(cx - w0.width() / 2.0), area.right() - w0.width() + 1))
             py = max(area.top(), min(host_rect.bottom() - w0.height() - 6, area.bottom() - w0.height() + 1))
@@ -2907,10 +2936,10 @@ class SubagentCloneManager:
                 targets[self._entries[first_idx][0].conversation_id] = (float(px), float(py))
                 remaining = remaining[1:]
 
-        for slot_idx, idx in enumerate(remaining):
+        for slot_idx, (rank, idx) in enumerate(remaining):
             widget = self._widgets[idx]
             info = self._entries[idx][0]
-            vis_w, vis_h = widget.visual_sprite_size
+            vis_w, vis_h = expected_dims(rank, widget)
             px, py, _side, vrect = self._place_clone_slot(
                 idx=slot_idx,
                 widget_w=widget.width(),
@@ -2930,18 +2959,25 @@ class SubagentCloneManager:
             targets[info.conversation_id] = (float(px), float(py))
         return targets
 
-    def _scene_clone_pose_and_fx(self, scene_kind: str, rank: int) -> tuple[PetAction, str, tuple[str, ...]]:
+    def _scene_clone_pose_and_fx(
+        self,
+        scene_kind: str,
+        rank: int,
+        cycle_step: int = 0,
+    ) -> tuple[PetAction, str, tuple[str, ...]]:
+        """Return scene-adapted character poses (sitting, dining, painting, napping) cycling organically."""
         if scene_kind == "tea_party":
-            pose = PetAction.EATING if rank % 2 == 0 else PetAction.HAPPY
-            return pose, "steam", _TEA_PARTY_LINES
+            tea_cycle = (PetAction.EATING, PetAction.PERCH, PetAction.TALKING, PetAction.QUOTA_GIFT)
+            return tea_cycle[(rank + cycle_step) % len(tea_cycle)], "steam", _TEA_PARTY_LINES
         if scene_kind == "campfire_night":
-            pose = PetAction.HAPPY if rank % 2 == 0 else PetAction.EATING
-            return pose, "sparkles", _CAMPFIRE_LINES
+            camp_cycle = (PetAction.PERCH, PetAction.TALKING, PetAction.EATING)
+            return camp_cycle[(rank + cycle_step) % len(camp_cycle)], "sparkles", _CAMPFIRE_LINES
         if scene_kind == "art_studio":
-            pose = PetAction.WORK_DRAWING if rank != 1 else PetAction.WORK_READING
-            return pose, "notes", _ART_STUDIO_LINES
-        pose = PetAction.SLEEPING if rank % 2 == 0 else PetAction.PET_PURR
-        return pose, "sleep_z", _CLOUD_NAP_LINES
+            art_cycle = (PetAction.WORK_DRAWING, PetAction.WORK_SEARCHING, PetAction.WORK_DRAWING, PetAction.WORK_READING)
+            return art_cycle[(rank + cycle_step) % len(art_cycle)], "notes", _ART_STUDIO_LINES
+        # Cloud nap: EVERYONE curls up to nap — alternating lying-flat SLEEPING & sitting-doze PERCH_SLEEP!
+        nap_pose = PetAction.SLEEPING if rank % 2 == 0 else PetAction.PERCH_SLEEP
+        return nap_pose, "sleep_z", _CLOUD_NAP_LINES
 
     def trigger_desktop_scene(
         self,
@@ -2975,7 +3011,9 @@ class SubagentCloneManager:
         if self._enabled and self._host_visible and (self._last_dock_edge or "").strip().lower() not in ("left", "right"):
             prop.show()
 
-        targets = self._compute_prop_scene_targets(free, host_rect, prop_vis_rect, prop_side, area, keepouts)
+        targets = self._compute_prop_scene_targets(
+            free, host_rect, prop_vis_rect, prop_side, area, keepouts, scene_kind=chosen_kind
+        )
         order = [self._entries[i][0].conversation_id for i in free]
         playmate = any(is_playmate_id(cid) for cid in order)
         scene = _GroupScene(
@@ -3051,11 +3089,12 @@ class SubagentCloneManager:
         scene.ends_at = min(max_end, max(scene.ends_at, ts + DESKTOP_SCENE_EXTEND_SECONDS))
         self._next_group_scene_at = max(self._next_group_scene_at, scene.ends_at + 14.0)
 
-        click_pools: dict[str, tuple[PetAction, str, tuple[str, ...]]] = {
+        click_pools: dict[str, tuple[PetAction | None, str, tuple[str, ...]]] = {
             "tea_party": (PetAction.HAPPY, "hearts", _TEA_CLICK_LINES),
             "campfire_night": (PetAction.CELEBRATE, "sparkles", _CAMPFIRE_CLICK_LINES),
             "art_studio": (PetAction.CELEBRATE, "notes", _ART_CLICK_LINES),
-            "cloud_nap": (PetAction.PET_PURR, "sleep_z", _CLOUD_CLICK_LINES),
+            # Cloud nap keeps everyone snugly asleep / purring instead of jolting awake!
+            "cloud_nap": (None, "sleep_z", _CLOUD_CLICK_LINES),
         }
         pose, particle, lines = click_pools.get(scene.kind, click_pools["tea_party"])
         free = self._free_clone_indices()
@@ -3067,11 +3106,14 @@ class SubagentCloneManager:
             rt = self._runtime.get(cid)
             widget = self._widgets[idx]
             if rt is not None and not rt.dragging:
-                rt.pose_action = pose
-                rt.pose_until = max(rt.pose_until, min(scene.ends_at, ts + 3.2))
-                rt.hop_started_at = ts
-                rt.hop_duration = 0.38
-                rt.hop_height = 6.5 if scene.kind == "cloud_nap" else 11.0
+                if pose is not None:
+                    rt.pose_action = pose
+                    rt.pose_until = min(scene.ends_at, ts + 2.4)
+                    rt.hop_started_at = ts
+                    rt.hop_duration = 0.38
+                    rt.hop_height = 10.0
+                else:
+                    rt.pose_until = max(rt.pose_until, scene.ends_at)
             widget.emit_particles(particle, reduced_motion=self._last_reduced_motion)
             if idx == speaker_idx:
                 widget.say(self._format_line(self._rng.choice(lines)), now=ts, duration=2.6)
@@ -3096,14 +3138,31 @@ class SubagentCloneManager:
         scene = self._group_scene
         self._hide_scene_prop()
         if scene is not None and scene.kind in DESKTOP_SCENE_KINDS:
+            ended_kind = scene.kind
+            ended_side = scene.prop_side
+            ended_playmate = scene.is_playmate
+            wake_pose = PetAction.STRETCH if ended_kind == "cloud_nap" else PetAction.WAVE
             for cid in scene.order:
                 rt = self._runtime.get(cid)
                 if rt is not None and not rt.dragging:
-                    rt.pose_action = PetAction.WAVE
-                    rt.pose_until = ts + 1.1
+                    rt.pose_action = wake_pose
+                    rt.pose_until = ts + 1.4
                     rt.next_roam_at = ts + self._rng.uniform(4.5, 8.0)
             self._group_scene = None
             self._next_group_scene_at = max(self._next_group_scene_at, ts + 16.0)
+            if self._entries:
+                lead_info, lead_form, lead_badge = self._entries[0]
+                self._emit_event(
+                    CloneEvent(
+                        kind="scene_end",
+                        conversation_id=lead_info.conversation_id,
+                        form_id=lead_form,
+                        badge=lead_badge,
+                        title=ended_kind,
+                        side=ended_side,
+                        is_playmate=ended_playmate,
+                    )
+                )
 
     def _tick_group_scene(
         self,
@@ -3121,14 +3180,16 @@ class SubagentCloneManager:
         scene = self._group_scene
         if scene is None:
             return {}
-        min_needed = 1 if scene.kind == "snack_party" else 2
+        min_needed = 1 if scene.kind in {"snack_party", *DESKTOP_SCENE_KINDS} else 2
         active_order = [
             cid
             for cid in scene.order
             if cid in cid_to_index
             and not self._runtime.get(cid, _CloneRuntime(now)).dragging
         ]
-        if reduced_motion or len(active_order) < min_needed:
+        if (reduced_motion and scene.kind not in DESKTOP_SCENE_KINDS) or len(active_order) < min_needed:
+            if scene.kind in DESKTOP_SCENE_KINDS:
+                self._hide_scene_prop()
             self._group_scene = None
             return {}
         scene.order = active_order
@@ -3405,19 +3466,20 @@ class SubagentCloneManager:
 
             active_indices = [cid_to_index[cid] for cid in active_order]
             fresh_targets = self._compute_prop_scene_targets(
-                active_indices, host_rect, prop_vis_rect, prop_side, area, keepouts
+                active_indices, host_rect, prop_vis_rect, prop_side, area, keepouts, scene_kind=scene.kind
             )
             scene.targets.update(fresh_targets)
             prop_cx = px + prop.width() / 2.0
+            cycle_step = int(max(0.0, now - scene.started_at) // 3.8)
             for rank, cid in enumerate(active_order):
                 idx = cid_to_index[cid]
                 widget = self._widgets[idx]
                 rt = self._runtime[cid]
-                pose, particle, lines = self._scene_clone_pose_and_fx(scene.kind, rank)
+                pose, particle, lines = self._scene_clone_pose_and_fx(scene.kind, rank, cycle_step=cycle_step)
                 if cid in scene.step_fired:
                     if rt.pose_action is None or now >= rt.pose_until:
                         rt.pose_action = pose
-                        rt.pose_until = scene.ends_at
+                        rt.pose_until = min(scene.ends_at, now + 3.8)
                     rt.face_dir_until = scene.ends_at
                     rt.face_mirrored = (widget.x() + widget.width() / 2.0) > prop_cx
                     continue
@@ -3435,7 +3497,7 @@ class SubagentCloneManager:
                     rt.roam_mode = "paused"
                     rt.roam_until = scene.ends_at
                     rt.pose_action = pose
-                    rt.pose_until = scene.ends_at
+                    rt.pose_until = min(scene.ends_at, now + 3.8)
                     rt.face_dir_until = scene.ends_at
                     rt.face_mirrored = (cx + widget.width() / 2.0) > prop_cx
                     widget.emit_particles(particle, reduced_motion=reduced_motion)
@@ -4331,8 +4393,15 @@ class SubagentCloneManager:
                     rt.pose_action = None
                     rt.pose_until = 0.0
 
-            # Periodic organic micro-hop + subtle ambient particles during idle (skip while walking)
-            if not reduced_motion and not rt.dragging and not in_summon and not is_walking:
+            # Periodic organic micro-hop + subtle ambient particles during idle (skip while walking, napping, or seated)
+            grounded_scene_pose = active_action in {
+                PetAction.SLEEPING,
+                PetAction.PERCH_SLEEP,
+                PetAction.PERCH,
+                PetAction.WORK_DRAWING,
+                PetAction.WORK_SEARCHING,
+            }
+            if not reduced_motion and not rt.dragging and not in_summon and not is_walking and not grounded_scene_pose:
                 if rt.next_hop_at > 0 and now >= rt.next_hop_at:
                     rt.next_hop_at = now + self._rng.uniform(4.5, 9.0 if playmate else 14.0)
                     if playmate or active_action in {PetAction.HAPPY, PetAction.WAVE, PetAction.STRETCH}:
@@ -4348,6 +4417,33 @@ class SubagentCloneManager:
                     elif active_action == PetAction.WAVE:
                         widget.emit_particles("hearts", reduced_motion=False)
 
+            # Update frame FIRST so wide/lying poses (e.g. SLEEPING) resize the widget cleanly before clamping & moving!
+            if is_walking:
+                mirrored = rt.walk_facing < 0
+            elif not reduced_motion and not rt.dragging and now < rt.face_dir_until:
+                mirrored = rt.face_mirrored
+            else:
+                glancing_out = not reduced_motion and not rt.dragging and rt.pose_action is None and now < rt.idle_glance_until
+                mirrored = (final_side <= 0) if glancing_out else (final_side > 0)
+            prev_w = widget.width()
+            frames = self._mini_frames(form_id, mirrored=mirrored, action=active_action)
+            if frames:
+                if in_summon:
+                    st_f = max(0.0, min(0.999, spawn_age / SUMMON_SLIDE_SECONDS))
+                    frame_idx = min(len(frames) - 1, int(st_f * len(frames)))
+                else:
+                    cadence = _ACTION_FRAME_INTERVALS.get(active_action, FRAME_INTERVAL_SECONDS)
+                    frame_idx = (
+                        0
+                        if (reduced_motion or len(frames) <= 1)
+                        else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / cadence) % len(frames))
+                    )
+                widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=mirrored, action=active_action)
+            if widget.width() != prev_w and rt.roam_pos is not None:
+                # Keep clone horizontally centered on its spot when widget widens/narrows (e.g. SLEEPING <-> standing)
+                rt.roam_pos[0] -= (widget.width() - prev_w) / 2.0
+            vis_w, vis_h = widget.visual_sprite_size
+
             render_scale = 1.0
             scale_x = 1.0
             scale_y = 1.0
@@ -4355,11 +4451,12 @@ class SubagentCloneManager:
             current_side = final_side
             if not rt.dragging:
                 if rt.roam_pos is not None:
-                    base_rx = rt.roam_pos[0] if is_walking else (rt.roam_pos[0] + sway_x * 0.6)
-                    target_x, target_y = round(base_rx), round(rt.roam_pos[1])
+                    eff_sway = 0.0 if (is_walking or grounded_scene_pose) else sway_x * 0.6
+                    target_x, target_y = round(rt.roam_pos[0] + eff_sway), round(rt.roam_pos[1])
                     current_side = -1 if (target_x + widget.width() // 2) < host_rect.center().x() else 1
                 else:
-                    target_x, target_y = clamped_x, clamped_y
+                    target_x = clamped_x - (widget.width() - prev_w) // 2
+                    target_y = clamped_y
                 # Smooth inward nudge during report / high-five / relay / host_pat (never crosses host visual edge!)
                 if not reduced_motion and not is_walking and now < rt.nudge_until:
                     rem = max(0.0, rt.nudge_until - now)
@@ -4403,32 +4500,7 @@ class SubagentCloneManager:
                     widget.move(target_x, target_y)
             rt.last_side = current_side
 
-            # Unified directional facing (mirrored=False faces RIGHT, mirrored=True faces LEFT):
-            # - Walking faces exact movement direction (walk_side_right vs walk_side)
-            # - Active face-to-face interactions honor face_mirrored
-            # - Otherwise clones face symmetrically inward toward sister (with brief natural glances)
-            if is_walking:
-                mirrored = rt.walk_facing < 0
-            elif not reduced_motion and not rt.dragging and now < rt.face_dir_until:
-                mirrored = rt.face_mirrored
-            else:
-                glancing_out = not reduced_motion and not rt.dragging and rt.pose_action is None and now < rt.idle_glance_until
-                mirrored = (current_side <= 0) if glancing_out else (current_side > 0)
-            frames = self._mini_frames(form_id, mirrored=mirrored, action=active_action)
-            if frames:
-                if in_summon:
-                    st_f = max(0.0, min(0.999, spawn_age / SUMMON_SLIDE_SECONDS))
-                    frame_idx = min(len(frames) - 1, int(st_f * len(frames)))
-                else:
-                    cadence = _ACTION_FRAME_INTERVALS.get(active_action, FRAME_INTERVAL_SECONDS)
-                    frame_idx = (
-                        0
-                        if (reduced_motion or len(frames) <= 1)
-                        else (int((now + idx * CLONE_PHASE_STEP_SECONDS) / cadence) % len(frames))
-                    )
-                widget.set_frame(frames[frame_idx], frame_index=frame_idx, mirrored=mirrored, action=active_action)
-
-            # Organic breathing squash-stretch + playful micro-hop arc (or brisk walking bounce)
+            # Organic breathing squash-stretch + scene-adapted grounded motion (no floating bounce while napping/seated!)
             hop_y = 0.0
             if not reduced_motion and not rt.dragging and not in_summon:
                 if is_walking:
@@ -4436,6 +4508,11 @@ class SubagentCloneManager:
                     hop_y = -step_wave * 3.8
                     scale_x = render_scale * (1.0 + 0.025 * (1.0 - step_wave))
                     scale_y = render_scale * (1.0 - 0.025 * (1.0 - step_wave))
+                elif active_action in {PetAction.SLEEPING, PetAction.PERCH_SLEEP}:
+                    # Slow, peaceful grounded sleep breathing
+                    breath = math.sin(now * 1.15 * spd + phase) * 0.018
+                    scale_x = render_scale * (1.0 - breath * 0.45)
+                    scale_y = render_scale * (1.0 + breath)
                 else:
                     breath = math.sin(now * 2.1 * spd + phase) * 0.022
                     scale_x = render_scale * (1.0 - breath * 0.65)
@@ -4452,6 +4529,15 @@ class SubagentCloneManager:
                             scale_y *= 1.05
             if is_walking:
                 tilt_deg = math.sin(now * 7.8 * spd + phase) * 2.2
+                final_bob = hop_y
+            elif active_action in {PetAction.SLEEPING, PetAction.PERCH_SLEEP}:
+                tilt_deg = 0.0
+                final_bob = 0.0
+            elif active_action == PetAction.PERCH:
+                tilt_deg = 0.0 if (reduced_motion or rt.dragging) else math.sin(now * 1.4 * spd + phase) * 1.5
+                final_bob = hop_y
+            elif active_action == PetAction.WORK_DRAWING and self._group_scene is not None and self._group_scene.kind == "art_studio":
+                tilt_deg = 0.0 if (reduced_motion or rt.dragging) else math.sin(now * 3.6 * spd + phase) * 2.2
                 final_bob = hop_y
             else:
                 tilt_amp = 4.2 if active_action in {PetAction.PLAY_DANCE, PetAction.HAPPY, PetAction.CELEBRATE} else 2.6

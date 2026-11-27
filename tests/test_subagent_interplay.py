@@ -1201,16 +1201,45 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             self.assertGreater(img.pixelColor(prop.width() // 2, prop.height() - 32).alpha(), 0, kind)
             self.assertIn(kind, SCENE_SPECS)
 
-        # 5. Art studio uses WORK_DRAWING / WORK_READING; Cloud nap uses SLEEPING / PET_PURR without dismissing playmates!
+        # 5. Art studio uses WORK_DRAWING/WORK_SEARCHING/WORK_READING; Campfire sits in PERCH;
+        #    Cloud nap puts ALL clones + sister to sleep with proportional zero-clipped wide SLEEPING widgets!
         self.pet.start_desktop_scene("art_studio", now=1140.0)
         self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1140.1, reduced_motion=True)
         art_actions = {w.current_action for w in self.pet.subagent_clones.visible_widgets}
-        self.assertTrue(bool(art_actions & {PetAction.WORK_DRAWING, PetAction.WORK_READING}))
+        self.assertTrue(art_actions.issubset({PetAction.WORK_DRAWING, PetAction.WORK_SEARCHING, PetAction.WORK_READING}))
+
+        self.pet.start_desktop_scene("campfire_night", now=1145.0)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1145.1, reduced_motion=True)
+        self.assertIn(self.pet.action_machine.current, {PetAction.PERCH, PetAction.HAPPY})
+        camp_actions = {w.current_action for w in self.pet.subagent_clones.visible_widgets}
+        self.assertTrue(camp_actions.issubset({PetAction.PERCH, PetAction.TALKING, PetAction.EATING}))
 
         self.pet.start_desktop_scene("cloud_nap", now=1150.0)
         self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1150.1, reduced_motion=True)
+        self.assertIn(self.pet.action_machine.current, {PetAction.SLEEPING, PetAction.PERCH_SLEEP})
         nap_actions = {w.current_action for w in self.pet.subagent_clones.visible_widgets}
-        self.assertTrue(bool(nap_actions & {PetAction.SLEEPING, PetAction.PET_PURR}))
+        self.assertTrue(nap_actions.issubset({PetAction.SLEEPING, PetAction.PERCH_SLEEP}))
+        # Verify sleeping clone sprite is proportionally capped and NEVER clipped at left/right widget edges!
+        sleep_widgets = [w for w in self.pet.subagent_clones.visible_widgets if w.current_action == PetAction.SLEEPING]
+        self.assertTrue(sleep_widgets)
+        for sw in sleep_widgets:
+            self.assertLessEqual(sw._pixmap.width(), round(self.pet.subagent_clones._sprite_height * 1.18))
+            self.assertGreaterEqual(sw.width(), sw._pixmap.width() + 24)
+            simg = QImage(sw.size(), QImage.Format.Format_ARGB32_Premultiplied)
+            simg.fill(0)
+            sw.render(simg)
+            left_col_max = max(simg.pixelColor(0, y).alpha() for y in range(simg.height()))
+            right_col_max = max(simg.pixelColor(simg.width() - 1, y).alpha() for y in range(simg.height()))
+            self.assertEqual(left_col_max, 0, "Sleeping clone clipped on left edge!")
+            self.assertEqual(right_col_max, 0, "Sleeping clone clipped on right edge!")
+        # Verify cloud prop interior is solidly filled (no hollow arc cutouts)
+        cprop = self.pet.subagent_clones.scene_prop_widget
+        assert cprop is not None
+        cimg = QImage(cprop.size(), QImage.Format.Format_ARGB32_Premultiplied)
+        cimg.fill(0)
+        cprop.render(cimg)
+        self.assertGreaterEqual(cimg.pixelColor(cprop.width() // 2, cprop.height() - 40).alpha(), 220)
+        # Idle playmates stay alive during cloud_nap even while sister is SLEEPING!
         self.pet._tick_idle_playmates(1150.5)
         self.assertGreaterEqual(self.pet.subagent_clones.active_count, 2)
 
@@ -1224,9 +1253,10 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
             for line in spec.click_lines:
                 self.assertEqual(pfm.elidedText(line, Qt.TextElideMode.ElideRight, prop_max_w), line)
 
-        # 7. Early right-click dismiss hides prop cleanly
+        # 7. Early right-click dismiss hides prop cleanly & wakes sister with STRETCH!
         self.pet.subagent_clones.dismiss_desktop_scene(now=1155.0)
         self.assertIsNone(self.pet.subagent_clones.active_group_scene)
+        self.assertEqual(self.pet.action_machine.current, PetAction.STRETCH)
         assert self.pet.subagent_clones.scene_prop_widget is not None
         self.assertFalse(self.pet.subagent_clones.scene_prop_widget.isVisible())
 

@@ -156,6 +156,10 @@ LINES: dict[str, tuple[str, ...]] = {
         "轻轻帮大家掖好小被角，好梦哦～",
         "云朵拍得更蓬松啦，呼噜呼噜真舒服～",
     ),
+    "subagent_cloud_nap_wake": (
+        "呼——小憩完精神满格，继续一起推进吧！",
+        "伸个懒腰，睡完一觉效率翻倍～",
+    ),
     "playmate_summon": (
         "闲着没事，摇来 {names} 陪我玩会儿～",
         "叮！随机召唤出 {names} 来串门啦～",
@@ -272,6 +276,10 @@ LINES: dict[str, tuple[str, ...]] = {
     "playmate_cloud_nap_interact": (
         "帮大家把星星小被盖严实啦，做个甜梦哦～",
         "云朵拍得软绵绵的，姐姐也想眯一会儿啦～",
+    ),
+    "playmate_cloud_nap_wake": (
+        "呼——和大家睡得好香，伸个懒腰精神满格啦～",
+        "醒啦醒啦，云朵午睡窝也太舒服了吧！",
     ),
     "fast": ("好快！{rate} tok/s，反重力加速中。", "{rate} tok/s，风都追不上。"),
     "quota_low": ("限额只剩 {quota}% 了，省着点用哦。", "提醒：当前模型限额 {quota}%。"),
