@@ -222,7 +222,7 @@ REACTION_TOOL_STATUS: dict[str, dict[str, str]] = {
 REACTION_LINES: dict[str, dict[str, tuple[str, ...]]] = {
     "en": {
         "started": ("Antigravity started running—I'll keep an eye on tokens!", "New inference turn taking off!", "Model is thinking; I'm counting tok/s for you."),
-        "finished": ("Turn complete! {total} tokens so far.", "Reply wrapped up~ {total} session tokens.", "Touchdown! {total} tokens at {rate} tok/s avg."),
+        "finished": ("Turn complete! {total} tokens this turn.", "Reply wrapped up~ {total} tokens this turn.", "Touchdown! {total} tokens this turn, avg {rate} tok/s."),
         "turn_error": ("Oops, that turn hit an error—let's debug it together.", "Bumped into an error… don't worry, I've got your back!"),
         "waiting": ("Psst! Antigravity is waiting for your confirmation!", "There's a prompt waiting for your reply over there~"),
         "subagent_start": ("Summoned a mini-clone to help out!", "Subagent clone reporting for duty!"),
@@ -296,7 +296,7 @@ REACTION_LINES: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "ja": {
         "started": ("Antigravity 動き出したね！横でトークン見守ってるよ。", "新しい推論ターン、離陸〜！", "モデル思考中、tok/s を数えておくね。"),
-        "finished": ("ターン完了！累計 {total} tokens だよ。", "おつかれさま〜セッション合計 {total} tokens。", "着地成功！累計 {total} tokens、平均 {rate} tok/s だよ。"),
+        "finished": ("ターン完了！今回 {total} tokens だよ。", "おつかれさま〜このターン {total} tokens。", "着地成功！今回 {total} tokens、平均 {rate} tok/s だよ。"),
         "turn_error": ("あわわ、今エラーで止まっちゃった…一緒にログ見よう。", "ちょっと転んじゃったみたい…大丈夫、一緒に直そっ！"),
         "waiting": ("ねえねえ、Antigravity が確認待ちで止まってるよ！", "あっちで確認ポップアップか質問が待ってるみたい〜"),
         "subagent_start": ("お手伝い分身を召喚したよ！", "サブエージェント分身、出動〜！"),

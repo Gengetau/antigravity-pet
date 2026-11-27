@@ -558,6 +558,10 @@ class _GroupScene:
     prop_side: int = 1
 
 
+def _has_cjk(text: str) -> bool:
+    return any("\u3400" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff" for ch in text)
+
+
 def _compact_text(text: str, max_chars: int = 16) -> str:
     clean = " ".join(str(text or "").split())
     if len(clean) <= max_chars:
@@ -708,7 +712,8 @@ class SubagentCloneWidget(QWidget):
         self._opacity = max(0.0, min(1.0, float(opacity)))
         self._frame_index = int(frame_index)
         self._mirrored = bool(mirrored)
-        self._hover_label = _compact_text(hover_label, 14) if hover_label else ""
+        hover_cap = 16 if _has_cjk(hover_label) else 28
+        self._hover_label = _compact_text(hover_label, hover_cap) if hover_label else ""
         self.setToolTip(tooltip)
         frame_w = pixmap.width() if not pixmap.isNull() else 64
         frame_h = pixmap.height() if not pixmap.isNull() else 84
@@ -717,7 +722,7 @@ class SubagentCloneWidget(QWidget):
             frame_h = max(frame_h, int(min_frame_size[1]))
         self._sprite_w = max(44, frame_w)
         self._sprite_h = max(64, frame_h)
-        w = max(156, frame_w + 54)
+        w = max(196, frame_w + 54)
         h = max(140, frame_h + 34 + self.BUBBLE_TOP_PAD)
         self._base_widget_w = w
         self._base_widget_h = h
@@ -764,7 +769,8 @@ class SubagentCloneWidget(QWidget):
         self.update()
 
     def say(self, text: str, *, now: float | None = None, duration: float = 2.4) -> None:
-        clean = _compact_text(text, 15)
+        cap = 20 if _has_cjk(text) else 34
+        clean = _compact_text(text, cap)
         if not clean:
             return
         ts = time.monotonic() if now is None else float(now)
@@ -1028,9 +1034,20 @@ class SubagentCloneWidget(QWidget):
         shown_bubble = self._bubble_text or (self._hover_label if self._hovered else "")
         if shown_bubble:
             is_speech = bool(self._bubble_text)
-            painter.setFont(self._bubble_font)
-            fm = QFontMetrics(self._bubble_font)
-            text = fm.elidedText(shown_bubble, Qt.TextElideMode.ElideRight, max(44, self.width() - 14))
+            max_text_w = max(44, self.width() - 14)
+            bfont = QFont(self._bubble_font)
+            fm = QFontMetrics(bfont)
+            if fm.horizontalAdvance(shown_bubble) > max_text_w:
+                base_pt = bfont.pointSizeF() if bfont.pointSizeF() > 0 else 8.0
+                for step_pt in (base_pt - 0.5, base_pt - 1.0, base_pt - 1.5):
+                    if step_pt < 6.5:
+                        break
+                    bfont.setPointSizeF(step_pt)
+                    fm = QFontMetrics(bfont)
+                    if fm.horizontalAdvance(shown_bubble) <= max_text_w:
+                        break
+            painter.setFont(bfont)
+            text = fm.elidedText(shown_bubble, Qt.TextElideMode.ElideRight, max_text_w)
             bw = min(self.width() - 4, max(44, fm.horizontalAdvance(text) + 14))
             bh = min(self.BUBBLE_TOP_PAD - 5, fm.height() + 6)
             bx = (self.width() - bw) / 2.0

@@ -39,8 +39,8 @@ LINES: dict[str, tuple[str, ...]] = {
     ),
     "finished": (
         "这一轮跑完了，共 {total} tokens。",
-        "回复完成～会话累计 {total} tokens。",
-        "落地成功！累计 {total} tokens，平均 {rate} tok/s。",
+        "回复完成～本轮共 {total} tokens。",
+        "落地成功！本轮 {total} tokens，平均 {rate} tok/s。",
     ),
     "turn_error": (
         "哎呀，刚才那轮出错中断了，我们一起看看报错吧。",
@@ -409,6 +409,8 @@ class ReactionTracker:
         self._update_notified_for = ""
         self._last_ai_comment_id = ""
         self._was_offline = False
+        self._last_cumulative_tokens: int | None = None
+        self._turn_start_tokens: int | None = None
         self._overrides: dict[str, tuple[str, ...]] = {}
         self.lines: dict[str, tuple[str, ...]] = dict(LINES)
 
@@ -485,26 +487,48 @@ class ReactionTracker:
                 )
             self._last_form = target or self._last_form
 
+        cur_tokens = max(0, int(snapshot.cumulative_total_tokens or 0))
         same_conversation = snapshot.conversation_id == self._last_conversation
-        if self._last_running is not None and same_conversation:
-            if snapshot.running and not self._last_running and self._ready("started", now, 45):
-                reactions.append(Reaction("started", self._line("started"), "WORKING"))
+        if not same_conversation:
+            self._turn_start_tokens = cur_tokens if snapshot.running else None
+        elif self._last_running is not None:
+            if snapshot.running and not self._last_running:
+                baseline = (
+                    min(self._last_cumulative_tokens, cur_tokens)
+                    if self._last_cumulative_tokens is not None
+                    else cur_tokens
+                )
+                self._turn_start_tokens = baseline
+                if self._ready("started", now, 45):
+                    reactions.append(Reaction("started", self._line("started"), "WORKING"))
+            elif snapshot.running and self._last_running:
+                if self._turn_start_tokens is None:
+                    self._turn_start_tokens = cur_tokens
             elif not snapshot.running and self._last_running:
+                baseline = self._turn_start_tokens
+                self._turn_start_tokens = None
                 if snapshot.termination_reason.upper() == "ERROR":
                     if self._ready("turn_error", now, 30):
                         reactions.append(Reaction("turn_error", self._line("turn_error"), "DIZZY", particle="sweat"))
-                elif self._ready("finished", now, 30):
-                    rate = snapshot.avg_decode_tps or snapshot.display_rate or 0
-                    reactions.append(
-                        Reaction(
-                            "finished",
-                            self._line("finished", total=format_tokens(snapshot.cumulative_total_tokens), rate=f"{rate:.0f}"),
-                            "CELEBRATE",
-                            particle="confetti",
-                        )
+                else:
+                    turn_tokens = (
+                        cur_tokens - baseline
+                        if (baseline is not None and cur_tokens >= baseline)
+                        else cur_tokens
                     )
+                    if (turn_tokens > 0 or baseline is None or cur_tokens == 0) and self._ready("finished", now, 30):
+                        rate = snapshot.avg_decode_tps or snapshot.display_rate or 0
+                        reactions.append(
+                            Reaction(
+                                "finished",
+                                self._line("finished", total=format_tokens(turn_tokens), rate=f"{rate:.0f}"),
+                                "CELEBRATE",
+                                particle="confetti",
+                            )
+                        )
         self._last_running = snapshot.running
         self._last_conversation = snapshot.conversation_id
+        self._last_cumulative_tokens = cur_tokens
 
         # Waiting for user confirmation / answer (e.g. approval prompt or ask_question)
         if snapshot.waiting_for_user and not self._was_waiting and self._ready("waiting", now, 60):

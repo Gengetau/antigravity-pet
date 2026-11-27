@@ -466,6 +466,47 @@ class QtLiveRetranslateTests(unittest.TestCase):
                 pet.close()
                 self.app.processEvents()
 
+    def test_bubble_wrap_and_clone_caption_i18n_polish(self) -> None:
+        from PySide6.QtGui import QFontMetrics
+        from pet.renderer import PetRenderer
+        from pet.subagent_clones import SubagentCloneWidget
+
+        renderer = PetRenderer(72, 16)
+        fm = QFontMetrics(renderer.bubble_font)
+
+        # English words must never break mid-word across lines
+        en_text = "Twin mirror dance—double the cuteness!"
+        en_lines = renderer._wrap_text(en_text, fm, 220)
+        self.assertGreaterEqual(len(en_lines), 2)
+        for word in ("Twin", "mirror", "double", "cuteness"):
+            self.assertTrue(any(word in ln for ln in en_lines), f"Word {word!r} split across {en_lines!r}")
+
+        # Embedded Latin name inside Japanese bubble must never break mid-word
+        ja_text = "ひまだし Neon・双子の Hydrogen・Claude を呼んで遊ぼうっと〜"
+        ja_lines = renderer._wrap_text(ja_text, fm, 220)
+        for name in ("Neon", "Hydrogen", "Claude"):
+            self.assertTrue(any(name in ln for ln in ja_lines), f"Name {name!r} split across {ja_lines!r}")
+
+        # English clone mini-bubble preserves up to 34 chars without 15-char hard chop
+        clone = SubagentCloneWidget()
+        try:
+            clone.say("So comfy, more pats, Big Sis!", now=10.0)
+            self.assertEqual(clone.bubble_text, "So comfy, more pats, Big Sis!")
+        finally:
+            clone.close()
+
+        # Scene prop hover caption is localized (no leaked Chinese '点我互动')
+        prop = DesktopScenePropWidget()
+        try:
+            i18n.set_language("en")
+            self.assertIn("Click me!", prop._hover_caption())
+            self.assertNotIn("点我", prop._hover_caption())
+            i18n.set_language("ja")
+            self.assertIn("クリックで遊ぶ", prop._hover_caption())
+            self.assertNotIn("点我", prop._hover_caption())
+        finally:
+            prop.close()
+
 
 if __name__ == "__main__":
     unittest.main()

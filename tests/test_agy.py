@@ -382,6 +382,38 @@ class ReactionTests(unittest.TestCase):
         follow = tracker.observe(self.snap(selected_model_label="Gemini 4 Neon (High)"), now=6, follow_model=True, current_form="carbon")
         self.assertEqual([(r.kind, r.form) for r in follow], [("form", "neon")])
 
+    def test_finished_reports_per_turn_delta_not_session_cumulative(self) -> None:
+        tracker = ReactionTracker()
+        # Long multi-day conversation already at 304M cumulative tokens
+        tracker.observe(self.snap(conversation_id="long", cumulative_total_tokens=304_000_000), now=10, follow_model=False, current_form="neon")
+        # Turn 1 starts (even if step 1 already bumped total on the first running poll!)
+        tracker.observe(self.snap(conversation_id="long", status="CASCADE_RUN_STATUS_RUNNING", cumulative_total_tokens=304_400_000), now=12, follow_model=False, current_form="neon")
+        done1 = tracker.observe(self.snap(conversation_id="long", cumulative_total_tokens=305_850_000), now=15, follow_model=False, current_form="neon")
+        fin1 = [r for r in done1 if r.kind == "finished"]
+        self.assertEqual(len(fin1), 1)
+        self.assertIn("1.85M", fin1[0].text)
+        self.assertNotIn("305", fin1[0].text)
+
+        # Turn 2 within "started" 45s cooldown (past "finished" 30s cooldown) still captures fresh baseline!
+        tracker.observe(self.snap(conversation_id="long", status="CASCADE_RUN_STATUS_RUNNING", cumulative_total_tokens=305_850_000), now=48, follow_model=False, current_form="neon")
+        done2 = tracker.observe(self.snap(conversation_id="long", cumulative_total_tokens=306_200_000), now=50, follow_model=False, current_form="neon")
+        fin2 = [r for r in done2 if r.kind == "finished"]
+        self.assertEqual(len(fin2), 1)
+        self.assertIn("350.0k", fin2[0].text)
+        self.assertNotIn("306", fin2[0].text)
+
+        # Zero-delta aborted turn on a 306M session must NOT falsely boast 306M
+        tracker.observe(self.snap(conversation_id="long", status="CASCADE_RUN_STATUS_RUNNING", cumulative_total_tokens=306_200_000), now=90, follow_model=False, current_form="neon")
+        done3 = tracker.observe(self.snap(conversation_id="long", cumulative_total_tokens=306_200_000), now=92, follow_model=False, current_form="neon")
+        self.assertFalse(any(r.kind == "finished" for r in done3))
+
+        # Switching to another conversation resets baseline cleanly (no cross-conversation bleed)
+        tracker.observe(self.snap(conversation_id="other", status="CASCADE_RUN_STATUS_RUNNING", cumulative_total_tokens=500_000), now=130, follow_model=False, current_form="neon")
+        done4 = tracker.observe(self.snap(conversation_id="other", cumulative_total_tokens=900_000), now=132, follow_model=False, current_form="neon")
+        fin4 = [r for r in done4 if r.kind == "finished"]
+        self.assertEqual(len(fin4), 1)
+        self.assertIn("400.0k", fin4[0].text)
+
 
 class PetWindowAgyTests(unittest.TestCase):
     def test_form_switch_hud_and_meter(self) -> None:

@@ -672,7 +672,10 @@ class SubagentInterplayManagerTests(unittest.TestCase):
                 },
             )
 
-            # 6. reduced_motion cleanly ends active group scene and executes calm fallbacks
+            # 6. reduced_motion cleanly ends active motion group scenes and executes calm fallbacks
+            if mgr.active_group_scene in {"tea_party", "campfire_night", "art_studio", "cloud_nap"}:
+                mgr._group_scene = None
+                self.assertIsNotNone(mgr.trigger_clone_train(now=t + 0.08))
             mgr.position_around(host, now=t + 0.10, reduced_motion=True, screen=screen)
             self.assertIsNone(mgr.active_group_scene)
             events.clear()

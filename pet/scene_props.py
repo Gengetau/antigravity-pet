@@ -363,14 +363,31 @@ class DesktopScenePropWidget(QWidget):
         if self._bubble_text:
             self._paint_bubble(painter, self._bubble_text)
         elif self._hovered:
-            spec = SCENE_SPECS.get(self._kind, SCENE_SPECS["tea_party"])
-            self._paint_bubble(painter, f"{spec.label} · 点我互动")
+            self._paint_bubble(painter, self._hover_caption())
+
+    def _hover_caption(self) -> str:
+        from app.i18n import tr
+        from app.i18n_lines import scene_prop_text
+
+        spec = SCENE_SPECS.get(self._kind, SCENE_SPECS["tea_party"])
+        label = scene_prop_text(self._kind).get("label", spec.label)
+        return f"{label} · {tr('scene.click_hint')}"
 
     def _paint_bubble(self, painter: QPainter, text: str) -> None:
         painter.save()
-        painter.setFont(self._bubble_font)
-        fm = QFontMetrics(self._bubble_font)
-        max_text_w = self.width() - 18
+        max_text_w = self.width() - 16
+        bfont = QFont(self._bubble_font)
+        fm = QFontMetrics(bfont)
+        if fm.horizontalAdvance(text) > max_text_w:
+            base_pt = bfont.pointSizeF() if bfont.pointSizeF() > 0 else 8.5
+            for step_pt in (base_pt - 0.5, base_pt - 1.0, base_pt - 1.5):
+                if step_pt < 6.8:
+                    break
+                bfont.setPointSizeF(step_pt)
+                fm = QFontMetrics(bfont)
+                if fm.horizontalAdvance(text) <= max_text_w:
+                    break
+        painter.setFont(bfont)
         shown = fm.elidedText(text, Qt.TextElideMode.ElideRight, max_text_w)
         tw = fm.horizontalAdvance(shown)
         bw = min(self.width() - 6, tw + 16)

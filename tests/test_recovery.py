@@ -73,6 +73,64 @@ class CrashRecoveryTests(unittest.TestCase):
             self.assertTrue(marker["active"])
             self.assertIn("RuntimeError: test crash", marker["last_error"])
 
+    def test_healthy_long_sessions_killed_by_os_do_not_trigger_safe_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            now = [100.0]
+
+            # Session 1 runs stably for 90s with heartbeats, then gets force-killed (no finish())
+            first = self.recovery(root, now)
+            first.begin()
+            now[0] = 190.0
+            first.heartbeat()
+
+            # Session 2 launches: sees unclean exit, but NOT a crash loop; runs stably 120s and gets killed again
+            now[0] = 250.0
+            second = self.recovery(root, now)
+            s2 = second.begin()
+            self.assertTrue(s2.unclean_exit)
+            self.assertEqual(s2.consecutive_crashes, 0)
+            self.assertFalse(s2.safe_mode)
+            now[0] = 370.0
+            second.heartbeat()
+
+            # Session 3 launches: STILL not safe_mode!
+            now[0] = 400.0
+            third = self.recovery(root, now)
+            s3 = third.begin()
+            self.assertTrue(s3.unclean_exit)
+            self.assertEqual(s3.consecutive_crashes, 0)
+            self.assertFalse(s3.safe_mode)
+
+    def test_real_exception_after_long_run_still_counts_and_stable_heartbeat_clears_streak(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            now = [100.0]
+
+            # Two real crashes (even after running > 60s) still activate safe_mode
+            for i in range(2):
+                rec = self.recovery(root, now)
+                rec.begin()
+                now[0] += 120.0
+                rec.heartbeat()
+                try:
+                    raise RuntimeError(f"boom {i}")
+                except RuntimeError as err:
+                    rec.record_exception(type(err), err, err.__traceback__)
+                now[0] += 10.0
+
+            safe = self.recovery(root, now)
+            status = safe.begin()
+            self.assertEqual(status.consecutive_crashes, 2)
+            self.assertTrue(status.safe_mode)
+
+            # Once safe-mode session runs stably past 60s, heartbeat clears stale crash streak
+            now[0] += 70.0
+            safe.heartbeat()
+            marker = json.loads((root / "session_recovery.json").read_text(encoding="utf-8"))
+            self.assertEqual(marker["consecutive_crashes"], 0)
+            self.assertFalse(marker["safe_mode"])
+
 
 if __name__ == "__main__":
     unittest.main()

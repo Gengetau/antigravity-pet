@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import time
 from dataclasses import dataclass
 
@@ -431,8 +432,10 @@ class PetRenderer:
             shown_lines = [full_lines[0][:1]]
 
         min_bubble_w = min(74, max_width)
-        bubble_width = max(min_bubble_w, max(metrics.horizontalAdvance(line) for line in full_lines) + 28)
-        bubble_width = min(max_width, bubble_width)
+        widest_line = max(metrics.horizontalAdvance(line) for line in full_lines)
+        max_bubble_w = min(int(avail_w), max_width + 20)
+        bubble_width = max(min_bubble_w, widest_line + 28)
+        bubble_width = min(max_bubble_w, bubble_width)
         bubble_height = len(full_lines) * metrics.height() + 18
         center_x = width / 2.0 if tail_x is None else float(tail_x)
         bubble_x = center_x - bubble_width / 2.0
@@ -494,18 +497,41 @@ class PetRenderer:
 
     @staticmethod
     def _wrap_text(text: str, metrics: QFontMetrics, max_width: int) -> list[str]:
+        tokens = re.findall(r"[A-Za-z0-9'’-]+|\s+|.", text)
         lines: list[str] = []
         current = ""
-        for character in text:
-            if current and metrics.horizontalAdvance(current + character) > max_width:
-                lines.append(current)
-                current = character
+        for token in tokens:
+            if not current and token.isspace():
+                continue
+            candidate = current + token
+            if current and metrics.horizontalAdvance(candidate) > max_width:
+                lines.append(current.rstrip())
+                if token.isspace():
+                    current = ""
+                    continue
+                if metrics.horizontalAdvance(token) > max_width:
+                    # Single unbroken token wider than max_width: fall back to char split.
+                    current = ""
+                    for ch in token:
+                        if current and metrics.horizontalAdvance(current + ch) > max_width:
+                            lines.append(current)
+                            current = ch
+                        else:
+                            current += ch
+                else:
+                    current = token
             else:
-                current += character
-        if current:
-            lines.append(current)
-        # Avoid a lone punctuation glyph dangling alone on a second line.
-        if len(lines) >= 2 and len(lines[1]) == 1 and lines[1] in "～~！!。，,？?…":
-            lines[0] += lines[1]
-            lines.pop(1)
+                current = candidate
+        if current.strip():
+            lines.append(current.rstrip())
+        # Avoid a lone punctuation glyph dangling alone on a trailing line.
+        if len(lines) >= 2 and len(lines[-1]) == 1 and lines[-1] in "～~！!。，,？?…":
+            punct = lines[-1]
+            prev = lines[-2]
+            if metrics.horizontalAdvance(prev + punct) <= max_width + metrics.horizontalAdvance(punct) + 2:
+                lines[-2] = prev + punct
+                lines.pop()
+            elif len(prev) >= 2:
+                lines[-2] = prev[:-1]
+                lines[-1] = prev[-1] + punct
         return lines[:3]

@@ -274,6 +274,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "☁️ Fluffy Cloud Nap nest (left-click to tuck starry blanket, right-click to wake)",
         "ja": "☁️ ふわふわ雲のお昼寝（左クリックで星柄毛布・右クリックで起床）",
     },
+    "scene.click_hint": {"zh": "点我互动", "en": "Click me!", "ja": "クリックで遊ぶ"},
     "panel.mode": {"zh": "移动", "en": "Move", "ja": "移動"},
     "panel.mode.wander": {"zh": "散步", "en": "Wander", "ja": "散歩"},
     "panel.mode.follow": {"zh": "跟随", "en": "Follow", "ja": "追従"},

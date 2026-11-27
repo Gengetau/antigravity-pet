@@ -42,6 +42,8 @@ def configure_logging(path: Path) -> None:
 class CrashRecovery:
     """Detect unclean exits and keep a small atomic session marker."""
 
+    STABLE_SESSION_SECONDS: float = 60.0
+
     def __init__(
         self,
         marker_path: Path,
@@ -49,11 +51,13 @@ class CrashRecovery:
         *,
         version: str,
         clock: Callable[[], float] = time.time,
+        stable_session_seconds: float = STABLE_SESSION_SECONDS,
     ) -> None:
         self.marker_path = Path(marker_path)
         self.crash_reports_dir = Path(crash_reports_dir)
         self.version = str(version)
         self.clock = clock
+        self.stable_session_seconds = max(1.0, float(stable_session_seconds))
         self.session_id = uuid.uuid4().hex
         self.status = RecoveryStatus()
         self._fatal = False
@@ -71,7 +75,21 @@ class CrashRecovery:
         previous = self._read_marker()
         unclean = bool(previous.get("active"))
         previous_count = self._safe_int(previous.get("consecutive_crashes"))
-        count = previous_count + 1 if unclean else 0
+        was_real_crash = False
+        if unclean:
+            has_error = bool(previous.get("last_error"))
+            prev_started = self._safe_float(previous.get("started_at"))
+            prev_hb = self._safe_float(previous.get("last_heartbeat"))
+            lived_seconds = (
+                max(0.0, prev_hb - prev_started)
+                if (prev_started > 0.0 and prev_hb >= prev_started)
+                else 0.0
+            )
+            # Only treat an unclean exit as a crash-loop step if an unhandled
+            # exception was recorded or the previous process died before running
+            # stably for ``stable_session_seconds`` (e.g. startup crash).
+            was_real_crash = has_error or lived_seconds < self.stable_session_seconds
+        count = previous_count + 1 if was_real_crash else 0
         self.status = RecoveryStatus(
             unclean_exit=unclean,
             consecutive_crashes=count,
@@ -95,7 +113,17 @@ class CrashRecovery:
         marker = self._read_marker()
         if marker.get("session_id") != self.session_id:
             return
-        marker["last_heartbeat"] = self.clock()
+        now = self.clock()
+        marker["last_heartbeat"] = now
+        started = self._safe_float(marker.get("started_at"))
+        if (
+            not self._fatal
+            and started > 0.0
+            and now - started >= self.stable_session_seconds
+            and marker.get("safe_mode")
+        ):
+            marker["consecutive_crashes"] = 0
+            marker["safe_mode"] = False
         self._write_marker(marker)
 
     def record_exception(
@@ -178,3 +206,9 @@ class CrashRecovery:
     @staticmethod
     def _safe_int(value: object) -> int:
         return max(0, int(value)) if isinstance(value, int) and not isinstance(value, bool) else 0
+
+    @staticmethod
+    def _safe_float(value: object) -> float:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        return 0.0

@@ -80,6 +80,7 @@ def run(argv: list[str] | None = None) -> int:
     instance.set_activation_handler(window.activate_from_shortcut)
     application.aboutToQuit.connect(instance.close)
     application.aboutToQuit.connect(recovery.finish)
+    application.commitDataRequest.connect(lambda _mgr: recovery.finish())
 
     heartbeat = QTimer(application)
     heartbeat.timeout.connect(recovery.heartbeat)
