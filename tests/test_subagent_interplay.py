@@ -1263,6 +1263,134 @@ class PetWindowSubagentInterplayIntegrationTests(unittest.TestCase):
         assert self.pet.subagent_clones.scene_prop_widget is not None
         self.assertFalse(self.pet.subagent_clones.scene_prop_widget.isVisible())
 
+    def test_host_leads_clone_train_walks_to_pat_and_strolls_without_banter_freeze(self) -> None:
+        from pet.subagent_clones import TRAIN_DURATION_SECONDS
+
+        self.pet.set_mode("wander")
+        self.pet.set_reduced_motion(False)
+        self.pet._sulk_until = 0.0
+        self.pet._hovered = False
+        self.pet.control_panel.hide()
+        self.pet.food_panel.hide()
+        self.pet.move(620, 520)
+        self.pet._request_action(PetAction.IDLE, now=1200.0, reason="test_comotion", force=True, immediate=True)
+
+        mates = self.pet.summon_idle_playmates(count=3, now=1200.0, duration=60.0, announce=True, manual=True)
+        self.assertEqual(len(mates), 3)
+        self.pet.subagent_clones.position_around(self.pet._sprite_rect(), now=1201.0)
+        widgets = self.pet.subagent_clones.visible_widgets
+        self.assertEqual(len(widgets), 3)
+
+        # 1. Ambient clone chatter (relay / clone_chat / clicked) must NOT cancel host's walk target!
+        self.pet.movement.target = (980.0, float(self.pet.y()))
+        self.pet.subagent_clones.trigger_relay(0, now=1202.0)
+        self.assertIsNotNone(self.pet.movement.target)
+        self.pet.subagent_clones.trigger_clone_chat(0, 1, now=1202.5)
+        self.assertIsNotNone(self.pet.movement.target)
+        self.pet.subagent_clones.trigger_click(0, now=1203.0)
+        self.assertIsNotNone(self.pet.movement.target)
+        self.pet.movement.cancel_target()
+
+        # 2. Host-led Clone Train: brief WAVE whistle -> host switches to WALKING locomotive & clones trail behind!
+        start_x = self.pet.x()
+        ev_train = self.pet.subagent_clones.trigger_clone_train(now=1210.0)
+        assert ev_train is not None
+        self.assertTrue(self.pet._host_train_active)
+        self.assertEqual(self.pet.action_machine.current, PetAction.WAVE)
+
+        t = 1210.0
+        walked_ticks = 0
+        # Advance past 0.30s lead-in and march for ~2.5s
+        for _ in range(55):
+            t += 0.05
+            walked = self.pet._tick_host_clone_motion(0.05, t, sulking=False, hover_paused=False)
+            facing = self.pet._host_train_facing if (self.pet._host_train_active and t >= self.pet._host_train_start_move_at) else 0
+            self.pet.subagent_clones.position_around(
+                self.pet._sprite_rect(),
+                now=t,
+                reduced_motion=False,
+                host_train_facing=facing,
+            )
+            if walked:
+                walked_ticks += 1
+            if t >= self.pet._host_train_start_move_at + 0.15:
+                self.assertTrue(walked)
+                self.assertEqual(self.pet.action_machine.current, PetAction.WALKING)
+
+        self.assertGreaterEqual(walked_ticks, 30, "Host locomotive must actively walk across parade ticks")
+        self.assertGreaterEqual(abs(self.pet.x() - start_x), 80, "Host locomotive must visibly travel across desktop")
+        self.assertTrue(all(w.current_action == PetAction.WALKING for w in widgets))
+        # Trailing clones stay behind host without overlapping host visual sprite
+        host_vis_left, host_vis_right, host_vis = self.pet.subagent_clones._host_visual_bounds(self.pet._sprite_rect())
+        if self.pet._host_train_facing > 0:
+            self.assertLessEqual(widgets[0].x() + widgets[0].width() // 2, host_vis_left + 12)
+        else:
+            self.assertGreaterEqual(widgets[0].x() + widgets[0].width() // 2, host_vis_right - 12)
+        for w in widgets:
+            vr = self.pet.subagent_clones._clone_visual_rect(w.x(), w.y(), w.width(), w.height(), *w.visual_sprite_size)
+            self.assertFalse(vr.intersects(host_vis), "Train clone must not overlap host body")
+
+        # Complete train duration -> host & all clones finish in synchronized CELEBRATE!
+        t_end = 1210.0 + TRAIN_DURATION_SECONDS + 0.15
+        self.pet.subagent_clones.position_around(
+            self.pet._sprite_rect(),
+            now=t_end,
+            reduced_motion=False,
+            host_train_facing=self.pet._host_train_facing,
+        )
+        self.assertIsNone(self.pet.subagent_clones.active_group_scene)
+        self.assertFalse(self.pet._host_train_active)
+        self.assertEqual(self.pet.action_machine.current, PetAction.CELEBRATE)
+        self.assertTrue(all(w.current_action == PetAction.CELEBRATE for w in widgets))
+
+        # 3. Host walks over to a nearby clone and pats its head on arrival!
+        self.pet.move(500, 520)
+        self.pet._request_action(PetAction.IDLE, now=1230.0, reason="test_visit_idle", force=True, immediate=True)
+        for cid, rt in self.pet.subagent_clones._runtime.items():
+            rt.pose_action = None
+            rt.pose_until = 0.0
+            rt.roam_mode = "paused"
+            rt.roam_until = 1245.0
+        target_w = widgets[0]
+        target_w.move(820, 560)
+        pick = self.pet.subagent_clones.pick_clone_for_host_visit(
+            self.pet._sprite_rect(),
+            host_widget_width=self.pet.width(),
+            now=1230.0,
+        )
+        self.assertIsNotNone(pick)
+        _idx, visit_cid, visit_tx, _face = pick
+        self.pet._host_clone_visit_cid = visit_cid
+        self.pet._host_clone_visit_target_x = visit_tx
+        self.pet._host_clone_visit_until = 1240.0
+        visit_start_x = self.pet.x()
+        vt = 1230.0
+        for _ in range(70):
+            vt += 0.05
+            self.pet._tick_host_clone_motion(0.05, vt, sulking=False, hover_paused=False)
+            if self.pet._host_clone_visit_target_x is None:
+                break
+        self.assertIsNone(self.pet._host_clone_visit_target_x)
+        self.assertGreater(abs(self.pet.x() - visit_start_x), 40)
+        self.assertIn(self.pet.action_machine.current, {PetAction.GIFT_TOSS, PetAction.WAVE})
+
+        # 4. Autonomous companion stroll starts when idle with playmates in wander mode
+        self.pet._request_action(PetAction.IDLE, now=1260.0, reason="test_stroll_idle", force=True, immediate=True)
+        self.pet.movement.cancel_target()
+        self.pet._next_host_clone_stroll_at = 1259.0
+        self.pet._tick_host_clone_motion(0.05, 1260.0, sulking=False, hover_paused=False)
+        self.assertTrue(self.pet.movement.is_walking)
+
+        # 5. mode='still' keeps host anchored during clone_train (graceful fallback to clone-only train)
+        self.pet.set_mode("still")
+        still_x = self.pet.x()
+        ev_still = self.pet.subagent_clones.trigger_clone_train(now=1270.0)
+        assert ev_still is not None
+        self.assertFalse(self.pet._host_train_active)
+        self.pet._tick_host_clone_motion(0.05, 1271.0, sulking=False, hover_paused=False)
+        self.assertEqual(self.pet.x(), still_x)
+        self.pet.set_mode("wander")
+
 
 if __name__ == "__main__":
     unittest.main()

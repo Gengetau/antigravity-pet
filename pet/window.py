@@ -227,6 +227,16 @@ class PetWindow(QWidget):
         self._next_purr_heart_at = 0.0
         self._idle_play_manual = False
         self._next_host_pat_clone_at = 0.0
+        self._host_train_active = False
+        self._host_train_start_move_at = 0.0
+        self._host_train_waypoints: list[float] = []
+        self._host_train_wp_idx = 0
+        self._host_train_facing = 1
+        self._host_train_next_fx_at = 0.0
+        self._host_clone_visit_cid = ""
+        self._host_clone_visit_target_x: float | None = None
+        self._host_clone_visit_until = 0.0
+        self._next_host_clone_stroll_at = 0.0
         self._panel_open_pet_pos: QPoint | None = None
         self.expressions = ExpressionDirector()
         self.surface_tracker = DesktopSurfaceTracker(
@@ -882,6 +892,8 @@ class PetWindow(QWidget):
             walking = self._tick_climb(delta_seconds, now)
         elif self._descend_x is not None and not self.interaction.active:
             walking = self._tick_descend(delta_seconds, now)
+        elif self._tick_host_clone_motion(delta_seconds, now, sulking=sulking, hover_paused=hover_paused):
+            walking = True
         elif (
             not self.interaction.active
             and self._dock_side is None
@@ -921,6 +933,11 @@ class PetWindow(QWidget):
             if not self.isVisible() or self.isMinimized():
                 self._sync_subagent_clones()
             else:
+                host_train_facing = (
+                    self._host_train_facing
+                    if (self._host_train_active and now >= self._host_train_start_move_at and not hover_paused)
+                    else 0
+                )
                 self.subagent_clones.position_around(
                     self._sprite_rect(),
                     now=now,
@@ -928,6 +945,7 @@ class PetWindow(QWidget):
                     screen=self._screen_for_pet(),
                     dock_edge=self._dock_edge,
                     perched_window_rect=self._attached_window_qrect(),
+                    host_train_facing=host_train_facing,
                 )
         self._maybe_auto_hide_control_panel()
         if now >= getattr(self, "_next_config_poll", 0.0):
@@ -1132,6 +1150,7 @@ class PetWindow(QWidget):
         )
         self.micro_motion_director.defer(now, minimum_seconds=3.0)
         self.movement.cancel_target()
+        self._clear_host_clone_motion()
         if interrupted is not None and self.action_machine.current in _SLEEP_ACTIONS:
             fallback = PetAction.PERCH if self.surface_tracker.attached else PetAction.IDLE
             self._request_action(fallback, reason="activity_interrupted", force=True)
@@ -3480,6 +3499,7 @@ class PetWindow(QWidget):
         self._idle_play_manual = bool(manual)
         self._idle_play_until = ts + max(3.0, play_duration)
         self._idle_play_next_at = self._idle_play_until + self._next_idle_play_delay()
+        self._next_host_clone_stroll_at = ts + self.rng.uniform(3.2, 5.5)
         self._sync_subagent_clones(silent_replace=had_existing)
         if announce and self.isVisible() and not self.isMinimized() and self._dock_side is None:
             names = self._format_playmate_names(playmates)
@@ -3507,7 +3527,7 @@ class PetWindow(QWidget):
                         if tracker is not None and "playmate_summon" in getattr(tracker, "lines", {})
                         else f"叮！随机召唤出 {names} 来串门啦～"
                     )
-                    self.say(line, preserve_action=True)
+                    self.say(line, from_activity=True, preserve_action=True)
                 finally:
                     self._handling_clone_interaction = False
         return list(playmates)
@@ -3583,7 +3603,7 @@ class PetWindow(QWidget):
                     if tracker is not None and "playmate_add" in getattr(tracker, "lines", {})
                     else f"越热闹越好！欢迎 {names} 加入派对～"
                 )
-                self.say(line, preserve_action=True)
+                self.say(line, from_activity=True, preserve_action=True)
             finally:
                 self._handling_clone_interaction = False
         return list(self._idle_play_clones)
@@ -3688,8 +3708,221 @@ class PetWindow(QWidget):
         if can_summon:
             self.summon_idle_playmates(now=now)
 
+    def _clear_host_clone_motion(self) -> None:
+        self._host_train_active = False
+        self._host_train_start_move_at = 0.0
+        self._host_train_waypoints = []
+        self._host_train_wp_idx = 0
+        self._host_clone_visit_cid = ""
+        self._host_clone_visit_target_x = None
+        self._host_clone_visit_until = 0.0
+
+    def _host_walk_bounds(self, now: float) -> tuple[float, float] | None:
+        bounds = self._top_bounds(now)
+        if bounds is not None:
+            return bounds
+        screen = self._screen_for_pet() or QApplication.primaryScreen()
+        if screen is None:
+            return None
+        area = screen.availableGeometry()
+        lo = float(area.left() + 16)
+        hi = float(max(lo, area.right() - self.width() - 16))
+        return lo, hi
+
+    def _start_host_train_parade(self, now: float) -> bool:
+        """Turn the host pet into the locomotive leading the clone train parade."""
+        if (
+            self.renderer.reduced_motion
+            or self.movement.mode == "still"
+            or self._dock_side is not None
+            or self.interaction.active
+            or self.physics.active
+            or self.climb.active
+            or now < self._sulk_until
+            or not self.isVisible()
+            or self.isMinimized()
+        ):
+            return False
+        bounds = self._host_walk_bounds(now)
+        if bounds is None:
+            return False
+        lo, hi = bounds
+        if hi - lo < 110.0:
+            return False
+        cur_x = float(self.x())
+        right_room = max(0.0, hi - cur_x)
+        left_room = max(0.0, cur_x - lo)
+        direction = 1 if right_room >= left_room else -1
+        span = min(360.0, max(220.0, (hi - lo) * 0.45))
+        right_wp = min(hi, cur_x + span)
+        left_wp = max(lo, cur_x - span)
+        if right_wp - left_wp < 110.0:
+            right_wp = hi
+            left_wp = lo
+        waypoints = [right_wp, left_wp] if direction > 0 else [left_wp, right_wp]
+        scene = getattr(self.subagent_clones, "_group_scene", None)
+        base_now = float(scene.started_at) if (scene is not None and scene.kind == "clone_train") else now
+        self._clear_host_clone_motion()
+        self.movement.cancel_target()
+        self._host_train_active = True
+        self._host_train_start_move_at = base_now + 0.30
+        self._host_train_waypoints = waypoints
+        self._host_train_wp_idx = 0
+        self._host_train_facing = direction
+        self._host_train_next_fx_at = base_now + 0.90
+        self._set_direction("right" if direction > 0 else "left", direction)
+        return True
+
+    def _tick_host_clone_motion(
+        self,
+        delta_seconds: float,
+        now: float,
+        *,
+        sulking: bool,
+        hover_paused: bool,
+    ) -> bool:
+        """Drive host co-motion during clone train parades, host-pat visits, and playful companion strolls."""
+        if not hasattr(self, "subagent_clones") or self.subagent_clones.active_count <= 0:
+            if self._host_train_active or self._host_clone_visit_target_x is not None:
+                self._clear_host_clone_motion()
+            self._next_host_clone_stroll_at = 0.0
+            return False
+
+        blocked = (
+            self.renderer.reduced_motion
+            or self.interaction.active
+            or self.physics.active
+            or self.climb.active
+            or self._dock_side is not None
+            or sulking
+            or self._purring
+            or self.movement.mode == "still"
+            or not self.isVisible()
+            or self.isMinimized()
+        )
+        if blocked:
+            if self._host_train_active or self._host_clone_visit_target_x is not None:
+                self._clear_host_clone_motion()
+            return False
+
+        active_scene = self.subagent_clones.active_group_scene
+
+        # 1. Host-led mini train parade: sister walks as the locomotive!
+        if self._host_train_active:
+            if active_scene != "clone_train" or not self._host_train_waypoints:
+                self._clear_host_clone_motion()
+                return False
+            if hover_paused:
+                return False
+            if now < self._host_train_start_move_at:
+                return False
+            bounds = self._host_walk_bounds(now)
+            if bounds is None or bounds[1] - bounds[0] < 40.0:
+                self._clear_host_clone_motion()
+                return False
+            lo, hi = bounds
+            tx = max(lo, min(hi, self._host_train_waypoints[self._host_train_wp_idx]))
+            dx = tx - float(self.x())
+            speed = max(78.0, min(96.0, self.movement.speed * 1.05))
+            step = speed * max(0.016, delta_seconds)
+            if abs(dx) <= max(10.0, step):
+                self._host_train_wp_idx = (self._host_train_wp_idx + 1) % len(self._host_train_waypoints)
+                tx = max(lo, min(hi, self._host_train_waypoints[self._host_train_wp_idx]))
+                dx = tx - float(self.x())
+            if abs(dx) < 2.0:
+                return False
+            facing = 1 if dx >= 0 else -1
+            self._host_train_facing = facing
+            if self.action_machine.current != PetAction.WALKING:
+                self._request_action(PetAction.WALKING, now=now, reason="host_clone_train", force=True)
+            next_x = max(lo, min(hi, float(self.x()) + (step if dx > 0 else -step)))
+            self.move(round(next_x), self.y())
+            if self.surface_tracker.attached:
+                self.surface_tracker.record_pet_position(
+                    widget_x=float(self.x()),
+                    widget_width=float(self.width()),
+                )
+            self._set_direction("right" if facing > 0 else "left", facing)
+            if now >= self._host_train_next_fx_at:
+                self._host_train_next_fx_at = now + 0.95
+                self.emit_particles("notes")
+            return True
+
+        # 2. Host walking over to pat a nearby clone's head!
+        if self._host_clone_visit_target_x is not None:
+            if active_scene is not None or now >= self._host_clone_visit_until:
+                self._clear_host_clone_motion()
+                return False
+            if hover_paused:
+                return False
+            target_idx = next(
+                (
+                    i
+                    for i, (info, _f, _b) in enumerate(self.subagent_clones._entries)
+                    if info.conversation_id == self._host_clone_visit_cid
+                ),
+                None,
+            )
+            if target_idx is None:
+                self._clear_host_clone_motion()
+                return False
+            bounds = self._host_walk_bounds(now)
+            if bounds is None:
+                self._clear_host_clone_motion()
+                return False
+            lo, hi = bounds
+            tx = max(lo, min(hi, self._host_clone_visit_target_x))
+            dx = tx - float(self.x())
+            step = max(72.0, self.movement.speed) * max(0.016, delta_seconds)
+            if abs(dx) <= max(10.0, step):
+                cid = self._host_clone_visit_cid
+                self._clear_host_clone_motion()
+                widget = self.subagent_clones._widgets[target_idx]
+                clone_cx = widget.x() + widget.width() / 2.0
+                host_cx = self.x() + self.width() / 2.0
+                self._set_direction("right" if clone_cx >= host_cx else "left", 1 if clone_cx >= host_cx else -1)
+                if cid == self.subagent_clones._entries[target_idx][0].conversation_id:
+                    self.subagent_clones.trigger_host_pat_clone(target_idx, now=now)
+                return False
+            facing = 1 if dx >= 0 else -1
+            if self.action_machine.current != PetAction.WALKING:
+                self._request_action(PetAction.WALKING, now=now, reason="host_clone_visit", force=True)
+            next_x = max(lo, min(hi, float(self.x()) + (step if dx > 0 else -step)))
+            self.move(round(next_x), self.y())
+            if self.surface_tracker.attached:
+                self.surface_tracker.record_pet_position(
+                    widget_x=float(self.x()),
+                    widget_width=float(self.width()),
+                )
+            self._set_direction("right" if facing > 0 else "left", facing)
+            return True
+
+        # 3. Playful companion strolling so sister actively roams with her clones instead of standing rooted
+        if (
+            active_scene is None
+            and self.movement.mode == "wander"
+            and not hover_paused
+            and not self._is_agy_actively_working()
+            and not self.movement.is_walking
+            and not self.control_panel.isVisible()
+            and not self.food_panel.isVisible()
+            and self.action_machine.current == PetAction.IDLE
+        ):
+            if self._next_host_clone_stroll_at <= 0.0:
+                self._next_host_clone_stroll_at = now + self.rng.uniform(3.5, 6.2)
+            elif now >= self._next_host_clone_stroll_at:
+                self._next_host_clone_stroll_at = now + self.rng.uniform(8.5, 14.5)
+                self.movement.rest_until = min(self.movement.rest_until, now)
+                self.movement.request_short_wander(
+                    self,
+                    body_widths=self.rng.uniform(1.1, 2.2),
+                    now=now,
+                    horizontal_bounds=self._top_bounds(now),
+                )
+        return False
+
     def _tick_host_clone_affection(self, now: float) -> None:
-        """Let the host sister periodically pat a nearby clone's head on her own."""
+        """Let the host sister periodically walk over to pat a clone or launch a cozy group moment."""
         if not hasattr(self, "subagent_clones") or self.subagent_clones.active_count <= 0:
             self._next_host_pat_clone_at = 0.0
             return
@@ -3709,6 +3942,8 @@ class PetWindow(QWidget):
             or self.physics.active
             or self.climb.active
             or self.movement.is_walking
+            or self._host_train_active
+            or self._host_clone_visit_target_x is not None
             or self.action_machine.current not in {PetAction.IDLE, PetAction.PERCH, PetAction.WORKING}
         ):
             return
@@ -3717,14 +3952,45 @@ class PetWindow(QWidget):
         if self.subagent_clones._host_form_clone_indices() and self.rng.random() < 0.25:
             self.subagent_clones.trigger_mini_me_mimic(now=now)
             return
+
+        def _try_host_walk_pat() -> bool:
+            if (
+                self.renderer.reduced_motion
+                or self.movement.mode == "still"
+                or self.action_machine.current == PetAction.WORKING
+            ):
+                return False
+            bounds = self._host_walk_bounds(now)
+            if bounds is None or bounds[1] - bounds[0] < 90.0:
+                return False
+            pick = self.subagent_clones.pick_clone_for_host_visit(
+                self._sprite_rect(),
+                host_widget_width=self.width(),
+                now=now,
+            )
+            if pick is None:
+                return False
+            _idx, cid, target_x, _face_side = pick
+            clamped_tx = max(bounds[0], min(bounds[1], target_x))
+            if abs(clamped_tx - float(self.x())) < 24.0:
+                return False
+            self._host_clone_visit_cid = cid
+            self._host_clone_visit_target_x = clamped_tx
+            self._host_clone_visit_until = now + 4.5
+            return True
+
         if self.subagent_clones.active_count >= 2:
             roll = self.rng.random()
             if roll < 0.65:
+                if self.rng.random() < 0.55 and _try_host_walk_pat():
+                    return
                 self.subagent_clones.request_host_pat_clone(now=now)
             elif roll < 0.85:
                 self.subagent_clones.trigger_snack_party(now=now)
             else:
                 self.subagent_clones.trigger_group_huddle(now=now)
+            return
+        if self.rng.random() < 0.55 and _try_host_walk_pat():
             return
         self.subagent_clones.request_host_pat_clone(now=now)
 
@@ -3815,14 +4081,14 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.WAVE, now=now, reason="subagent_handoff", force=True)
                     key = "playmate_done" if playmate else "subagent_done"
                     fb = "拜拜啦 {name}，下次闲了再一起玩～" if playmate else "辛苦啦 {name}，成果我收下啦～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "clicked":
                 self.emit_particles("hearts")
                 if can_emote:
                     self._request_action(PetAction.HAPPY, now=now, reason="subagent_clicked", force=True)
                     key = "playmate_cheer" if playmate else "subagent_cheer"
                     fb = "喂，摸完 {name} 也要顺手摸摸我呀～" if playmate else "喂，摸完 {name} 也要多摸摸我才行～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "report":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 short_title = " ".join((event.title or ("晒太阳发呆" if playmate else "当前任务")).split())
@@ -3832,7 +4098,7 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.WAVE, now=now, reason="subagent_report", force=True)
                     key = "playmate_report" if playmate else "subagent_report"
                     fb = "好呀好呀，和 {name} 一起{title}！" if playmate else "收到 {name} 的汇报：{title}！"
-                    self.say(pick_line(key, fb, name=event.badge, title=short_title), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge, title=short_title), from_activity=True, preserve_action=True)
             elif event.kind == "high_five":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 self.emit_particles("confetti")
@@ -3842,7 +4108,7 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.HIGH_FIVE, now=now, reason="subagent_high_five", force=True)
                     key = "playmate_high_five" if playmate else "subagent_high_five"
                     fb = "和 {name} 击掌贴贴！摸鱼搭子满分～" if playmate else "和 {name} 击掌成功！合作无间～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "group_cheer":
                 self.emit_particles("confetti")
                 self.emit_particles("sparkles")
@@ -3850,25 +4116,25 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.PLAY_DANCE, now=now, reason="subagent_group_cheer", force=True)
                     key = "playmate_group_cheer" if playmate else "subagent_group_cheer"
                     fb = "闲时小派对！大家一起蹦起来～" if playmate else "全员干劲拉满，一起冲鸭！"
-                    self.say(pick_line(key, fb), preserve_action=True)
+                    self.say(pick_line(key, fb), from_activity=True, preserve_action=True)
             elif event.kind == "relay":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 min_gap = 6.0 if playmate else 10.0
                 if can_emote and now - self._last_clone_banter_at >= min_gap:
                     self._last_clone_banter_at = now
-                    if playmate and not self.surface_tracker.attached:
+                    if playmate and not self.surface_tracker.attached and not self.movement.is_walking:
                         self._set_direction("left" if event.side < 0 else "right")
                         self._request_action(PetAction.GIFT_TOSS, now=now, reason="playmate_toss_back", force=True)
                     key = "playmate_relay" if playmate else "subagent_relay"
                     fb = "接住啦 {name}！我也回你一颗星星～" if playmate else "收到 {name} 传来的线索啦～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "pet_rub":
                 self.emit_particles("hearts")
                 if can_emote:
                     self._request_action(PetAction.HAPPY, now=now, reason="subagent_pet_rub", force=True)
                     key = "playmate_pet_rub" if playmate else "subagent_pet_rub"
                     fb = "哇，{name} 被揉得眼睛都眯起来啦～" if playmate else "哇，{name} 被揉得呼噜呼噜的～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "trick":
                 self.emit_particles("notes")
                 self.emit_particles("sparkles")
@@ -3876,7 +4142,7 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_trick", force=True)
                     key = "playmate_trick" if playmate else "subagent_trick"
                     fb = "拍手拍手！{name} 转圈圈超可爱～" if playmate else "拍手！{name} 这招表演满分～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "gift_share":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 self.emit_particles("fish")
@@ -3886,7 +4152,7 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.QUOTA_GIFT, now=now, reason="subagent_gift_share", force=True)
                     key = "playmate_gift_share" if playmate else "subagent_gift_share"
                     fb = "哇，谢谢 {name} 塞给我的小礼物！" if playmate else "哇，谢谢 {name} 送的小礼物！"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "clone_buddy":
                 self.emit_particles("hearts")
                 self.emit_particles("confetti")
@@ -3894,16 +4160,17 @@ class PetWindow(QWidget):
                     self._request_action(PetAction.HAPPY, now=now, reason="subagent_clone_buddy", force=True)
                     key = "playmate_clone_buddy" if playmate else "subagent_clone_buddy"
                     fb = "哈哈，{name} 和同伴贴贴得好开心～" if playmate else "哈哈，{name} 和同伴配合得真默契～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "clone_chat":
                 min_gap = 7.0 if playmate else 11.0
                 if can_emote and now - self._last_clone_banter_at >= min_gap:
                     self._last_clone_banter_at = now
                     self.emit_particles("hearts" if playmate else "sparkles")
-                    self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_chat", force=True)
+                    if not self.movement.is_walking:
+                        self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_chat", force=True)
                     key = "playmate_clone_chat" if playmate else "subagent_clone_chat"
                     fb = "咦，我好像听到 {name} 在偷偷夸我～" if playmate else "咦，{name} 们在交流什么小秘密呀～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "host_pat_clone":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 self.emit_particles("hearts")
@@ -3916,15 +4183,24 @@ class PetWindow(QWidget):
                         self.soft_rig.trigger("squish")
                     key = "playmate_host_pat" if playmate else "subagent_host_pat"
                     fb = "摸摸 {name} 的小脑袋，乖啦～" if playmate else "摸摸 {name} 的小脑袋，辛苦啦～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "clone_train":
                 self.emit_particles("notes")
                 self.emit_particles("sparkles")
                 if can_emote:
                     self._request_action(PetAction.WAVE, now=now, reason="subagent_clone_train", force=True)
                     key = "playmate_clone_train" if playmate else "subagent_clone_train"
-                    fb = "呜呜——小火车开过来啦，排得真整齐～"
-                    self.say(pick_line(key, fb), preserve_action=True)
+                    fb = "呜呜——姐姐当火车头，大家排好队跟紧咯～"
+                    self.say(pick_line(key, fb), from_activity=True, preserve_action=True)
+                    self._start_host_train_parade(now)
+            elif event.kind == "clone_train_end":
+                self._clear_host_clone_motion()
+                self.emit_particles("sparkles")
+                self.emit_particles("notes")
+                if can_emote:
+                    self._request_action(PetAction.CELEBRATE, now=now, reason="subagent_clone_train_end", force=True)
+                    if hasattr(self, "soft_rig"):
+                        self.soft_rig.trigger("squish")
             elif event.kind == "clone_wave":
                 self.emit_particles("confetti")
                 self.emit_particles("sparkles")
@@ -3934,8 +4210,10 @@ class PetWindow(QWidget):
                         self.soft_rig.trigger("squish")
                     key = "playmate_clone_wave" if playmate else "subagent_clone_wave"
                     fb = "轮到姐姐收尾啦，人浪接力大成功！"
-                    self.say(pick_line(key, fb), preserve_action=True)
+                    self.say(pick_line(key, fb), from_activity=True, preserve_action=True)
             elif event.kind == "snack_party":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("fish")
                 self.emit_particles("hearts")
                 if can_emote:
@@ -3943,8 +4221,10 @@ class PetWindow(QWidget):
                     self._request_action(toss_pose, now=now, reason="subagent_snack_party", force=True)
                     key = "playmate_snack_party" if playmate else "subagent_snack_party"
                     fb = "发小鱼干啦！大家排排坐一起来吃～"
-                    self.say(pick_line(key, fb), preserve_action=True)
+                    self.say(pick_line(key, fb), from_activity=True, preserve_action=True)
             elif event.kind == "group_huddle":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("hearts")
                 self.emit_particles("confetti")
                 if can_emote:
@@ -3953,7 +4233,7 @@ class PetWindow(QWidget):
                         self.soft_rig.trigger("squish")
                     key = "playmate_group_huddle" if playmate else "subagent_group_huddle"
                     fb = "哇哇！被小分身们团团抱住啦～"
-                    self.say(pick_line(key, fb), preserve_action=True)
+                    self.say(pick_line(key, fb), from_activity=True, preserve_action=True)
             elif event.kind == "twin_mirror":
                 self.emit_particles("sparkles")
                 self.emit_particles("hearts")
@@ -3964,7 +4244,7 @@ class PetWindow(QWidget):
                         self.soft_rig.trigger("squish")
                     key = "playmate_twin_mirror" if playmate else "subagent_twin_mirror"
                     fb = "哇！双胞胎 {name} 跳镜面舞，姐姐眼花啦～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "mini_me_mimic":
                 self.emit_relay_particles(from_side=event.side, accent=accent)
                 self.emit_particles("hearts")
@@ -3977,15 +4257,17 @@ class PetWindow(QWidget):
                         self.soft_rig.trigger("squish")
                     key = "playmate_mini_me_mimic" if playmate else "subagent_mini_me_mimic"
                     fb = "呀！迷你版我自己也太可爱了吧～"
-                    self.say(pick_line(key, fb, name=event.badge), preserve_action=True)
+                    self.say(pick_line(key, fb, name=event.badge), from_activity=True, preserve_action=True)
             elif event.kind == "tea_party":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("steam")
                 self.emit_particles("sparkles")
                 if can_emote:
                     self._set_direction("left" if event.side < 0 else "right")
                     self._request_action(PetAction.EATING, now=now, reason="scene_tea_party", force=True)
                     key = "playmate_tea_party" if playmate else "subagent_tea_party"
-                    self.say(pick_line(key, "叮～桌面下午茶会开张，大家快围坐喝茶！"), preserve_action=True)
+                    self.say(pick_line(key, "叮～桌面下午茶会开张，大家快围坐喝茶！"), from_activity=True, preserve_action=True)
             elif event.kind == "tea_party_interact":
                 self.emit_particles("steam")
                 self.emit_particles("hearts")
@@ -3993,8 +4275,10 @@ class PetWindow(QWidget):
                     self._set_direction("left" if event.side < 0 else "right")
                     self._request_action(PetAction.HAPPY, now=now, reason="scene_tea_interact", force=True)
                     key = "playmate_tea_party_interact" if playmate else "subagent_tea_party_interact"
-                    self.say(pick_line(key, "再来一杯热花果茶，点心管够哦～"), preserve_action=True)
+                    self.say(pick_line(key, "再来一杯热花果茶，点心管够哦～"), from_activity=True, preserve_action=True)
             elif event.kind == "campfire_night":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("sparkles")
                 self.emit_particles("hearts")
                 if can_emote:
@@ -4002,7 +4286,7 @@ class PetWindow(QWidget):
                     camp_pose = PetAction.HAPPY if self.surface_tracker.attached else PetAction.PERCH
                     self._request_action(camp_pose, now=now, reason="scene_campfire", force=True)
                     key = "playmate_campfire_night" if playmate else "subagent_campfire_night"
-                    self.say(pick_line(key, "点起暖暖小篝火，今晚一起烤棉花糖聊八卦吧～"), preserve_action=True)
+                    self.say(pick_line(key, "点起暖暖小篝火，今晚一起烤棉花糖聊八卦吧～"), from_activity=True, preserve_action=True)
             elif event.kind == "campfire_night_interact":
                 self.emit_particles("sparkles")
                 self.emit_particles("steam")
@@ -4010,15 +4294,17 @@ class PetWindow(QWidget):
                     self._set_direction("left" if event.side < 0 else "right")
                     self._request_action(PetAction.CELEBRATE, now=now, reason="scene_campfire_interact", force=True)
                     key = "playmate_campfire_night_interact" if playmate else "subagent_campfire_night_interact"
-                    self.say(pick_line(key, "火苗更旺啦，小心棉花糖别烤焦哦～"), preserve_action=True)
+                    self.say(pick_line(key, "火苗更旺啦，小心棉花糖别烤焦哦～"), from_activity=True, preserve_action=True)
             elif event.kind == "art_studio":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("notes")
                 self.emit_particles("sparkles")
                 if can_emote:
                     self._set_direction("left" if event.side < 0 else "right")
                     self._request_action(PetAction.WAVE, now=now, reason="scene_art_studio", force=True)
                     key = "playmate_art_studio" if playmate else "subagent_art_studio"
-                    self.say(pick_line(key, "诶？大家支起小画架要给我画肖像吗，那我摆好姿势！"), preserve_action=True)
+                    self.say(pick_line(key, "诶？大家支起小画架要给我画肖像吗，那我摆好姿势！"), from_activity=True, preserve_action=True)
             elif event.kind == "art_studio_interact":
                 self.emit_particles("hearts")
                 self.emit_particles("sparkles")
@@ -4028,8 +4314,10 @@ class PetWindow(QWidget):
                     if hasattr(self, "soft_rig"):
                         self.soft_rig.trigger("squish")
                     key = "playmate_art_studio_interact" if playmate else "subagent_art_studio_interact"
-                    self.say(pick_line(key, "哇画得超像我！姐姐要贴在最显眼的地方～"), preserve_action=True)
+                    self.say(pick_line(key, "哇画得超像我！姐姐要贴在最显眼的地方～"), from_activity=True, preserve_action=True)
             elif event.kind == "cloud_nap":
+                self._clear_host_clone_motion()
+                self.movement.cancel_target()
                 self.emit_particles("sleep_z")
                 self.emit_particles("hearts")
                 if can_emote:
@@ -4037,18 +4325,18 @@ class PetWindow(QWidget):
                     nap_pose = PetAction.PERCH_SLEEP if self.surface_tracker.attached else PetAction.SLEEPING
                     self._request_action(nap_pose, now=now, reason="scene_cloud_nap", force=True)
                     key = "playmate_cloud_nap" if playmate else "subagent_cloud_nap"
-                    self.say(pick_line(key, "软乎乎云朵午睡窝铺好啦，大家团在一起打个盹吧～"), preserve_action=True)
+                    self.say(pick_line(key, "软乎乎云朵午睡窝铺好啦，大家团在一起打个盹吧～"), from_activity=True, preserve_action=True)
             elif event.kind == "cloud_nap_interact":
                 self.emit_particles("sleep_z")
                 self.emit_particles("hearts")
                 if current in {PetAction.SLEEPING, PetAction.PERCH_SLEEP} or can_emote:
                     key = "playmate_cloud_nap_interact" if playmate else "subagent_cloud_nap_interact"
-                    self.say(pick_line(key, "帮大家把星星小被盖严实啦，做个甜梦哦～"), preserve_action=True)
+                    self.say(pick_line(key, "帮大家把星星小被盖严实啦，做个甜梦哦～"), from_activity=True, preserve_action=True)
             elif event.kind == "scene_end":
                 if event.title == "cloud_nap" and current in {PetAction.SLEEPING, PetAction.PERCH_SLEEP}:
                     self._request_action(PetAction.STRETCH, now=now, reason="scene_cloud_nap_wake", force=True)
                     key = "playmate_cloud_nap_wake" if playmate else "subagent_cloud_nap_wake"
-                    self.say(pick_line(key, "呼——和大家睡得好香，伸个懒腰精神满格啦～"), preserve_action=True)
+                    self.say(pick_line(key, "呼——和大家睡得好香，伸个懒腰精神满格啦～"), from_activity=True, preserve_action=True)
                 elif current == PetAction.PERCH and not self.surface_tracker.attached:
                     self._request_action(PetAction.IDLE, now=now, reason="scene_end_stand", force=True)
         finally:
