@@ -64,6 +64,7 @@ from dialogue.local_rules import DialogueManager, load_form_voice
 from dialogue.personality import normalize_personality
 from pet.climb import JumpPlan, pick_jump, uncovered_top_span, ClimbController, Rect as ClimbRect, is_exposed, plan_climb
 from pet.interaction import FoodPanel, InteractionController, parse_food_menu
+from pet.milestone_popup import MilestonePopupWidget
 from pet.movement import MovementController
 from pet.particles import ParticleSystem
 from pet.physics import PhysicsBounds, ThrowPhysics
@@ -309,6 +310,7 @@ class PetWindow(QWidget):
             on_perch=lambda: self._preview_action("EDGE_SIT"),
             on_recall_primary=self.recall_to_primary_screen,
             on_language=self.set_language,
+            on_progress_bubbles=self.set_progress_bubbles,
             forms=tuple((form.id, form.name) for form in FORMS),
         )
         self._create_tray()
@@ -694,6 +696,7 @@ class PetWindow(QWidget):
             follow_cursor=bool(comfort.get("follow_cursor", True)),
             autonomy=bool(self._agy().get("autonomy", True)),
             language=normalize_language_setting(self._agy().get("language", "auto")),
+            progress_bubbles=bool(self._agy().get("progress_bubbles", True)),
         )
 
     def _display_state_name(self) -> str:
@@ -752,6 +755,8 @@ class PetWindow(QWidget):
 
     def _hide_from_panel(self) -> None:
         self.control_panel.hide()
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.dismiss(immediate=True)
         self.hide()
         self._sync_subagent_clones()
 
@@ -909,6 +914,7 @@ class PetWindow(QWidget):
             pending, self._pending_form = self._pending_form, None
             self.set_form(pending, announce=False)
         self._follow_hud()
+        self._follow_milestone_popup()
         self._tick_idle_playmates(now)
         self._tick_host_clone_affection(now)
         if self.subagent_clones.active_count > 0 or getattr(self.subagent_clones, "has_departing", False):
@@ -1244,6 +1250,7 @@ class PetWindow(QWidget):
             if self._panel_open_pet_pos is None:
                 self._panel_open_pet_pos = QPoint(event.oldPos())
             self._maybe_auto_hide_control_panel()
+        self._follow_milestone_popup()
         super().moveEvent(event)
 
     def mousePressEvent(self, event) -> None:
@@ -1700,6 +1707,8 @@ class PetWindow(QWidget):
                 if self.isVisible():
                     self._hidden_by_fullscreen = True
                     self.control_panel.hide()
+                    if hasattr(self, "milestone_popup"):
+                        self.milestone_popup.dismiss(immediate=True)
                     self.hide()
                     self._sync_subagent_clones()
             elif event.type == EventType.FULLSCREEN_EXIT and self._hidden_by_fullscreen:
@@ -1782,6 +1791,11 @@ class PetWindow(QWidget):
             tr("tray.toggle_hud"),
             lambda: self.set_hud_enabled(not bool(self._agy().get("hud_enabled", True))),
         )
+        self._tray_progress_action = tray_menu.addAction(tr("tray.progress_bubbles"))
+        self._tray_progress_action.setCheckable(True)
+        self._tray_progress_action.setChecked(bool(self._agy().get("progress_bubbles", True)))
+        self._tray_progress_action.triggered.connect(self.set_progress_bubbles)
+        tray_menu.aboutToShow.connect(self._sync_tray_forms)
         tray_menu.addSeparator()
         self._tray_quit_action = tray_menu.addAction(tr("tray.quit"), self.quit_app)
         self.tray.setContextMenu(tray_menu)
@@ -1806,6 +1820,8 @@ class PetWindow(QWidget):
             act.setText(tr(f"lang.{code}"))
         self._tray_meter_action.setText(tr("tray.open_meter"))
         self._tray_hud_action.setText(tr("tray.toggle_hud"))
+        if hasattr(self, "_tray_progress_action"):
+            self._tray_progress_action.setText(tr("tray.progress_bubbles"))
         self._tray_quit_action.setText(tr("tray.quit"))
         self.tray.setToolTip(tr("tray.tooltip", name=form_by_id(self.form_id).name))
         self._sync_tray_forms()
@@ -1846,6 +1862,8 @@ class PetWindow(QWidget):
         self.particles.reduced_motion = enabled
         if enabled:
             self.particles.clear()
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.set_reduced_motion(enabled)
         self.config.set_nested("comfort", "reduced_motion", enabled)
         self._refresh_control_panel()
         self.update()
@@ -2197,6 +2215,8 @@ class PetWindow(QWidget):
         self.config.set("topmost", bool(enabled))
         self.show()
         self.subagent_clones.set_topmost(bool(enabled))
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.set_topmost(bool(enabled))
         self._refresh_control_panel()
 
     def set_autostart(self, enabled: bool) -> None:
@@ -2249,6 +2269,8 @@ class PetWindow(QWidget):
         if self.isVisible():
             self._hidden_by_fullscreen = False
             self.control_panel.hide()
+            if hasattr(self, "milestone_popup"):
+                self.milestone_popup.dismiss(immediate=True)
             self.hide()
         else:
             self.show()
@@ -2345,6 +2367,8 @@ class PetWindow(QWidget):
         if hasattr(self, "renderer"):
             self.renderer.speaker_name = speaker
             self.renderer.speaker_accent = QColor(ACCENTS.get(form_id, "#339ad5"))
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.set_accent(ACCENTS.get(form_id, "#8b5cf6"))
         if hasattr(self, "control_panel"):
             self.control_panel.set_title(speaker)
         if hasattr(self, "dialogue"):
@@ -2371,6 +2395,8 @@ class PetWindow(QWidget):
             self.control_panel.retranslate()
         if hasattr(self, "hud_bar"):
             self.hud_bar.retranslate()
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.retranslate()
         if hasattr(self, "token_meter"):
             self.token_meter.retranslate()
         if hasattr(self, "subagent_clones"):
@@ -2378,6 +2404,14 @@ class PetWindow(QWidget):
         self._retranslate_tray()
         self._refresh_control_panel()
         return resolved
+
+    def set_progress_bubbles(self, enabled: bool) -> None:
+        flag = bool(enabled)
+        self._agy_set("progress_bubbles", flag)
+        if not flag and hasattr(self, "milestone_popup"):
+            self.milestone_popup.dismiss(immediate=True)
+        self._refresh_control_panel()
+        self._sync_tray_forms()
 
     def set_follow_model(self, enabled: bool) -> None:
         self._agy_set("follow_model", bool(enabled))
@@ -2393,6 +2427,8 @@ class PetWindow(QWidget):
         for form_id, action in self._tray_form_actions.items():
             action.setChecked(form_id == self.form_id)
         self._tray_follow_action.setChecked(bool(self._agy().get("follow_model", False)))
+        if hasattr(self, "_tray_progress_action"):
+            self._tray_progress_action.setChecked(bool(self._agy().get("progress_bubbles", True)))
         cur_lang = normalize_language_setting(self._agy().get("language", "auto"))
         for code, act in getattr(self, "_tray_lang_actions", {}).items():
             act.setChecked(code == cur_lang)
@@ -2436,6 +2472,12 @@ class PetWindow(QWidget):
             on_theme_changed=lambda t: self._agy_set("meter_theme", t),
             on_default_tab_changed=lambda tab: self._agy_set("meter_default_tab", tab),
         )
+        self.milestone_popup = MilestonePopupWidget(
+            topmost=bool(self.config.get("topmost", True)),
+            accent=ACCENTS.get(self.form_id, "#8b5cf6"),
+            reduced_motion=bool(self.config.section("comfort").get("reduced_motion", False)),
+        )
+        self._milestone_anchor: tuple[int, int, int, int, bool, int] | None = None
         self.telemetry.live_updated.connect(self._on_live_snapshot)
         self.telemetry.report_ready.connect(self.token_meter.update_report)
         self._hud_anchor: tuple[int, int, int, int] | None = None
@@ -2495,6 +2537,8 @@ class PetWindow(QWidget):
             self.particles.clear()
         if not bool(settings.get("edge_dock", True)) and self._dock_side is not None:
             self.undock_from_edge()
+        if not bool(settings.get("progress_bubbles", True)) and hasattr(self, "milestone_popup"):
+            self.milestone_popup.dismiss(immediate=True)
         self._sync_subagent_clones()
         self._refresh_control_panel()
         self._sync_tray_forms()
@@ -3304,6 +3348,43 @@ class PetWindow(QWidget):
         head_top = self.y() + self.height() - MARGIN - 7 - self.current_height
         return max(self.y() + BUBBLE_HEIGHT, head_top) - 2
 
+    def show_milestone(self, event, *, meta: str = "") -> None:
+        if not hasattr(self, "milestone_popup"):
+            return
+        if not self.isVisible() or self.isMinimized():
+            return
+        # Clear any transient small in-window bubble so the rich milestone card sits right above her head
+        self.bubble = Bubble()
+        self._milestone_anchor = None
+        self.milestone_popup.show_milestone(event, meta=meta)
+        self._follow_milestone_popup()
+        self.update()
+
+    def _follow_milestone_popup(self) -> None:
+        if not hasattr(self, "milestone_popup") or not self.milestone_popup.isVisible():
+            return
+        if not self.isVisible() or self.isMinimized():
+            self.milestone_popup.dismiss(immediate=True)
+            return
+        sprite_rect = self._sprite_rect()
+        bubble_visible = self.bubble.visible
+        anchor_top = self._hud_ceiling(bubble_visible)
+        hud_top = 0
+        if hasattr(self, "hud_bar") and self.hud_bar.isVisible() and self.hud_bar.attached:
+            hud_geo = self.hud_bar.geometry()
+            if hud_geo.bottom() <= sprite_rect.top() + 12:
+                hud_top = hud_geo.top()
+                anchor_top = min(anchor_top, hud_top - 4)
+        anchor = (self.x(), self.y(), self.width(), self.height(), bubble_visible, hud_top)
+        if anchor == self._milestone_anchor:
+            return
+        self._milestone_anchor = anchor
+        self.milestone_popup.follow_pet(
+            sprite_rect,
+            anchor_top=anchor_top,
+            screen=self._screen_for_pet(),
+        )
+
     _IDLE_PLAY_ACTIVITIES: tuple[str, ...] = (
         "晒太阳发呆",
         "玩捉迷藏",
@@ -3986,18 +4067,24 @@ class PetWindow(QWidget):
                 self._sync_animation_clip(crossfade=True)
         self._refresh_control_panel()
         settings = self._agy()
-        if not settings.get("reactions", True) and not settings.get("follow_model"):
+        allow_reactions = bool(settings.get("reactions", True))
+        allow_progress = bool(settings.get("progress_bubbles", True))
+        if not allow_reactions and not settings.get("follow_model") and not allow_progress:
             return
         reactions = self.reactions.observe(
             snapshot,
             now=time.monotonic(),
             follow_model=bool(settings.get("follow_model", False)),
             current_form=self.form_id,
+            progress_bubbles=allow_progress,
         )
         for reaction in reactions:
             if reaction.form:
                 self.set_form(reaction.form, announce=False)
-            if not settings.get("reactions", True):
+            is_milestone = reaction.kind == "milestone" and reaction.milestone is not None
+            if not is_milestone and not allow_reactions:
+                continue
+            if is_milestone and not allow_progress:
                 continue
             busy = (
                 self.interaction.active
@@ -4006,7 +4093,7 @@ class PetWindow(QWidget):
                 or time.monotonic() < self._sulk_until
                 or self._purring
             )
-            action_name = reaction.action
+            action_name = reaction.action if allow_reactions else None
             if action_name == "WORKING" and not settings.get("autonomy", True):
                 action_name = "THINKING"  # WORKING loops; only autonomy ends it
             if (
@@ -4028,9 +4115,12 @@ class PetWindow(QWidget):
                 self._stash_flash_until = time.monotonic() + 5.5
                 self._sync_fish_stash(time.monotonic())
             particle = getattr(reaction, "particle", None)
-            if particle:
+            if particle and (allow_reactions or is_milestone):
                 self.emit_particles(particle)
-            self.say(reaction.text, preserve_action=True)
+            if is_milestone:
+                self.show_milestone(reaction.milestone, meta=reaction.meta)
+            else:
+                self.say(reaction.text, preserve_action=True)
 
     def _personality(self) -> str:
         return normalize_personality(self.config.get("personality", "standard"))
@@ -4039,6 +4129,9 @@ class PetWindow(QWidget):
         self.save_snapshot()
         self.telemetry.stop()
         self.subagent_clones.close_all()
+        if hasattr(self, "milestone_popup"):
+            self.milestone_popup.dismiss(immediate=True)
+            self.milestone_popup.close()
         self.hud_bar.hide()
         self.token_meter.hide()
         self.tray.hide()

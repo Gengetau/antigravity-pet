@@ -50,6 +50,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "telemetry_enabled": True,
         "use_language_server": True,
         "reactions": True,
+        "progress_bubbles": True,
         "autonomy": True,
         "hop_to_window": True,
         "explore_windows": True,

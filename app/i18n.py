@@ -787,4 +787,23 @@ STRINGS: dict[str, dict[str, str]] = {
         "ja": "モデル・枠ごとの中央値で集計（3件未満は「少数」表示）。総時間は出力長に依存します。",
     },
     "speed.trend_title": {"zh": "单模型速度趋势", "en": "Model Speed Trend", "ja": "単一モデルの推移"},
+
+    # --- Milestone Progress Popup ---
+    "milestone.badge.progress": {"zh": "阶段成果", "en": "Milestone", "ja": "進捗報告"},
+    "milestone.badge.summary": {"zh": "本轮成果", "en": "Turn Summary", "ja": "完了サマリー"},
+    "milestone.badge.step_done": {"zh": "节点完成", "en": "Step Done", "ja": "ステップ完了"},
+    "milestone.next_prefix": {"zh": "下一步：{step}", "en": "Next: {step}", "ja": "次へ：{step}"},
+    "milestone.turn_meta": {
+        "zh": "本次 {total} token · {rate} tok/s",
+        "en": "{total} tokens · {rate} tok/s",
+        "ja": "今回 {total} token · {rate} tok/s",
+    },
+    "milestone.hover_hint": {
+        "zh": "悬停已暂停 · 点击关闭",
+        "en": "Paused on hover · Click to dismiss",
+        "ja": "ホバー中一時停止 · クリックで閉じる",
+    },
+    "milestone.close_tip": {"zh": "关闭阶段汇报", "en": "Dismiss milestone", "ja": "進捗カードを閉じる"},
+    "panel.progress_bubbles": {"zh": "成果气泡", "en": "Milestones", "ja": "進捗ポップ"},
+    "tray.progress_bubbles": {"zh": "阶段成果气泡弹窗", "en": "Milestone Progress Popups", "ja": "進捗マイルストーン吹き出し"},
 }

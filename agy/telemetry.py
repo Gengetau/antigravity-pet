@@ -29,6 +29,12 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .ledger import UsageLedger, hash_account_id
+from .milestone import (
+    MilestoneEvent,
+    extract_milestone_from_rpc_steps,
+    milestone_from_dict,
+    read_latest_milestone_from_transcript,
+)
 
 LS_SERVICE = "exa.language_server_pb.LanguageServerService"
 HUD_LIVE_MAX_AGE_SECONDS = 15.0
@@ -186,6 +192,7 @@ class LiveSnapshot:
     ai_comment_id: str = ""
     ai_comment_text: str = ""
     ai_comment_trigger: str = ""
+    milestone: MilestoneEvent | None = None
 
     def quota_for(self, kind: str) -> tuple[float | None, str | None]:
         """Remaining % and reset time of the 5-hour (``"5h"``) or weekly window.
@@ -700,10 +707,15 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
         if isinstance(item, dict) and item.get("conversationId")
     ]
     ai_raw = payload.get("aiComment") if isinstance(payload.get("aiComment"), dict) else {}
+    chosen_cid = str(chosen.get("conversationId") or "")
+    raw_milestone = chosen.get("milestone")
+    if raw_milestone is None and (not pinned_id or chosen_cid == str(payload.get("activeConversationId") or "")):
+        raw_milestone = payload.get("milestone")
+    milestone = milestone_from_dict(raw_milestone)
 
     return LiveSnapshot(
         source=source,
-        conversation_id=str(chosen.get("conversationId") or ""),
+        conversation_id=chosen_cid,
         title=str(chosen.get("title") or ""),
         status=status,
         selected_model_label=selected_label,
@@ -737,6 +749,7 @@ def snapshot_from_hud_live(payload: dict[str, Any], *, pinned_id: str = "", sour
         ai_comment_id=str(ai_raw.get("id") or ""),
         ai_comment_text=str(ai_raw.get("text") or ""),
         ai_comment_trigger=str(ai_raw.get("trigger") or ""),
+        milestone=milestone,
         conversations=[
             (str(c.get("conversationId")), str(c.get("title") or c.get("conversationId", "")[:8]))
             for c in convs
@@ -915,6 +928,8 @@ class TelemetryCollector:
         self._transcript_cache: dict[str, tuple[float, ConversationUsage]] = {}
         self._annotation_cache: dict[str, tuple[int, int, str]] = {}
         self._active_session_cache: tuple[int, dict[str, Any] | None] = (-1, None)
+        self._milestone_cache: dict[str, tuple[tuple[int, int, bool], MilestoneEvent | None]] = {}
+        self._rpc_milestone_cache: dict[str, MilestoneEvent | None] = {}
 
     @property
     def hud_live_path(self) -> Path:
@@ -1168,7 +1183,8 @@ class TelemetryCollector:
         cached = self._trajectory_cache.get(cid)
         if cached and cached[0] == stamp:
             return cached[1]
-        steps, title = self._fetch_steps(cid)
+        is_running = RUNNING_STATUS in str(summary.get("status") or "")
+        steps, title = self._fetch_steps(cid, is_running=is_running)
         if not title:
             ann = summary.get("annotations") or {}
             _view_ms, pb_title = self._read_annotation(cid)
@@ -1190,7 +1206,7 @@ class TelemetryCollector:
     # fetch re-reads this many trailing steps.
     REFETCH_TAIL = 2
 
-    def _fetch_steps(self, cid: str) -> tuple[list[StepUsage], str]:
+    def _fetch_steps(self, cid: str, *, is_running: bool = False) -> tuple[list[StepUsage], str]:
         """Fetch only steps added since the last poll (plus a short tail).
 
         Long conversations reach thousands of steps and tens of MB, so polling
@@ -1208,6 +1224,16 @@ class TelemetryCollector:
                 if offset + len(raw_steps) >= known[0]:  # otherwise the trajectory shrank: refetch
                     parsed = known[1][:offset] + [parse_rpc_step(raw, self._labels) for raw in raw_steps]
                     self.incremental_fetches += 1
+                    rpc_ms = extract_milestone_from_rpc_steps(
+                        cid, raw_steps, is_running=is_running, step_offset=offset
+                    )
+                    if rpc_ms is not None:
+                        self._rpc_milestone_cache[cid] = rpc_ms
+                    elif any(
+                        isinstance(raw, dict) and raw.get("type") == "CORTEX_STEP_TYPE_USER_INPUT"
+                        for raw in raw_steps
+                    ):
+                        self._rpc_milestone_cache[cid] = None
             except ConnectionError:
                 raise
             except Exception:
@@ -1218,8 +1244,37 @@ class TelemetryCollector:
             parsed = [parse_rpc_step(raw, self._labels) for raw in raw_steps]
             title = next((t for t in (user_input_title(raw) for raw in raw_steps) if t), "")
             self.full_fetches += 1
+            self._rpc_milestone_cache[cid] = extract_milestone_from_rpc_steps(
+                cid, raw_steps, is_running=is_running, step_offset=0
+            )
         self._raw_steps[cid] = (len(parsed), parsed, title)
         return [step for step in parsed if step is not None], title
+
+    @staticmethod
+    def _pick_fresher_milestone(a: MilestoneEvent | None, b: MilestoneEvent | None) -> MilestoneEvent | None:
+        if a is None:
+            return b
+        if b is None:
+            return a
+        return a if a.created_ms >= b.created_ms else b
+
+    def _milestone_from_transcript(self, cid: str, *, is_running: bool) -> MilestoneEvent | None:
+        if not cid or cid.startswith("project:"):
+            return None
+        path = self._transcript_path(cid)
+        try:
+            st = path.stat()
+            stamp = (st.st_mtime_ns, st.st_size, bool(is_running))
+        except OSError:
+            return None
+        cached = self._milestone_cache.get(cid)
+        if cached and cached[0] == stamp:
+            return cached[1]
+        ms = read_latest_milestone_from_transcript(cid, path, is_running=is_running)
+        if len(self._milestone_cache) >= 32:
+            self._milestone_cache.clear()
+        self._milestone_cache[cid] = (stamp, ms)
+        return ms
 
     def _selected_label(self) -> str:
         return self._labels.get(self._selected_model) or (prettify_model(self._selected_model) if self._selected_model else "")
@@ -1316,6 +1371,11 @@ class TelemetryCollector:
             for cid, s in all_summaries
             if (s.get("trajectoryMetadata") or {}).get("parentConversationId") and RUNNING_STATUS in str(s.get("status"))
         ][:6]
+        if snap.conversation_id and not snap.conversation_id.startswith("project:"):
+            snap.milestone = self._pick_fresher_milestone(
+                self._rpc_milestone_cache.get(snap.conversation_id),
+                self._milestone_from_transcript(snap.conversation_id, is_running=snap.running),
+            )
         return snap
 
     def _title_for(self, cid: str, summary: dict[str, Any] | None = None) -> str:
@@ -1614,6 +1674,9 @@ class TelemetryCollector:
             _v, pb_title = self._read_annotation(target_cid)
             if pb_title and snap.title.startswith("会话 "):
                 snap.title = clean_title(pb_title)
+        if snap is not None and snap.conversation_id and not snap.conversation_id.startswith("project:"):
+            tr_ms = self._milestone_from_transcript(snap.conversation_id, is_running=snap.running)
+            snap.milestone = self._pick_fresher_milestone(snap.milestone, tr_ms)
         return snap
 
     def _live_from_hud_file(self, pinned_id: str) -> LiveSnapshot | None:
@@ -1664,11 +1727,14 @@ class TelemetryCollector:
             target = ConversationUsage(conversation_id=target_cid, title=title, status="IDLE", steps=[])
         else:
             target = conv_map.get(target_cid) or conversations[0]
-        return summarize_conversation(
+        snap = summarize_conversation(
             target,
             source="transcript",
             conversations=listing,
         )
+        if snap.conversation_id and not snap.conversation_id.startswith("project:"):
+            snap.milestone = self._milestone_from_transcript(snap.conversation_id, is_running=snap.running)
+        return snap
 
     # ----- public API -------------------------------------------------------------
 

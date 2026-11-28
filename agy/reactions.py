@@ -7,9 +7,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 
-from app.i18n import get_language
+from app.i18n import get_language, tr
 from app.i18n_lines import GREETING_LINES, REACTION_LINES, REACTION_TOOL_STATUS
 from .characters import form_for_model_label
+from .milestone import MilestoneEvent
 from .telemetry import LiveSnapshot, format_reset_countdown, format_tokens, parse_iso_ms
 
 
@@ -389,6 +390,8 @@ class Reaction:
     action: str | None = None  # PetAction name
     form: str | None = None
     particle: str | None = None  # sparkles / confetti / hearts / sweat / fish / alert
+    milestone: MilestoneEvent | None = None
+    meta: str = ""
 
 
 class ReactionTracker:
@@ -408,6 +411,9 @@ class ReactionTracker:
         self._context_warned_for: set[str] = set()
         self._update_notified_for = ""
         self._last_ai_comment_id = ""
+        self._seeded_milestone_conv = ""
+        self._seen_milestone_ids: set[str] = set()
+        self._seen_milestone_sigs: dict[str, tuple[str, float]] = {}
         self._was_offline = False
         self._last_cumulative_tokens: int | None = None
         self._turn_start_tokens: int | None = None
@@ -464,7 +470,43 @@ class ReactionTracker:
             return q5, reset5
         return snapshot.quota_remaining_pct, snapshot.quota_reset_time
 
-    def observe(self, snapshot: LiveSnapshot | None, *, now: float, follow_model: bool, current_form: str) -> list[Reaction]:
+    def _observe_milestone(self, snapshot: LiveSnapshot, *, now: float, enabled: bool) -> MilestoneEvent | None:
+        cid = snapshot.conversation_id or ""
+        ms = getattr(snapshot, "milestone", None)
+        if not cid:
+            return None
+        if cid != self._seeded_milestone_conv:
+            # Silent baseline on startup or switching conversations so stale history never pops.
+            self._seeded_milestone_conv = cid
+            if isinstance(ms, MilestoneEvent):
+                if len(self._seen_milestone_ids) >= 256:
+                    self._seen_milestone_ids.clear()
+                self._seen_milestone_ids.add(ms.id)
+                self._seen_milestone_sigs[cid] = (f"{ms.kind}|{ms.title}|{ms.body}", now)
+            return None
+        if not isinstance(ms, MilestoneEvent):
+            return None
+        if ms.id in self._seen_milestone_ids:
+            return None
+        if len(self._seen_milestone_ids) >= 256:
+            self._seen_milestone_ids.clear()
+        self._seen_milestone_ids.add(ms.id)
+        sig = f"{ms.kind}|{ms.title}|{ms.body}"
+        prev_sig, prev_ts = self._seen_milestone_sigs.get(cid, ("", -9999.0))
+        if sig == prev_sig and now - prev_ts < 20.0:
+            return None
+        self._seen_milestone_sigs[cid] = (sig, now)
+        return ms if enabled else None
+
+    def observe(
+        self,
+        snapshot: LiveSnapshot | None,
+        *,
+        now: float,
+        follow_model: bool,
+        current_form: str,
+        progress_bubbles: bool = True,
+    ) -> list[Reaction]:
         reactions: list[Reaction] = []
         if snapshot is None:
             if not self._was_offline and self._last_running is not None and self._ready("offline", now, 600):
@@ -486,6 +528,8 @@ class ReactionTracker:
                     )
                 )
             self._last_form = target or self._last_form
+
+        new_milestone = self._observe_milestone(snapshot, now=now, enabled=progress_bubbles)
 
         cur_tokens = max(0, int(snapshot.cumulative_total_tokens or 0))
         same_conversation = snapshot.conversation_id == self._last_conversation
@@ -516,8 +560,26 @@ class ReactionTracker:
                         if (baseline is not None and cur_tokens >= baseline)
                         else cur_tokens
                     )
-                    if (turn_tokens > 0 or baseline is None or cur_tokens == 0) and self._ready("finished", now, 30):
-                        rate = snapshot.avg_decode_tps or snapshot.display_rate or 0
+                    rate = snapshot.avg_decode_tps or snapshot.display_rate or 0
+                    if new_milestone is not None and new_milestone.kind in {"summary", "progress"}:
+                        meta = (
+                            tr("milestone.turn_meta", total=format_tokens(turn_tokens), rate=f"{rate:.0f}")
+                            if (turn_tokens > 0 or baseline is None or cur_tokens == 0)
+                            else ""
+                        )
+                        self._last_at["finished"] = now
+                        reactions.append(
+                            Reaction(
+                                "milestone",
+                                new_milestone.body or new_milestone.title,
+                                "CELEBRATE",
+                                particle="confetti",
+                                milestone=new_milestone,
+                                meta=meta,
+                            )
+                        )
+                        new_milestone = None
+                    elif (turn_tokens > 0 or baseline is None or cur_tokens == 0) and self._ready("finished", now, 30):
                         reactions.append(
                             Reaction(
                                 "finished",
@@ -529,6 +591,23 @@ class ReactionTracker:
         self._last_running = snapshot.running
         self._last_conversation = snapshot.conversation_id
         self._last_cumulative_tokens = cur_tokens
+
+        if new_milestone is not None:
+            ms_action = (
+                "CELEBRATE"
+                if new_milestone.kind == "summary"
+                else ("HAPPY" if new_milestone.kind == "step_done" else None)
+            )
+            ms_particle = "confetti" if new_milestone.kind == "summary" else "sparkles"
+            reactions.append(
+                Reaction(
+                    "milestone",
+                    new_milestone.body or new_milestone.title,
+                    ms_action,
+                    particle=ms_particle,
+                    milestone=new_milestone,
+                )
+            )
 
         # Waiting for user confirmation / answer (e.g. approval prompt or ask_question)
         if snapshot.waiting_for_user and not self._was_waiting and self._ready("waiting", now, 60):

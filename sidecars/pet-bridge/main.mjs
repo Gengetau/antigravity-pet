@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AiCommentEngine, normalizeLanguageSetting, resolveAiLang } from './ai_comment.mjs';
+import { extractMilestoneFromRpcSteps, readLatestMilestoneFromTranscript } from './milestone.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -445,6 +446,7 @@ function syncInstalledPluginFilesFromRepo() {
     'skills/agy-pet/SKILL.md',
     'sidecars/pet-bridge/main.mjs',
     'sidecars/pet-bridge/ai_comment.mjs',
+    'sidecars/pet-bridge/milestone.mjs',
     'sidecars/pet-bridge/index.html',
     'sidecars/pet-bridge/app.js',
     'sidecars/pet-bridge/styles.css',
@@ -961,10 +963,15 @@ function parseRpcTrajectory(convId, traj, summary, transcriptInfo) {
     steps[steps.length - 1]?.createdAt ||
     (transcriptInfo?.mtimeMs ? new Date(transcriptInfo.mtimeMs).toISOString() : null);
 
+  const status = summary?.status || 'CASCADE_RUN_STATUS_IDLE';
+  const milestone = extractMilestoneFromRpcSteps(convId, stepsRaw, {
+    isRunning: status === 'CASCADE_RUN_STATUS_RUNNING',
+  });
+
   return {
     conversationId: convId,
     title: derivedTitle || `会话 ${convId.slice(0, 8)}`,
-    status: summary?.status || 'CASCADE_RUN_STATUS_IDLE',
+    status,
     lastModifiedTime,
     lastModifiedMs: parseIsoMs(lastModifiedTime) || transcriptInfo?.mtimeMs || 0,
     lastUserViewTime: summary?.annotations?.lastUserViewTime || null,
@@ -975,6 +982,7 @@ function parseRpcTrajectory(convId, traj, summary, transcriptInfo) {
     workspaceUris: [...workspaceUriSet],
     isSubagent,
     steps,
+    milestone,
   };
 }
 
@@ -1059,6 +1067,7 @@ function parseTranscriptFallback(convId, transcriptInfo) {
     workspaceUris: [],
     isSubagent: false,
     steps,
+    milestone: readLatestMilestoneFromTranscript(convId, transcriptInfo.path, { isRunning: false }),
   };
 }
 
@@ -1127,6 +1136,7 @@ const DEFAULT_AGY_CONFIG = {
   telemetry_enabled: true,
   use_language_server: true,
   reactions: true,
+  progress_bubbles: true,
   autonomy: true,
   hop_to_window: true,
   explore_windows: true,
@@ -1172,7 +1182,7 @@ function updatePetConfig(patch) {
   if (typeof patch.form === 'string' && VALID_FORM_IDS.has(patch.form)) {
     agy.form = patch.form;
   }
-  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_hover_only', 'hud_locked', 'autonomy', 'reactions', 'subagent_clones', 'particles', 'edge_dock']) {
+  for (const boolKey of ['follow_model', 'hud_enabled', 'hud_hover_only', 'hud_locked', 'autonomy', 'reactions', 'progress_bubbles', 'subagent_clones', 'particles', 'edge_dock']) {
     if (typeof patch[boolKey] === 'boolean') {
       agy[boolKey] = patch[boolKey];
     }
@@ -1451,6 +1461,34 @@ function readLatestToolFromTranscript(convId) {
   return { name: '', category: '' };
 }
 
+const transcriptMilestoneCache = new Map();
+
+function readCachedMilestoneFromTranscript(convId, isRunning) {
+  if (!convId || convId.startsWith('project:')) return null;
+  for (const appData of findAppDataDirs()) {
+    const p = join(appData, 'brain', convId, '.system_generated', 'logs', 'transcript.jsonl');
+    try {
+      const st = statSync(p);
+      const stamp = `${st.mtimeMs}:${st.size}:${isRunning ? 1 : 0}`;
+      const hit = transcriptMilestoneCache.get(convId);
+      if (hit && hit.stamp === stamp) return hit.milestone;
+      const milestone = readLatestMilestoneFromTranscript(convId, p, { isRunning });
+      if (transcriptMilestoneCache.size >= 32) transcriptMilestoneCache.clear();
+      transcriptMilestoneCache.set(convId, { stamp, milestone });
+      return milestone;
+    } catch {
+      // Try next dir.
+    }
+  }
+  return null;
+}
+
+function pickFresherMilestone(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return (a.createdMs || 0) >= (b.createdMs || 0) ? a : b;
+}
+
 function resolveModelLabel(modelId, labelMap, convId = '') {
   if (labelMap.has(modelId)) return labelMap.get(modelId);
   if (discoveredPlaceholderLabels.has(modelId)) return discoveredPlaceholderLabels.get(modelId);
@@ -1724,6 +1762,12 @@ async function updatePetLiveFile() {
       }
       snap.latestToolName = toolName;
       snap.latestToolCategory = toolCat;
+      const isRecRunning = snap.status === 'CASCADE_RUN_STATUS_RUNNING';
+      const liveMs =
+        isRecRunning || rec.conversationId === topPool[0]?.cid
+          ? readCachedMilestoneFromTranscript(rec.conversationId, isRecRunning)
+          : null;
+      snap.milestone = pickFresherMilestone(rec.milestone || null, liveMs);
       return snap;
     });
 
@@ -1844,6 +1888,7 @@ async function updatePetLiveFile() {
       latestToolCategory: String(active?.latestToolCategory || ''),
       activeSubagents,
       aiComment: freshAiComment,
+      milestone: active?.milestone || null,
       active,
       conversations: convSnapList,
     };

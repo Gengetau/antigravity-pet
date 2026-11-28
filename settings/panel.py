@@ -66,6 +66,7 @@ class PetControlPanel(QWidget):
         on_perch: Callable[[], None] | None = None,
         on_recall_primary: Callable[[], None] | None = None,
         on_language: Callable[[str], None] | None = None,
+        on_progress_bubbles: Callable[[bool], None] | None = None,
         forms: tuple[tuple[str, str], ...] = (("carbon", "Carbon"), ("hydergon", "Hydrogen"), ("neon", "Neon")),
     ) -> None:
         super().__init__(
@@ -344,6 +345,10 @@ class PetControlPanel(QWidget):
         self.follow_cursor = self._toggle(tr("panel.follow_cursor"), on_follow_cursor or (lambda _enabled: None))
         self.hover_pause = self._toggle(tr("panel.hover_pause"), on_hover_pause)
         self.desktop_surfaces = self._toggle(tr("panel.desktop_surfaces"), on_desktop_surfaces)
+        self.progress_bubbles = self._toggle(
+            tr("panel.progress_bubbles"),
+            on_progress_bubbles or (lambda _enabled: None),
+        )
         toggle_grid = QGridLayout()
         toggle_grid.setHorizontalSpacing(8)
         toggle_grid.setVerticalSpacing(1)
@@ -360,6 +365,7 @@ class PetControlPanel(QWidget):
                 self.follow_cursor,
                 self.hover_pause,
                 self.desktop_surfaces,
+                self.progress_bubbles,
             )
         ):
             toggle_grid.addWidget(toggle, index // 2, index % 2)
@@ -497,6 +503,7 @@ class PetControlPanel(QWidget):
         self.follow_cursor.setText(tr("panel.follow_cursor"))
         self.hover_pause.setText(tr("panel.hover_pause"))
         self.desktop_surfaces.setText(tr("panel.desktop_surfaces"))
+        self.progress_bubbles.setText(tr("panel.progress_bubbles"))
         for key, btn in self._tool_buttons.items():
             btn.setText(tr(f"panel.{key}"))
         if self.isVisible():
@@ -552,9 +559,12 @@ class PetControlPanel(QWidget):
         follow_cursor: bool | None = None,
         autonomy: bool | None = None,
         language: str | None = None,
+        progress_bubbles: bool | None = None,
     ) -> None:
         if autonomy is not None:
             self.autonomy.setChecked(autonomy)
+        if progress_bubbles is not None:
+            self.progress_bubbles.setChecked(progress_bubbles)
         if form in self._form_buttons:
             self._form_buttons[form].setChecked(True)
         if follow_model is not None:

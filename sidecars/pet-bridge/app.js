@@ -54,6 +54,7 @@
       optHudLocked: '锁定悬浮坐标',
       optAutonomy: '自主爬窗与互动',
       optReactions: '对速率/限额做出反应',
+      optProgressBubbles: '阶段成果气泡弹窗（播报进展与完成节点）',
       optClones: '显示子代理小分身（复用角色素材）',
       optParticles: '互动与反应粒子特效',
       optEdgeDock: '贴边藏身与鼠标探头',
@@ -152,6 +153,7 @@
       optHudLocked: 'Lock floating HUD position',
       optAutonomy: 'Autonomous climbing & interactions',
       optReactions: 'React to speed & quota changes',
+      optProgressBubbles: 'Milestone progress popups (agent reports & steps)',
       optClones: 'Show subagent mini-clones',
       optParticles: 'Interaction & reaction particles',
       optEdgeDock: 'Edge hiding & cursor peeking',
@@ -250,6 +252,7 @@
       optHudLocked: 'フロート位置をロック',
       optAutonomy: '自律的な窓登り・アクション',
       optReactions: '速度やクォータ変化に反応',
+      optProgressBubbles: '進捗マイルストーン吹き出し（中間報告・完了ノード）',
       optClones: 'サブエージェント分身を表示',
       optParticles: 'リアクション演出パーティクル',
       optEdgeDock: '画面端に隠れてひょっこり覗き見',
@@ -494,6 +497,8 @@
     $('chk-hud-locked').checked = Boolean(agy.hud_locked);
     $('chk-autonomy').checked = Boolean(agy.autonomy);
     $('chk-reactions').checked = Boolean(agy.reactions);
+    const progEl = $('chk-progress-bubbles');
+    if (progEl) progEl.checked = agy.progress_bubbles !== false;
     $('chk-subagent-clones').checked = agy.subagent_clones !== false;
     $('chk-particles').checked = agy.particles !== false;
     $('chk-edge-dock').checked = agy.edge_dock !== false;
@@ -704,6 +709,10 @@
   $('chk-hud-locked').addEventListener('change', (e) => saveConfig({ hud_locked: e.target.checked }));
   $('chk-autonomy').addEventListener('change', (e) => saveConfig({ autonomy: e.target.checked }));
   $('chk-reactions').addEventListener('change', (e) => saveConfig({ reactions: e.target.checked }));
+  const progChk = $('chk-progress-bubbles');
+  if (progChk) {
+    progChk.addEventListener('change', (e) => saveConfig({ progress_bubbles: e.target.checked }));
+  }
   $('chk-subagent-clones').addEventListener('change', (e) => saveConfig({ subagent_clones: e.target.checked }));
   $('chk-particles').addEventListener('change', (e) => saveConfig({ particles: e.target.checked }));
   $('chk-edge-dock').addEventListener('change', (e) => saveConfig({ edge_dock: e.target.checked }));
