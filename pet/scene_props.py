@@ -370,7 +370,8 @@ class DesktopScenePropWidget(QWidget):
         from app.i18n_lines import scene_prop_text
 
         spec = SCENE_SPECS.get(self._kind, SCENE_SPECS["tea_party"])
-        label = scene_prop_text(self._kind).get("label", spec.label)
+        loc = scene_prop_text(spec.kind)
+        label = str(loc["label"]) if loc and loc.get("label") else spec.label
         return f"{label} · {tr('scene.click_hint')}"
 
     def _paint_bubble(self, painter: QPainter, text: str) -> None:

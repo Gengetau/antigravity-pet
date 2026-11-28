@@ -495,15 +495,33 @@ class QtLiveRetranslateTests(unittest.TestCase):
         finally:
             clone.close()
 
-        # Scene prop hover caption is localized (no leaked Chinese '点我互动')
+        # Scene prop hover caption & hovered paintEvent across all languages & kinds (including zh None fallback)
+        from PySide6.QtGui import QImage
+
         prop = DesktopScenePropWidget()
         try:
-            i18n.set_language("en")
-            self.assertIn("Click me!", prop._hover_caption())
-            self.assertNotIn("点我", prop._hover_caption())
-            i18n.set_language("ja")
-            self.assertIn("クリックで遊ぶ", prop._hover_caption())
-            self.assertNotIn("点我", prop._hover_caption())
+            for lang, expected_hint in (
+                ("zh", "点我互动"),
+                ("en", "Click me!"),
+                ("ja", "クリックで遊ぶ"),
+            ):
+                i18n.set_language(lang)
+                for kind, spec in SCENE_SPECS.items():
+                    prop.configure(kind, now=10.0)
+                    caption = prop._hover_caption()
+                    self.assertIn(expected_hint, caption)
+                    if lang == "zh":
+                        self.assertIn(spec.label, caption)
+                    else:
+                        self.assertNotIn("点我", caption)
+                    prop._hovered = True
+                    img = QImage(prop.size(), QImage.Format.Format_ARGB32_Premultiplied)
+                    img.fill(0)
+                    prop.render(img)
+            # Unknown kind must also safely fall back without raising
+            i18n.set_language("zh")
+            prop._kind = "unknown_scene"
+            self.assertIn(SCENE_SPECS["tea_party"].label, prop._hover_caption())
         finally:
             prop.close()
 
